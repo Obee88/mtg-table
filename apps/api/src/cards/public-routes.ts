@@ -3,13 +3,14 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { notFound, unauthorized } from '../errors.js';
 import { parse } from '../validate.js';
-import { getPrinting, listPrintings, searchCards } from './search.js';
+import { getPrinting, getPrintings, listPrintings, searchCards } from './search.js';
 
 const searchQuery = z.object({
   q: z.string().trim().min(1).max(100),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 const uuidParam = z.object({ id: z.uuid() });
+const lookupInput = z.object({ ids: z.array(z.uuid()).max(500) });
 
 export async function cardRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', async (req) => {
@@ -24,6 +25,12 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
   app.get('/cards/oracle/:id/printings', async (req): Promise<CardPrintingsResponse> => {
     const { id } = parse(uuidParam, req.params);
     return { printings: await listPrintings(app.db, id) };
+  });
+
+  /** Printings by id, for rendering a table. Unknown ids are omitted. */
+  app.post('/cards/lookup', async (req): Promise<CardPrintingsResponse> => {
+    const { ids } = parse(lookupInput, req.body);
+    return { printings: await getPrintings(app.db, ids) };
   });
 
   app.get('/cards/:id', async (req) => {

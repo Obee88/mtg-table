@@ -1,5 +1,8 @@
 import type { GameEvent } from './events.js';
-import { emptyPlayerGameState, type GameState, type RoomState } from './types.js';
+import { emptyPlayerGameState, type CardInstance, type GameState, type RoomState } from './types.js';
+
+/** Zones where every player may see card identities. */
+export const PUBLIC_ZONES: ReadonlySet<string> = new Set(['battlefield', 'graveyard', 'exile', 'command']);
 
 export function initialRoomState(id: string): RoomState {
   return {
@@ -72,6 +75,61 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
         phase: 'playing',
         game: { cards, players, teamLife, firstPlayerId: event.firstPlayerId, openingRoll: event.openingRoll, startedAt: '' },
       };
+    }
+
+    case 'cardMoved': {
+      if (!state.game) return state;
+      const card = state.game.cards[event.instanceId];
+      if (!card) return state;
+      const owner = state.game.players[card.ownerId];
+      if (!owner) return state;
+
+      const zones = { ...owner.zones, [event.from]: owner.zones[event.from].filter((id) => id !== event.instanceId) };
+      const cards = { ...state.game.cards };
+
+      // Tokens cease to exist when they leave the battlefield.
+      if (card.isToken && event.from === 'battlefield' && event.to !== 'battlefield') {
+        delete cards[card.id];
+        return { ...state, game: { ...state.game, cards, players: { ...state.game.players, [card.ownerId]: { ...owner, zones } } } };
+      }
+
+      const target = zones[event.to].filter((id) => id !== event.instanceId);
+      if (event.to === 'library' && event.libraryPosition === 'top') target.unshift(card.id);
+      else target.push(card.id);
+      zones[event.to] = target;
+
+      const changedZone = event.from !== event.to;
+      const moved: CardInstance = {
+        ...card,
+        zone: event.to,
+        position: event.to === 'battlefield' ? (event.position ?? card.position) : null,
+        ...(changedZone
+          ? {
+              tapped: false,
+              transformed: false,
+              flipped: false,
+              faceDown: false,
+              counters: {},
+              attachedTo: null,
+              visibleTo: PUBLIC_ZONES.has(event.to) ? 'all' : 'owner',
+              revealUntil: null,
+            }
+          : {}),
+      };
+      cards[card.id] = moved;
+      // Anything attached to a card that left the battlefield comes off.
+      if (changedZone && event.from === 'battlefield') {
+        for (const other of Object.values(cards)) {
+          if (other.attachedTo === card.id) cards[other.id] = { ...other, attachedTo: null };
+        }
+      }
+      return { ...state, game: { ...state.game, cards, players: { ...state.game.players, [card.ownerId]: { ...owner, zones } } } };
+    }
+
+    case 'cardTapped': {
+      const card = state.game?.cards[event.instanceId];
+      if (!state.game || !card) return state;
+      return { ...state, game: { ...state.game, cards: { ...state.game.cards, [card.id]: { ...card, tapped: event.tapped } } } };
     }
 
     case 'roomClosed':

@@ -161,3 +161,91 @@ describe('start', () => {
     expect(items).toEqual([1, 2, 3, 4, 5]);
   });
 });
+
+describe('table actions', () => {
+  const settings: RoomSettings = { playerCount: 2, mode: '1v1', startingLife: 20, commander: false };
+  const decks = {
+    a: { main: [{ printingId: 'bolt', quantity: 10 }], sideboard: [], commander: [] },
+    b: { main: [{ printingId: 'island', quantity: 9 }], sideboard: [], commander: [] },
+  };
+  let n = 0;
+  const playing = () => {
+    let s = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings });
+    for (const p of ['a', 'b']) {
+      s = run(s, p, { type: 'join' });
+      s = run(s, p, { type: 'selectDeck', deckId: `deck-${p}` });
+      s = run(s, p, { type: 'setReady', ready: true });
+    }
+    let r = 0;
+    const d = decide(s, { type: 'start' }, { ...ctx('a'), decks, random: () => ((r += 7) % 11) / 11, newId: () => `c${++n}` });
+    if (!d.ok) throw new Error(d.error);
+    return reduceAll(s, d.events);
+  };
+  const g = (s: ReturnType<typeof playing>) => s.game!;
+
+  it('moves a card from hand to the battlefield with a position, then to the graveyard', () => {
+    let s = playing();
+    const id = g(s).players.a!.zones.hand[0]!;
+    s = run(s, 'a', { type: 'moveCard', instanceId: id, to: 'battlefield', position: { x: 10, y: 20 } });
+    expect(g(s).cards[id]).toMatchObject({ zone: 'battlefield', position: { x: 10, y: 20 }, visibleTo: 'all' });
+    expect(g(s).players.a!.zones.hand).toHaveLength(6);
+    expect(g(s).players.a!.zones.battlefield).toEqual([id]);
+    s = run(s, 'a', { type: 'tapCard', instanceId: id, tapped: true });
+    expect(g(s).cards[id]?.tapped).toBe(true);
+    s = run(s, 'a', { type: 'moveCard', instanceId: id, to: 'graveyard' });
+    expect(g(s).cards[id]).toMatchObject({ zone: 'graveyard', tapped: false, position: null });
+    expect(g(s).players.a!.zones.battlefield).toEqual([]);
+    expect(g(s).players.a!.zones.graveyard).toEqual([id]);
+  });
+
+  it('repositions within the battlefield without resetting state', () => {
+    let s = playing();
+    const id = g(s).players.a!.zones.hand[0]!;
+    s = run(s, 'a', { type: 'moveCard', instanceId: id, to: 'battlefield', position: { x: 1, y: 1 } });
+    s = run(s, 'a', { type: 'tapCard', instanceId: id, tapped: true });
+    s = run(s, 'a', { type: 'moveCard', instanceId: id, to: 'battlefield', position: { x: 5, y: 5 } });
+    expect(g(s).cards[id]).toMatchObject({ tapped: true, position: { x: 5, y: 5 } });
+    expect(g(s).players.a!.zones.battlefield).toEqual([id]);
+  });
+
+  it('draws from the top and puts cards on top or bottom of the library', () => {
+    let s = playing();
+    const lib = g(s).players.a!.zones.library;
+    const [top, second] = [lib[0]!, lib[1]!];
+    s = run(s, 'a', { type: 'draw', count: 2 });
+    expect(g(s).players.a!.zones.hand.slice(-2)).toEqual([top, second]);
+    expect(g(s).players.a!.zones.library).toHaveLength(1);
+    s = run(s, 'a', { type: 'moveCard', instanceId: top, to: 'library', libraryPosition: 'bottom' });
+    s = run(s, 'a', { type: 'moveCard', instanceId: second, to: 'library', libraryPosition: 'top' });
+    expect(g(s).players.a!.zones.library).toEqual([second, lib[2], top]);
+    expect(g(s).cards[top]?.visibleTo).toBe('owner');
+    s = run(s, 'a', { type: 'draw', count: 3 });
+    expect(decide(s, { type: 'draw', count: 1 }, ctx('a'))).toEqual({ ok: false, error: 'Library is empty' });
+  });
+
+  it("refuses to touch another player's cards or to tap outside the battlefield", () => {
+    const s = playing();
+    const mine = g(s).players.a!.zones.hand[0]!;
+    const theirs = g(s).players.b!.zones.hand[0]!;
+    expect(decide(s, { type: 'moveCard', instanceId: theirs, to: 'graveyard' }, ctx('a'))).toEqual({ ok: false, error: 'Not your card' });
+    expect(decide(s, { type: 'tapCard', instanceId: mine, tapped: true }, ctx('a'))).toEqual({ ok: false, error: 'Only permanents can be tapped' });
+    expect(decide(s, { type: 'moveCard', instanceId: 'nope', to: 'graveyard' }, ctx('a'))).toEqual({ ok: false, error: 'No such card' });
+  });
+});
+
+describe('rollForFirst safety', () => {
+  it('terminates with a constant random source', () => {
+    const settings: RoomSettings = { playerCount: 2, mode: '1v1', startingLife: 20, commander: false };
+    let s = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings });
+    for (const p of ['a', 'b']) {
+      s = run(s, p, { type: 'join' });
+      s = run(s, p, { type: 'selectDeck', deckId: 'd' });
+      s = run(s, p, { type: 'setReady', ready: true });
+    }
+    const decks = { a: { main: [{ printingId: 'x', quantity: 8 }], sideboard: [], commander: [] }, b: { main: [{ printingId: 'y', quantity: 8 }], sideboard: [], commander: [] } };
+    let n = 0;
+    const d = decide(s, { type: 'start' }, { ...ctx('a'), decks, random: () => 0.5, newId: () => `k${++n}` });
+    expect(d.ok).toBe(true);
+    if (d.ok && d.events[0]?.type === 'gameStarted') expect(d.events[0].firstPlayerId).toBe('a');
+  });
+});

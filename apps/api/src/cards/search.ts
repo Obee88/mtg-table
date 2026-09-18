@@ -1,5 +1,5 @@
 import type { CardPrinting } from '@mtg/shared';
-import { and, asc, desc, eq, ilike, isNotNull, not, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, ilike, inArray, isNotNull, not, sql } from 'drizzle-orm';
 import { schema, type CardRow, type Db } from '../db/index.js';
 
 export const toPrinting = (row: CardRow): CardPrinting => ({
@@ -67,4 +67,10 @@ export async function listPrintings(db: Db, oracleId: string): Promise<CardPrint
 export async function getPrinting(db: Db, id: string): Promise<CardPrinting | null> {
   const [row] = await db.select().from(schema.cards).where(eq(schema.cards.id, id)).limit(1);
   return row ? toPrinting(row) : null;
+}
+
+export async function getPrintings(db: Db, ids: string[]): Promise<CardPrinting[]> {
+  if (ids.length === 0) return [];
+  const rows = await db.select().from(schema.cards).where(inArray(schema.cards.id, [...new Set(ids)]));
+  return rows.map(toPrinting);
 }

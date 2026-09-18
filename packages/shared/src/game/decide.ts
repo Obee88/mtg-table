@@ -1,9 +1,10 @@
 import type { GameCommand } from './commands.js';
 import type { GameEvent } from './events.js';
 import type { DeckContents } from '../decks.js';
-import { shuffled, teamForSeat, type RoomState } from './types.js';
+import { shuffled, teamForSeat, type CardInstance, type RoomState } from './types.js';
 
 const HAND_SIZE = 7;
+const MAX_TIE_BREAK_ROUNDS = 20;
 type StartedCard = { id: string; printingId: string };
 
 export interface CommandContext {
@@ -90,21 +91,62 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       return accept({ type: 'gameStarted', firstPlayerId: openingRoll.winner, openingRoll: openingRoll.rolls, players: layouts });
     }
 
+    case 'moveCard': {
+      const found = ownCard(state, ctx.actorId, command.instanceId);
+      if ('error' in found) return reject(found.error);
+      const { card } = found;
+      return accept({
+        type: 'cardMoved',
+        instanceId: card.id,
+        from: card.zone,
+        to: command.to,
+        position: command.to === 'battlefield' ? (command.position ?? card.position ?? { x: 50, y: 50 }) : null,
+        libraryPosition: command.to === 'library' ? (command.libraryPosition ?? 'top') : null,
+      });
+    }
+
+    case 'tapCard': {
+      const found = ownCard(state, ctx.actorId, command.instanceId);
+      if ('error' in found) return reject(found.error);
+      if (found.card.zone !== 'battlefield') return reject('Only permanents can be tapped');
+      if (found.card.tapped === command.tapped) return accept();
+      return accept({ type: 'cardTapped', instanceId: found.card.id, tapped: command.tapped });
+    }
+
+    case 'draw': {
+      if (state.phase !== 'playing' || !state.game) return reject('Game not running');
+      const pgs = state.game.players[ctx.actorId];
+      if (!pgs) return reject('Not in the game');
+      const top = pgs.zones.library.slice(0, command.count);
+      if (top.length === 0) return reject('Library is empty');
+      return accept(...top.map((instanceId): GameEvent => ({ type: 'cardMoved', instanceId, from: 'library', to: 'hand', position: null, libraryPosition: null })));
+    }
+
     case 'closeRoom':
       if (!isOwner) return reject('Only the owner can close the room');
       return accept({ type: 'roomClosed' });
   }
 }
 
-/** Everyone rolls a d20; the highest goes first, ties re-roll among the tied. */
+/** Everyone rolls a d20; the highest goes first, ties re-roll among the tied (bounded; then seat order decides). */
 function rollForFirst(playerIds: string[], random: () => number): { winner: string; rolls: Record<string, number> } {
   const rolls: Record<string, number> = {};
   let contenders = playerIds;
-  for (;;) {
+  for (let round = 0; round < MAX_TIE_BREAK_ROUNDS; round++) {
     for (const id of contenders) rolls[id] = 1 + Math.floor(random() * 20);
     const high = Math.max(...contenders.map((id) => rolls[id]!));
     const tied = contenders.filter((id) => rolls[id] === high);
     if (tied.length === 1) return { winner: tied[0]!, rolls };
     contenders = tied;
   }
+  return { winner: contenders[0]!, rolls };
+}
+
+/** A card the actor controls, in a running game. */
+function ownCard(state: RoomState, actorId: string, instanceId: string): { card: CardInstance } | { error: string } {
+  if (state.phase !== 'playing' || !state.game) return { error: 'Game not running' };
+  const card = state.game.cards[instanceId];
+  if (!card) return { error: 'No such card' };
+  if (card.controllerId !== actorId) return { error: 'Not your card' };
+  return { card };
 }

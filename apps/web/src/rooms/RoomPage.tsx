@@ -7,6 +7,7 @@ import { Button, Card, ErrorText } from '../components';
 import { api } from '../lib/api';
 import { useMe } from '../lib/auth';
 import { describeSettings } from './RoomListPage';
+import { Table } from '../table/Table';
 import { useRoom } from './useRoom';
 
 export function RoomPage() {
@@ -18,7 +19,7 @@ export function RoomPage() {
   if (!room.state || !me.data) return <main className="p-6 text-text-muted">Connecting…</main>;
 
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
+    <main className={`mx-auto flex flex-col gap-6 p-6 ${room.state.phase === 'playing' ? 'max-w-6xl' : 'max-w-3xl'}`}>
       <header className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">{room.state.phase === 'lobby' ? 'Lobby' : room.state.phase === 'playing' ? 'Game' : 'Closed'}</h1>
@@ -27,7 +28,7 @@ export function RoomPage() {
         <Link to="/rooms" className="text-sm text-accent hover:underline">Rooms</Link>
       </header>
       {room.state.phase === 'lobby' && <Lobby state={room.state} meId={me.data.id} connected={room.connected} send={room.send} />}
-      {room.state.phase === 'playing' && <Started state={room.state} meId={me.data.id} />}
+      {room.state.phase === 'playing' && <Started state={room.state} meId={me.data.id} send={room.send} />}
       {room.state.phase === 'ended' && <p className="text-text-muted">This room has been closed.</p>}
     </main>
   );
@@ -109,27 +110,15 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
   );
 }
 
-/** Placeholder until the table UI lands: proves the deal happened. */
-function Started({ state, meId }: { state: RoomState; meId: string }) {
+function Started({ state, meId, send }: { state: RoomState; meId: string; send: ReturnType<typeof useRoom>['send'] }) {
   const g = state.game!;
   const players = seatedPlayers(state);
   return (
-    <Card title="Game started">
-      <p className="mb-3 text-sm text-text-muted">
+    <>
+      <p className="text-sm text-text-muted">
         {players.find((p) => p.id === g.firstPlayerId)?.displayName} goes first (rolled {g.openingRoll[g.firstPlayerId]}).
       </p>
-      <ul className="flex flex-col gap-1 text-sm">
-        {players.map((p) => {
-          const z = g.players[p.id]?.zones;
-          return (
-            <li key={p.id}>
-              <span className="font-medium">{p.displayName}{p.id === meId && ' (you)'}</span>
-              <span className="text-text-muted"> · life {g.players[p.id]?.life} · hand {z?.hand.length} · library {z?.library.length}{z?.command.length ? ` · commander ${z.command.length}` : ''}</span>
-            </li>
-          );
-        })}
-      </ul>
-      <p className="mt-3 text-sm text-text-muted">The table view is next.</p>
-    </Card>
+      <Table state={state} meId={meId} send={send} />
+    </>
   );
 }

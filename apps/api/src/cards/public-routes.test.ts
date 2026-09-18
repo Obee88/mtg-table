@@ -35,6 +35,13 @@ describe('card routes', () => {
     expect((await ctx.app.inject({ url: '/cards/00000000-0000-4000-8000-000000000000', headers: { cookie } })).statusCode).toBe(404);
   });
 
+  it('looks up printings in batch', async () => {
+    const search = await ctx.app.inject({ url: '/cards/search?q=bolt', headers: { cookie } });
+    const id = search.json().results[0].id;
+    const res = await ctx.app.inject({ method: 'POST', url: '/cards/lookup', headers: { origin: TEST_ORIGIN, cookie }, payload: { ids: [id, '00000000-0000-4000-8000-000000000000'] } });
+    expect(res.json().printings.map((p: { id: string }) => p.id)).toEqual([id]);
+  });
+
   it('validates the query', async () => {
     expect((await ctx.app.inject({ url: '/cards/search', headers: { cookie } })).statusCode).toBe(400);
     expect((await ctx.app.inject({ url: '/cards/search?q=bolt&limit=999', headers: { cookie } })).statusCode).toBe(400);

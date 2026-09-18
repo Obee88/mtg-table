@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { ZONES } from './types.js';
+
+export const positionSchema = z.object({ x: z.number(), y: z.number() });
 
 export const roomSettingsSchema = z.object({
   playerCount: z.union([z.literal(2), z.literal(4)]),
@@ -27,6 +30,16 @@ export const gameEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('deckSelected'), playerId: z.string(), deckId: z.string().nullable() }),
   z.object({ type: z.literal('readyChanged'), playerId: z.string(), ready: z.boolean() }),
   z.object({ type: z.literal('roomClosed') }),
+  // ---- game ----
+  z.object({
+    type: z.literal('cardMoved'),
+    instanceId: z.string(),
+    from: z.enum(ZONES),
+    to: z.enum(ZONES),
+    position: positionSchema.nullable(),
+    libraryPosition: z.enum(['top', 'bottom']).nullable(),
+  }),
+  z.object({ type: z.literal('cardTapped'), instanceId: z.string(), tapped: z.boolean() }),
   z.object({
     type: z.literal('gameStarted'),
     firstPlayerId: z.string(),

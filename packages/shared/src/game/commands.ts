@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { roomSettingsSchema } from './events.js';
+import { positionSchema, roomSettingsSchema } from './events.js';
+import { ZONES } from './types.js';
 
 /** What a client may ask for. Validated by `decide` against the current state. */
 export const gameCommandSchema = z.discriminatedUnion('type', [
@@ -10,6 +11,16 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('updateSettings'), settings: roomSettingsSchema }),
   z.object({ type: z.literal('closeRoom') }),
   z.object({ type: z.literal('start') }),
+  // ---- game ----
+  z.object({
+    type: z.literal('moveCard'),
+    instanceId: z.string(),
+    to: z.enum(ZONES),
+    position: positionSchema.optional(),
+    libraryPosition: z.enum(['top', 'bottom']).optional(),
+  }),
+  z.object({ type: z.literal('tapCard'), instanceId: z.string(), tapped: z.boolean() }),
+  z.object({ type: z.literal('draw'), count: z.number().int().min(1).max(20) }),
 ]);
 
 export type GameCommand = z.infer<typeof gameCommandSchema>;

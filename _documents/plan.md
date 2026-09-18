@@ -131,7 +131,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] Room model: event log + snapshots in Postgres, shared reducer skeleton, per-room command queue
 - [x] WebSocket transport: cookie auth, subscribe, command/event protocol, reconnect with `lastSeq`
 - [x] Lobby: create/join room, seats, deck selection, ready, start (shuffle, draw 7, roll for first)
-- [ ] Minimal table UI: own and opponent zones, hand, drag between zones, click to tap — cards on screen
+- [x] Minimal table UI: own and opponent zones, hand, drag between zones, click to tap — cards on screen
 - [ ] Visibility projection per player (state and events), with tests proving hidden cards never leak
 - [ ] Core card actions: move between zones, tap/untap, untap all, draw, shuffle, mulligan
 - [ ] Card state: transform, flip, face-down, counters, attachments, notes, tokens
