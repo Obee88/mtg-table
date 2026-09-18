@@ -1,4 +1,4 @@
-import type { CardInstance, CardPrinting, GameCommand, PlayerGameState, RoomPlayer, RoomState, ZoneName } from '@mtg/shared';
+import type { CardInstance, CardPrinting, GameCommand, PlayerGameState, RoomEvent, RoomPlayer, RoomState, ZoneName } from '@mtg/shared';
 import { seatedPlayers } from '@mtg/shared';
 import { useCallback, useEffect, useState, type DragEvent, type MouseEvent, type ReactNode } from 'react';
 import { Button, ErrorText } from '../components';
@@ -10,6 +10,7 @@ import { ShortcutsDialog } from './ShortcutsDialog';
 import { CARD_H, CARD_W, CardBack, TableCard } from './TableCard';
 import { TokenDialog } from './TokenDialog';
 import { useCards } from './useCards';
+import { useHighlights } from './useHighlights';
 import { useMarquee } from './useMarquee';
 
 type Send = (command: GameCommand) => Promise<CommandResult>;
@@ -20,7 +21,7 @@ const DRAG_MIME = 'text/instance-ids';
 /** Attachments render slightly offset behind their host. */
 const ATTACH_OFFSET = 14;
 
-export function Table({ state, meId, send }: { state: RoomState; meId: string; send: Send }) {
+export function Table({ state, meId, send, live = [] }: { state: RoomState; meId: string; send: Send; live?: RoomEvent[] }) {
   const game = state.game!;
   const players = seatedPlayers(state);
   const me = players.find((p) => p.id === meId);
@@ -36,6 +37,8 @@ export function Table({ state, meId, send }: { state: RoomState; meId: string; s
   const [attaching, setAttaching] = useState<string | null>(null);
   /** Own cards currently selected (battlefield or hand). */
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const cardOwner = useCallback((id: string) => game.cards[id]?.ownerId, [game.cards]);
+  const highlighted = useHighlights(live, cardOwner, meId);
 
   // Drop selections of cards that no longer exist or are no longer mine.
   const liveSelected = new Set([...selected].filter((id) => game.cards[id]?.controllerId === meId));
@@ -250,7 +253,7 @@ export function Table({ state, meId, send }: { state: RoomState; meId: string; s
     setSelected((prev) => (additive ? new Set([...prev, ...ids]) : new Set(ids)));
   }, []);
 
-  const shared = { cards: game.cards, printings, run, onCardClick, attaching: attaching !== null };
+  const shared = { cards: game.cards, printings, run, onCardClick, attaching: attaching !== null, highlighted };
 
   return (
     <div className="flex flex-col gap-3">
@@ -303,7 +306,7 @@ export function Table({ state, meId, send }: { state: RoomState; meId: string; s
   );
 }
 
-function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped = false, onCardClick, onCardMenu, onCardDragStart, onToken, onHelp, onLibraryMenu, attaching, isSelected, onMarquee, selectedCount = 0 }: {
+function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped = false, onCardClick, onCardMenu, onCardDragStart, onToken, onHelp, onLibraryMenu, attaching, isSelected, highlighted, onMarquee, selectedCount = 0 }: {
   state: RoomState;
   player: RoomPlayer;
   pgs: PlayerGameState;
@@ -320,6 +323,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped =
   onLibraryMenu?: ((e: MouseEvent) => void) | undefined;
   attaching: boolean;
   isSelected: (id: string) => boolean;
+  highlighted: ReadonlySet<string>;
   onMarquee?: ((ids: string[], additive: boolean) => void) | undefined;
   selectedCount?: number;
 }) {
@@ -392,7 +396,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped =
       {...(mine ? marquee.handlers : {})}
     >
       {placed.map(({ card, x, y, dx, z }) => (
-        <div key={card.id} className="absolute" style={{ left: `calc(${x}% + ${dx}px)`, top: `calc(${y}% + ${dx}px)`, zIndex: z }}>
+        <div key={card.id} className="absolute transition-[left,top] duration-200 ease-out" style={{ left: `calc(${x}% + ${dx}px)`, top: `calc(${y}% + ${dx}px)`, zIndex: z }}>
           {cardEl(card, { onClick: mine || attaching })}
         </div>
       ))}
@@ -430,7 +434,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped =
   );
 
   return (
-    <section className={`flex flex-col gap-2 ${flipped ? 'flex-col-reverse' : ''}`}>
+    <section className={`flex flex-col gap-2 rounded-lg transition-shadow duration-300 ${flipped ? 'flex-col-reverse' : ''} ${highlighted.has(player.id) ? 'shadow-[0_0_0_2px_var(--color-accent)]' : ''}`}>
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <span className="font-medium">{player.displayName}{mine && ' (you)'}</span>
         <span className="text-text-muted">hand {pgs.zones.hand.length} · library {pgs.zones.library.length}{selectedCount > 0 && ` · ${selectedCount} selected`}</span>

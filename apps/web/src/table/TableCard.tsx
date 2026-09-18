@@ -44,6 +44,7 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
 
   const counters = Object.entries(card.counters);
   const label = card.customName ?? (hidden ? null : printing?.name);
+  const revealed = revealedToOthers(card);
 
   return (
     <div
@@ -53,7 +54,7 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
       onContextMenu={onContextMenu}
       {...preview}
       data-instance-id={card.id}
-      className={`relative select-none transition-transform duration-150 ${mine ? 'cursor-grab active:cursor-grabbing' : ''} ${card.tapped ? 'rotate-90' : ''} ${card.flipped ? 'rotate-180' : ''} ${selected ? 'rounded-[4.5%] ring-2 ring-accent ring-offset-1 ring-offset-bg' : ''}`}
+      className={`card-enter relative select-none transition-transform duration-150 ${mine ? 'cursor-grab active:cursor-grabbing' : ''} ${card.tapped ? 'rotate-90' : ''} ${card.flipped ? 'rotate-180' : ''} ${selected ? 'rounded-[4.5%] ring-2 ring-accent ring-offset-1 ring-offset-bg' : ''}`}
       style={{ width: CARD_W, height: CARD_H }}
       title={label ?? undefined}
     >
@@ -68,10 +69,10 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
           )}
         </div>
       ) : (
-        <img src={src} alt={label ?? ''} draggable={false} className="h-full w-full rounded-[4.5%] object-cover shadow-md" />
+        <img key={card.zone} src={src} alt={label ?? ''} draggable={false} className={`h-full w-full rounded-[4.5%] object-cover shadow-md ${revealed ? 'card-revealed' : ''}`} />
       )}
       {card.isToken && <span className="absolute right-0.5 top-0.5 rounded bg-accent px-1 text-[9px] font-semibold text-bg">T</span>}
-      {revealedToOthers(card) && <span className="absolute right-0.5 bottom-5 rounded bg-success px-1 text-[9px] font-semibold text-bg" title="revealed">👁</span>}
+      {revealed && <span className="absolute right-0.5 bottom-5 rounded bg-success px-1 text-[9px] font-semibold text-bg" title="revealed">👁</span>}
       {counters.length > 0 && (
         <div className="absolute left-0.5 top-0.5 flex flex-col gap-0.5">
           {counters.map(([kind, value]) => (

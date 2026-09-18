@@ -140,7 +140,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] Undo of own last action (compensating event)
 - [x] Optimistic updates with reconciliation on the client
 - [x] Table UI polish: context menu, hover preview, keyboard shortcuts, multi-select
-- [ ] Log panel, change highlights, move/tap/reveal animations
+- [x] Log panel, change highlights, move/tap/reveal animations
 - [ ] Playtest round with the group; fix list
 
 **M3 — 4 players**

@@ -1,4 +1,4 @@
-import type { DeckSummary, RoomState } from '@mtg/shared';
+import type { DeckSummary, RoomEvent, RoomState } from '@mtg/shared';
 import { seatedPlayers } from '@mtg/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -7,6 +7,7 @@ import { Button, Card, ErrorText } from '../components';
 import { api } from '../lib/api';
 import { useMe } from '../lib/auth';
 import { describeSettings } from './RoomListPage';
+import { LogPanel } from '../table/LogPanel';
 import { Table } from '../table/Table';
 import { useRoom } from './useRoom';
 
@@ -28,7 +29,7 @@ export function RoomPage() {
         <Link to="/rooms" className="text-sm text-accent hover:underline">Rooms</Link>
       </header>
       {room.state.phase === 'lobby' && <Lobby state={room.state} meId={me.data.id} connected={room.connected} send={room.send} />}
-      {room.state.phase === 'playing' && <Started state={room.state} meId={me.data.id} send={room.send} />}
+      {room.state.phase === 'playing' && <Started state={room.state} meId={me.data.id} send={room.send} live={room.events} />}
       {room.state.phase === 'ended' && <p className="text-text-muted">This room has been closed.</p>}
     </main>
   );
@@ -110,7 +111,7 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
   );
 }
 
-function Started({ state, meId, send }: { state: RoomState; meId: string; send: ReturnType<typeof useRoom>['send'] }) {
+function Started({ state, meId, send, live }: { state: RoomState; meId: string; send: ReturnType<typeof useRoom>['send']; live: RoomEvent[] }) {
   const g = state.game!;
   const players = seatedPlayers(state);
   return (
@@ -118,7 +119,10 @@ function Started({ state, meId, send }: { state: RoomState; meId: string; send: 
       <p className="text-sm text-text-muted">
         {players.find((p) => p.id === g.firstPlayerId)?.displayName} goes first (rolled {g.openingRoll[g.firstPlayerId]}).
       </p>
-      <Table state={state} meId={meId} send={send} />
+      <div className="flex gap-4">
+        <div className="min-w-0 flex-1"><Table state={state} meId={meId} send={send} live={live} /></div>
+        <LogPanel roomId={state.id} state={state} live={live} />
+      </div>
     </>
   );
 }
