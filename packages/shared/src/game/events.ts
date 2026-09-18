@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ZONES } from './types.js';
+import { ZONES, type RoomState } from './types.js';
 
 export const positionSchema = z.object({ x: z.number(), y: z.number() });
 export const visibilitySchema = z.union([z.literal('owner'), z.literal('all'), z.array(z.string())]);
@@ -42,6 +42,8 @@ export const gameEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('deckSelected'), playerId: z.string(), deckId: z.string().nullable() }),
   z.object({ type: z.literal('readyChanged'), playerId: z.string(), ready: z.boolean() }),
   z.object({ type: z.literal('roomClosed') }),
+  /** Compensating event for undo: restores the full state from before the undone batch. */
+  z.object({ type: z.literal('actionUndone'), fromSeq: z.number().int(), toSeq: z.number().int(), state: z.custom<RoomState>((v) => typeof v === 'object' && v !== null) }),
   // ---- game ----
   z.object({
     type: z.literal('cardMoved'),
@@ -100,6 +102,8 @@ export interface RoomEvent {
   actorId: string | null;
   at: string;
   event: GameEvent;
+  /** Groups the events produced by one command; undo works per batch. */
+  batchId?: string;
   /** Identities the receiving viewer just became allowed to see (projection only). */
   revealed?: { instanceId: string; printingId: string }[];
   /** Cards whose identity the viewer may no longer see (projection only). */

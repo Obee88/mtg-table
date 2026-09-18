@@ -82,6 +82,8 @@ function projectPayload(event: GameEvent, viewerId: PlayerId, after: RoomState):
     }
     case 'libraryShuffled':
       return { ...event, cards: event.cards.map((c) => ({ id: c.id, printingId: null, previousId: null })) };
+    case 'actionUndone':
+      return { ...event, state: projectState(event.state, viewerId) };
     default:
       return event;
   }

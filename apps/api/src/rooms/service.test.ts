@@ -150,3 +150,51 @@ describe('start', () => {
     expect(row?.phase).toBe('playing');
   });
 });
+
+describe('undo', () => {
+  const deckContents = (id: string) => ({ main: [{ printingId: id, quantity: 9 }], sideboard: [], commander: [] });
+
+  async function startedRoom() {
+    const service = new RoomService(db, silentLog);
+    const [card] = await db.insert(schema.cards).values({
+      id: '33333333-3333-4333-8333-333333333333', name: 'Forest', lang: 'en', layout: 'normal', setCode: 'lea', setName: 'Alpha', setType: 'core',
+      collectorNumber: '2', releasedAt: '1993-08-05', rarity: 'common', colorIdentity: ['G'], faces: [], oracleId: null,
+    }).onConflictDoNothing().returning();
+    const cardId = card?.id ?? '33333333-3333-4333-8333-333333333333';
+    const [deckA] = await db.insert(schema.decks).values({ ownerId: alice.id, name: 'A', contents: deckContents(cardId) }).returning();
+    const [deckB] = await db.insert(schema.decks).values({ ownerId: bob.id, name: 'B', contents: deckContents(cardId) }).returning();
+    const room = await service.create(alice, settings);
+    await service.dispatch(room.id, bob, { type: 'join' });
+    await service.dispatch(room.id, alice, { type: 'selectDeck', deckId: deckA!.id });
+    await service.dispatch(room.id, bob, { type: 'selectDeck', deckId: deckB!.id });
+    await service.dispatch(room.id, alice, { type: 'setReady', ready: true });
+    await service.dispatch(room.id, bob, { type: 'setReady', ready: true });
+    const started = await service.dispatch(room.id, alice, { type: 'start' });
+    if (!started.ok) throw new Error(started.error);
+    return { service, roomId: room.id };
+  }
+
+  it('restores the state before the last own batch, exactly', async () => {
+    const { service, roomId } = await startedRoom();
+    const before = await service.get(roomId);
+    const drawn = await service.dispatch(roomId, alice, { type: 'draw', count: 2 });
+    expect(drawn.ok && drawn.events).toHaveLength(2);
+    const undo = await service.dispatch(roomId, alice, { type: 'undo' });
+    expect(undo.ok).toBe(true);
+    const after = await service.get(roomId);
+    expect({ ...after, seq: 0 }).toEqual({ ...before, seq: 0 });
+    expect(after.seq).toBe(before.seq + 3);
+    // A fresh load from the log agrees.
+    expect(await new RoomService(db, silentLog).get(roomId)).toEqual(after);
+  });
+
+  it('refuses when someone else acted since, when nothing undoable, and twice in a row', async () => {
+    const { service, roomId } = await startedRoom();
+    expect(await service.dispatch(roomId, alice, { type: 'undo' })).toEqual({ ok: false, error: 'That action cannot be undone' }); // last batch = gameStarted
+    await service.dispatch(roomId, alice, { type: 'draw', count: 1 });
+    await service.dispatch(roomId, bob, { type: 'draw', count: 1 });
+    expect(await service.dispatch(roomId, alice, { type: 'undo' })).toEqual({ ok: false, error: 'Someone else acted since your last action' });
+    expect((await service.dispatch(roomId, bob, { type: 'undo' })).ok).toBe(true);
+    expect(await service.dispatch(roomId, bob, { type: 'undo' })).toEqual({ ok: false, error: 'That action cannot be undone' });
+  });
+});

@@ -51,6 +51,7 @@ export function Table({ state, meId, send }: { state: RoomState; meId: string; s
       if (e.key === 'u') void run({ type: 'untapAll' });
       if (e.key === 's') void run({ type: 'shuffleLibrary' });
       if (e.key === 't') setTokenDialog(true);
+      if (e.key === 'z' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); void run({ type: 'undo' }); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -302,6 +303,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped =
             <Button variant="ghost" className="!py-1" onClick={() => void run({ type: 'untapAll' })}>Untap all (u)</Button>
             <Button variant="ghost" className="!py-1" onClick={() => void run({ type: 'shuffleLibrary' })}>Shuffle (s)</Button>
             <Button variant="ghost" className="!py-1" onClick={onToken}>Token (t)</Button>
+            <Button variant="ghost" className="!py-1" onClick={() => void run({ type: 'undo' })} title="Undo your last action if nobody acted since">Undo (Ctrl+Z)</Button>
             <Button
               variant="ghost"
               className="!py-1"

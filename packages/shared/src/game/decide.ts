@@ -350,6 +350,9 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       return accept(...events);
     }
 
+    case 'undo':
+      return reject('Undo is handled by the server');
+
     case 'closeRoom':
       if (!isOwner) return reject('Only the owner can close the room');
       return accept({ type: 'roomClosed' });

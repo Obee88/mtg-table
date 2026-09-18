@@ -149,6 +149,8 @@ export const roomEvents = pgTable(
       .references(() => rooms.id, { onDelete: 'cascade' }),
     seq: integer('seq').notNull(),
     actorId: uuid('actor_id'),
+    /** Events produced by the same command share a batch id; undo works per batch. */
+    batchId: uuid('batch_id'),
     type: text('type').notNull(),
     payload: jsonb('payload').$type<GameEvent>().notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

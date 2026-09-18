@@ -5,6 +5,7 @@ import {
   reduceAll,
   type CommandContext,
   type DeckContents,
+  type Decision,
   type GameCommand,
   type GameEvent,
   type RoomEvent,
@@ -12,13 +13,15 @@ import {
   type RoomState,
 } from '@mtg/shared';
 import { randomInt, randomUUID } from 'node:crypto';
-import { and, asc, eq, gt, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import { schema, type Db } from '../db/index.js';
 import { HttpError } from '../errors.js';
 
 const SNAPSHOT_EVERY = 50;
 const IDLE_EVICT_MS = 30 * 60 * 1000;
+/** Lobby and bookkeeping events are never undone. */
+const NOT_UNDOABLE = new Set(['roomCreated', 'settingsChanged', 'playerJoined', 'playerLeft', 'deckSelected', 'readyChanged', 'roomClosed', 'gameStarted', 'actionUndone']);
 
 export type RoomListener = (events: RoomEvent[], state: RoomState, before: RoomState) => void;
 
@@ -72,7 +75,7 @@ export class RoomService {
       .from(schema.roomEvents)
       .where(and(eq(schema.roomEvents.roomId, roomId), gt(schema.roomEvents.seq, afterSeq)))
       .orderBy(asc(schema.roomEvents.seq));
-    return rows.map((r) => ({ seq: r.seq, actorId: r.actorId, at: r.createdAt.toISOString(), event: r.payload }));
+    return rows.map((r) => ({ seq: r.seq, actorId: r.actorId, at: r.createdAt.toISOString(), event: r.payload, ...(r.batchId ? { batchId: r.batchId } : {}) }));
   }
 
   /** Full state as of `seq` (rebuilt from the log); used to project a reconnect gap. */
@@ -81,6 +84,32 @@ export class RoomService {
     const base = snap && snap.seq <= seq ? snap.state : initialRoomState(roomId);
     const events = await this.eventsSince(roomId, base.seq);
     return events.filter((e) => e.seq <= seq).reduce((s, e) => ({ ...reduce(s, e.event), seq: e.seq }), base);
+  }
+
+  /**
+   * Undo = restore the state from before the actor's most recent batch, allowed
+   * only when that batch is the latest in the room, is a game action, and is
+   * not itself an undo.
+   */
+  private async undoDecision(room: CachedRoom, actor: Actor): Promise<Decision> {
+    const [last] = await this.db
+      .select()
+      .from(schema.roomEvents)
+      .where(eq(schema.roomEvents.roomId, room.state.id))
+      .orderBy(desc(schema.roomEvents.seq))
+      .limit(1);
+    if (!last?.batchId) return { ok: false, error: 'Nothing to undo' };
+    if (last.actorId !== actor.id) return { ok: false, error: 'Someone else acted since your last action' };
+    const batch = await this.db
+      .select()
+      .from(schema.roomEvents)
+      .where(and(eq(schema.roomEvents.roomId, room.state.id), eq(schema.roomEvents.batchId, last.batchId)))
+      .orderBy(asc(schema.roomEvents.seq));
+    if (batch.some((e) => NOT_UNDOABLE.has(e.type))) return { ok: false, error: 'That action cannot be undone' };
+    const fromSeq = batch[0]!.seq;
+    const toSeq = batch[batch.length - 1]!.seq;
+    const state = await this.stateAt(room.state.id, fromSeq - 1);
+    return { ok: true, events: [{ type: 'actionUndone', fromSeq, toSeq, state }] };
   }
 
   /** Validates and applies a command. Serialised per room. */
@@ -95,7 +124,7 @@ export class RoomService {
         newId: () => randomUUID(),
       };
       if (command.type === 'start') ctx.decks = await this.loadDecks(room.state);
-      const decision = decide(room.state, command, ctx);
+      const decision = command.type === 'undo' ? await this.undoDecision(room, actor) : decide(room.state, command, ctx);
       if (!decision.ok) return decision;
       if (decision.events.length === 0) return { ok: true, events: [], state: room.state, before: room.state };
       const before = room.state;
@@ -172,10 +201,11 @@ export class RoomService {
     const before = room.state;
     const after = { ...reduceAll(before, events), seq: before.seq + events.length };
     const now = new Date();
-    const stored: RoomEvent[] = events.map((event, i) => ({ seq: before.seq + i + 1, actorId, at: now.toISOString(), event }));
+    const batchId = randomUUID();
+    const stored: RoomEvent[] = events.map((event, i) => ({ seq: before.seq + i + 1, actorId, at: now.toISOString(), event, batchId }));
 
     await this.db.transaction(async (tx) => {
-      await tx.insert(schema.roomEvents).values(stored.map((e) => ({ roomId: room.state.id, seq: e.seq, actorId, type: e.event.type, payload: e.event, createdAt: now })));
+      await tx.insert(schema.roomEvents).values(stored.map((e) => ({ roomId: room.state.id, seq: e.seq, actorId, batchId, type: e.event.type, payload: e.event, createdAt: now })));
       await tx.update(schema.rooms).set({ phase: after.phase, settings: after.settings, updatedAt: now }).where(eq(schema.rooms.id, room.state.id));
       for (const e of events) {
         if (e.type === 'playerJoined') {

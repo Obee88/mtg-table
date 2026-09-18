@@ -247,6 +247,10 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
     case 'topRevealedChanged':
       return patchPlayer(state, event.playerId, { topRevealed: event.enabled });
 
+    case 'actionUndone':
+      // Full restore; the caller sets `seq` from the envelope.
+      return { ...event.state, id: state.id };
+
     case 'roomClosed':
       return { ...state, phase: 'ended' };
   }

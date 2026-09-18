@@ -13,6 +13,8 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('setReady'), ready: z.boolean() }),
   z.object({ type: z.literal('updateSettings'), settings: roomSettingsSchema }),
   z.object({ type: z.literal('closeRoom') }),
+  /** Handled by the server (needs history); decide() always rejects it. */
+  z.object({ type: z.literal('undo') }),
   z.object({ type: z.literal('start') }),
   // ---- game ----
   z.object({

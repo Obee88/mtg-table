@@ -488,3 +488,14 @@ describe('player state and dice', () => {
     expect(decide(s, { type: 'rollDice', sides: 6, count: 1 }, ctx('a'))).toEqual({ ok: false, error: 'Randomness unavailable' });
   });
 });
+
+describe('actionUndone', () => {
+  it('restores the embedded state (except the room id and seq)', () => {
+    const settings: RoomSettings = { playerCount: 2, mode: '1v1', startingLife: 20, commander: false };
+    const before = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings });
+    const after = run(before, 'b', { type: 'join' });
+    const restored = reduce(after, { type: 'actionUndone', fromSeq: 2, toSeq: 2, state: { ...before, id: 'other', seq: 1 } });
+    expect(restored).toEqual({ ...before, id: 'r', seq: 1 });
+    expect(decide(after, { type: 'undo' }, ctx('b'))).toEqual({ ok: false, error: 'Undo is handled by the server' });
+  });
+});

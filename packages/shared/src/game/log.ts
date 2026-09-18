@@ -96,6 +96,8 @@ export function describeEvent(e: RoomEvent, ctx: LogContext): string | null {
       return `${ctx.playerName(ev.playerId)} reordered the top ${ev.top.length} cards of their library`;
     case 'topRevealedChanged':
       return `${ctx.playerName(ev.playerId)} ${ev.enabled ? 'now plays with the top card revealed' : 'stopped revealing the top card'}`;
+    case 'actionUndone':
+      return `${actor} undid their last action (${ev.toSeq - ev.fromSeq + 1} step${ev.toSeq - ev.fromSeq === 0 ? '' : 's'})`;
     case 'diceRolled':
       return `${actor} rolled ${ev.results.length > 1 ? `${ev.results.length}d${ev.sides}` : `a d${ev.sides}`}: ${ev.results.join(', ')}${ev.results.length > 1 ? ` (total ${ev.results.reduce((a, b) => a + b, 0)})` : ''}`;
     case 'coinFlipped':
