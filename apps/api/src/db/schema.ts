@@ -1,4 +1,4 @@
-import type { CardFace } from '@mtg/shared';
+import type { CardFace, DeckContents } from '@mtg/shared';
 import { sql } from 'drizzle-orm';
 import { boolean, date, index, integer, jsonb, pgTable, real, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
@@ -91,3 +91,20 @@ export const cardIngests = pgTable('card_ingests', {
 export type CardRow = typeof cards.$inferSelect;
 export type NewCardRow = typeof cards.$inferInsert;
 export type CardIngestRow = typeof cardIngests.$inferSelect;
+
+export const decks = pgTable(
+  'decks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    ownerId: uuid('owner_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    contents: jsonb('contents').$type<DeckContents>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('decks_owner_id_idx').on(t.ownerId)],
+);
+
+export type DeckRow = typeof decks.$inferSelect;

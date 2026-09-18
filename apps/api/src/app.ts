@@ -8,6 +8,7 @@ import { cardRoutes } from './cards/public-routes.js';
 import { cardAdminRoutes } from './cards/routes.js';
 import { scryfallSource, type CardSource } from './cards/scryfall.js';
 import type { Config } from './config.js';
+import { deckRoutes } from './decks/routes.js';
 import type { Db, UserRow } from './db/index.js';
 import { HttpError } from './errors.js';
 import { healthRoutes } from './routes/health.js';
@@ -85,6 +86,7 @@ export async function buildApp(config: Config, db: Db, deps: AppDeps = {}): Prom
   await app.register(inviteRoutes);
   await app.register(cardAdminRoutes);
   await app.register(cardRoutes);
+  await app.register(deckRoutes);
 
   return app;
 }
