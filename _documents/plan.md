@@ -125,7 +125,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] Card search endpoint (name autocomplete, printings per oracle id) and a web card search page with hover preview
 - [x] Decklist parser in `packages/shared` (`4 Lightning Bolt`, optional `(SET) 123`, sideboard/commander sections) with tests
 - [x] Deck import endpoint: resolve names → printings, report unknown names; saved decks CRUD
-- [ ] Web deck pages: paste/upload, validation errors, printing picker, deck list
+- [x] Web deck pages: paste/upload, validation errors, printing picker, deck list
 
 **M2 — 1v1 table (first playable)**
 - [ ] Room model: event log + snapshots in Postgres, shared reducer skeleton, per-room command queue

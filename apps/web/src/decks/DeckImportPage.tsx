@@ -1,0 +1,136 @@
+import type { DeckImportResponse, DeckResponse } from '@mtg/shared';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, type ChangeEvent } from 'react';
+import { Link, useNavigate } from 'react-router';
+import { Button, Card, ErrorText, Input, Textarea } from '../components';
+import { api } from '../lib/api';
+import { DeckEditor } from './DeckEditor';
+import { countSection, fromImport, toDeckInput, type EditableDeck } from './model';
+
+const SAMPLE = `4 Lightning Bolt
+4 Monastery Swiftspear (BRO) 144
+
+Sideboard
+2 Rest in Peace`;
+
+export function DeckImportPage() {
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [name, setName] = useState('');
+  const [text, setText] = useState('');
+  const [report, setReport] = useState<DeckImportResponse | null>(null);
+  const [deck, setDeck] = useState<EditableDeck | null>(null);
+
+  const resolve = useMutation({
+    mutationFn: (text: string) => api<DeckImportResponse>('/decks/import', { body: { text } }),
+    onSuccess: (res) => {
+      setReport(res);
+      setDeck(fromImport(name, res));
+    },
+  });
+
+  const save = useMutation({
+    mutationFn: (d: EditableDeck) => api<DeckResponse>('/decks', { body: toDeckInput({ ...d, name }) }),
+    onSuccess: (res) => {
+      void qc.invalidateQueries({ queryKey: ['decks'] });
+      navigate(`/decks/${res.deck.id}`);
+    },
+  });
+
+  const onFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setText(await file.text());
+    if (!name) setName(file.name.replace(/\.[^.]+$/, ''));
+    e.target.value = '';
+  };
+
+  const problems = report ? report.errors.length + report.unknown.length : 0;
+  const total = deck ? countSection(deck.sections.main) + countSection(deck.sections.sideboard) + countSection(deck.sections.commander) : 0;
+
+  return (
+    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
+      <header className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Import deck</h1>
+        <Link to="/decks" className="text-sm text-accent hover:underline">Decks</Link>
+      </header>
+
+      <div className="grid gap-6 lg:grid-cols-[2fr_3fr]">
+        <Card title="Decklist">
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              resolve.mutate(text);
+            }}
+          >
+            <Input label="Deck name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Mono-red burn" />
+            <Textarea label="Paste a decklist (Arena, Moxfield, MTGO, Cockatrice…)" rows={18} value={text} onChange={(e) => setText(e.target.value)} placeholder={SAMPLE} />
+            <div className="flex items-center gap-3">
+              <Button type="submit" disabled={resolve.isPending || text.trim().length === 0}>
+                {resolve.isPending ? 'Resolving…' : 'Resolve cards'}
+              </Button>
+              <label className="cursor-pointer text-sm text-accent hover:underline">
+                Upload .txt
+                <input type="file" accept=".txt,.dec,.dek,.mwdeck,text/plain" className="hidden" onChange={onFile} />
+              </label>
+            </div>
+            <ErrorText error={resolve.error} />
+          </form>
+        </Card>
+
+        <Card title={deck ? `Cards · ${total}` : 'Cards'}>
+          {!deck && <p className="text-sm text-text-muted">Resolve a decklist to review the cards, fix problems and choose printings.</p>}
+          {report && <Problems report={report} />}
+          {deck && (
+            <div className="flex flex-col gap-4">
+              <DeckEditor deck={deck} onChange={setDeck} />
+              <div className="flex items-center gap-3 border-t border-border pt-4">
+                <Button onClick={() => save.mutate(deck)} disabled={save.isPending || name.trim().length === 0 || total === 0}>
+                  {save.isPending ? 'Saving…' : problems > 0 ? `Save without ${problems} unresolved line${problems === 1 ? '' : 's'}` : 'Save deck'}
+                </Button>
+                {name.trim().length === 0 && <span className="text-sm text-text-muted">Give the deck a name first.</span>}
+              </div>
+              <ErrorText error={save.error} />
+            </div>
+          )}
+        </Card>
+      </div>
+    </main>
+  );
+}
+
+function Problems({ report }: { report: DeckImportResponse }) {
+  if (report.errors.length + report.unknown.length + report.warnings.length === 0) return null;
+  return (
+    <div className="mb-4 flex flex-col gap-2 text-sm">
+      {report.errors.length > 0 && (
+        <div className="rounded-md border border-danger/40 bg-danger/10 p-3">
+          <p className="mb-1 font-medium text-danger">Could not read {report.errors.length} line{report.errors.length === 1 ? '' : 's'}</p>
+          <ul className="text-text-muted">
+            {report.errors.map((e) => <li key={e.line}>Line {e.line}: <code>{e.text}</code> — {e.message}</li>)}
+          </ul>
+        </div>
+      )}
+      {report.unknown.length > 0 && (
+        <div className="rounded-md border border-danger/40 bg-danger/10 p-3">
+          <p className="mb-1 font-medium text-danger">Unknown card{report.unknown.length === 1 ? '' : 's'}</p>
+          <ul className="text-text-muted">
+            {report.unknown.map((u) => (
+              <li key={u.line}>Line {u.line}: {u.quantity} <code>{u.name}</code>{u.set && ` (${u.set.toUpperCase()}${u.collectorNumber ? ` ${u.collectorNumber}` : ''})`}</li>
+            ))}
+          </ul>
+          <p className="mt-1 text-text-muted">Fix the names in the list and resolve again, or save without them.</p>
+        </div>
+      )}
+      {report.warnings.length > 0 && (
+        <div className="rounded-md border border-accent/40 bg-accent/10 p-3">
+          <p className="mb-1 font-medium text-accent">Printing not found — default used</p>
+          <ul className="text-text-muted">
+            {report.warnings.map((w) => <li key={w.line}>Line {w.line}: {w.message}</li>)}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}

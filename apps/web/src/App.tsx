@@ -1,6 +1,9 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { CardPreviewProvider } from './cards/CardPreview';
 import { CardsPage } from './cards/CardsPage';
+import { DeckImportPage } from './decks/DeckImportPage';
+import { DeckListPage } from './decks/DeckListPage';
+import { DeckPage } from './decks/DeckPage';
 import { useMe } from './lib/auth';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
@@ -20,6 +23,9 @@ export function App() {
         <Route path="/register" element={user ? <Navigate to="/" replace /> : <RegisterPage />} />
         <Route path="/" element={user ? <HomePage user={user} /> : <Navigate to="/login" replace />} />
         <Route path="/cards" element={user ? <CardsPage /> : <Navigate to="/login" replace />} />
+        <Route path="/decks" element={user ? <DeckListPage /> : <Navigate to="/login" replace />} />
+        <Route path="/decks/new" element={user ? <DeckImportPage /> : <Navigate to="/login" replace />} />
+        <Route path="/decks/:id" element={user ? <DeckPage /> : <Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </CardPreviewProvider>

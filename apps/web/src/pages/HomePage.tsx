@@ -21,7 +21,10 @@ export function HomePage({ user }: { user: User }) {
 
       <Card title="Table">
         <p className="text-text-muted">Rooms, decks and drafts will appear here.</p>
-        <Link to="/cards" className="mt-3 inline-block text-sm text-accent hover:underline">Browse cards</Link>
+        <div className="mt-3 flex gap-4 text-sm">
+          <Link to="/decks" className="text-accent hover:underline">My decks</Link>
+          <Link to="/cards" className="text-accent hover:underline">Browse cards</Link>
+        </div>
       </Card>
 
       {user.isAdmin && <InvitesPanel />}
