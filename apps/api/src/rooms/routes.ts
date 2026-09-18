@@ -1,4 +1,4 @@
-import { gameCommandSchema, roomSettingsSchema, type RoomListItem, type RoomState } from '@mtg/shared';
+import { gameCommandSchema, projectEvents, projectState, roomSettingsSchema, type RoomListItem, type RoomState } from '@mtg/shared';
 import { desc, eq, inArray } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -52,14 +52,14 @@ export async function roomRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/rooms/:id', async (req): Promise<RoomState> => {
     const { id } = parse(idParam, req.params);
-    return app.rooms.get(id);
+    return projectState(await app.rooms.get(id), req.user!.id);
   });
 
   app.get('/rooms/:id/events', async (req) => {
     const { id } = parse(idParam, req.params);
     const { after } = parse(sinceQuery, req.query);
-    await app.rooms.get(id); // 404 if unknown
-    return app.rooms.eventsSince(id, after);
+    const base = await app.rooms.stateAt(id, after);
+    return projectEvents(await app.rooms.eventsSince(id, after), req.user!.id, base);
   });
 
   app.post('/rooms/:id/commands', async (req) => {
@@ -67,6 +67,6 @@ export async function roomRoutes(app: FastifyInstance): Promise<void> {
     const command = parse(gameCommandSchema, req.body);
     const result = await app.rooms.dispatch(id, actor(req), command);
     if (!result.ok) throw badRequest(result.error);
-    return { events: result.events, state: result.state };
+    return { events: projectEvents(result.events, req.user!.id, result.before), state: projectState(result.state, req.user!.id) };
   });
 }

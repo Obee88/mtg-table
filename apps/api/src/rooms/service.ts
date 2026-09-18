@@ -20,7 +20,7 @@ import { HttpError } from '../errors.js';
 const SNAPSHOT_EVERY = 50;
 const IDLE_EVICT_MS = 30 * 60 * 1000;
 
-export type RoomListener = (events: RoomEvent[], state: RoomState) => void;
+export type RoomListener = (events: RoomEvent[], state: RoomState, before: RoomState) => void;
 
 interface CachedRoom {
   state: RoomState;
@@ -34,7 +34,7 @@ export interface Actor {
   displayName: string;
 }
 
-export type DispatchResult = { ok: true; events: RoomEvent[]; state: RoomState } | { ok: false; error: string };
+export type DispatchResult = { ok: true; events: RoomEvent[]; state: RoomState; before: RoomState } | { ok: false; error: string };
 
 /**
  * Owns live room state. One instance per process; commands for a room are
@@ -75,6 +75,14 @@ export class RoomService {
     return rows.map((r) => ({ seq: r.seq, actorId: r.actorId, at: r.createdAt.toISOString(), event: r.payload }));
   }
 
+  /** Full state as of `seq` (rebuilt from the log); used to project a reconnect gap. */
+  async stateAt(roomId: string, seq: number): Promise<RoomState> {
+    const [snap] = await this.db.select().from(schema.roomSnapshots).where(eq(schema.roomSnapshots.roomId, roomId));
+    const base = snap && snap.seq <= seq ? snap.state : initialRoomState(roomId);
+    const events = await this.eventsSince(roomId, base.seq);
+    return events.filter((e) => e.seq <= seq).reduce((s, e) => ({ ...reduce(s, e.event), seq: e.seq }), base);
+  }
+
   /** Validates and applies a command. Serialised per room. */
   async dispatch(roomId: string, actor: Actor, command: GameCommand): Promise<DispatchResult> {
     const room = await this.room(roomId);
@@ -89,9 +97,10 @@ export class RoomService {
       if (command.type === 'start') ctx.decks = await this.loadDecks(room.state);
       const decision = decide(room.state, command, ctx);
       if (!decision.ok) return decision;
-      if (decision.events.length === 0) return { ok: true, events: [], state: room.state };
+      if (decision.events.length === 0) return { ok: true, events: [], state: room.state, before: room.state };
+      const before = room.state;
       const events = await this.append(room, actor.id, decision.events);
-      return { ok: true, events, state: room.state };
+      return { ok: true, events, state: room.state, before };
     };
     // Chain onto the queue; a failure must not poison later commands.
     const result = room.queue.then(run, run);
@@ -187,7 +196,7 @@ export class RoomService {
     room.lastUsed = Date.now();
     for (const listener of room.listeners) {
       try {
-        listener(stored, after);
+        listener(stored, after, before);
       } catch (err) {
         this.log.warn({ err, roomId: room.state.id }, 'room listener threw');
       }

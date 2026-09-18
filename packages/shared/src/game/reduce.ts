@@ -1,5 +1,11 @@
 import type { GameEvent } from './events.js';
-import { emptyPlayerGameState, type CardInstance, type GameState, type RoomState } from './types.js';
+import { emptyPlayerGameState, type CardInstance, type GameState, type RoomState, type ZoneName } from './types.js';
+
+/** Who may see a card's identity by default when it enters a zone. */
+export function defaultVisibility(zone: ZoneName): CardInstance['visibleTo'] {
+  if (PUBLIC_ZONES.has(zone)) return 'all';
+  return zone === 'library' ? [] : 'owner';
+}
 
 /** Zones where every player may see card identities. */
 export const PUBLIC_ZONES: ReadonlySet<string> = new Set(['battlefield', 'graveyard', 'exile', 'command']);
@@ -60,7 +66,7 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
             cards[c.id] = {
               id: c.id, printingId: c.printingId, ownerId: playerId, controllerId: playerId, zone,
               tapped: false, transformed: false, flipped: false, faceDown: false, counters: {}, attachedTo: null,
-              note: null, isToken: false, visibleTo: zone === 'command' ? 'all' : 'owner', revealUntil: null, position: null,
+              note: null, isToken: false, visibleTo: defaultVisibility(zone), revealUntil: null, position: null,
             };
             pgs.zones[zone].push(c.id);
           }
@@ -111,7 +117,7 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
               faceDown: false,
               counters: {},
               attachedTo: null,
-              visibleTo: PUBLIC_ZONES.has(event.to) ? 'all' : 'owner',
+              visibleTo: defaultVisibility(event.to),
               revealUntil: null,
             }
           : {}),

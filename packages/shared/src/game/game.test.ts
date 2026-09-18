@@ -218,7 +218,7 @@ describe('table actions', () => {
     s = run(s, 'a', { type: 'moveCard', instanceId: top, to: 'library', libraryPosition: 'bottom' });
     s = run(s, 'a', { type: 'moveCard', instanceId: second, to: 'library', libraryPosition: 'top' });
     expect(g(s).players.a!.zones.library).toEqual([second, lib[2], top]);
-    expect(g(s).cards[top]?.visibleTo).toBe('owner');
+    expect(g(s).cards[top]?.visibleTo).toEqual([]); // nobody knows library order
     s = run(s, 'a', { type: 'draw', count: 3 });
     expect(decide(s, { type: 'draw', count: 1 }, ctx('a'))).toEqual({ ok: false, error: 'Library is empty' });
   });

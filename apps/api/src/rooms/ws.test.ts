@@ -138,3 +138,59 @@ describe('room websocket', () => {
     expect((await a.closed).code).toBe(4400);
   });
 });
+
+describe('projection over the wire', () => {
+  it('hides the opponent’s hand and all libraries, reveals on play', async () => {
+    const { schema } = await import('../db/index.js');
+    const [card] = await ctx.app.db.insert(schema.cards).values({
+      id: '22222222-2222-4222-8222-222222222222', name: 'Island', lang: 'en', layout: 'normal', setCode: 'lea', setName: 'Alpha', setType: 'core',
+      collectorNumber: '1', releasedAt: '1993-08-05', rarity: 'common', colorIdentity: ['U'], faces: [], oracleId: null,
+    }).returning();
+    const me = async (cookie: string) => (await ctx.app.inject({ url: '/me', headers: { cookie } })).json().id as string;
+    const [aliceId, bobId] = [await me(alice), await me(bob)];
+    const [deckA] = await ctx.app.db.insert(schema.decks).values({ ownerId: aliceId, name: 'A', contents: { main: [{ printingId: card!.id, quantity: 9 }], sideboard: [], commander: [] } }).returning();
+    const [deckB] = await ctx.app.db.insert(schema.decks).values({ ownerId: bobId, name: 'B', contents: { main: [{ printingId: card!.id, quantity: 9 }], sideboard: [], commander: [] } }).returning();
+
+    const created = await ctx.app.inject({ method: 'POST', url: '/rooms', headers: { origin: TEST_ORIGIN, cookie: alice }, payload: { settings } });
+    const room = created.json().id as string;
+    const http = (cookie: string, command: object) => ctx.app.inject({ method: 'POST', url: `/rooms/${room}/commands`, headers: { origin: TEST_ORIGIN, cookie }, payload: command });
+    await http(bob, { type: 'join' });
+    await http(alice, { type: 'selectDeck', deckId: deckA!.id });
+    await http(bob, { type: 'selectDeck', deckId: deckB!.id });
+    await http(alice, { type: 'setReady', ready: true });
+    await http(bob, { type: 'setReady', ready: true });
+
+    const b = new Client(bob, room);
+    await b.open();
+    b.send({ type: 'hello', lastSeq: 0 });
+    await b.nextOf('state');
+
+    const started = await http(alice, { type: 'start' });
+    expect(started.statusCode).toBe(200);
+    // Alice's own HTTP result is projected for her: her hand visible, Bob's not.
+    const aliceView = started.json().state;
+    const aHand = aliceView.game.players[aliceId].zones.hand as string[];
+    const bHand = aliceView.game.players[bobId].zones.hand as string[];
+    expect(aHand.every((id) => aliceView.game.cards[id].printingId === card!.id)).toBe(true);
+    expect(bHand.every((id) => aliceView.game.cards[id].printingId === null)).toBe(true);
+
+    // Bob's socket gets the gameStarted event stripped of Alice's identities.
+    const ev = await b.nextOf('events');
+    const gs = ev.events[0]!.event;
+    if (gs.type !== 'gameStarted') throw new Error('expected gameStarted');
+    expect(gs.players[aliceId]!.hand.every((c) => c.printingId === null)).toBe(true);
+    expect(gs.players[bobId]!.hand.every((c) => c.printingId === card!.id)).toBe(true);
+    expect(gs.players[bobId]!.library.every((c) => c.printingId === null)).toBe(true);
+
+    // Alice plays a card: Bob learns its identity via `revealed`.
+    await http(alice, { type: 'moveCard', instanceId: aHand[0], to: 'battlefield' });
+    const played = await b.nextOf('events');
+    expect(played.events[0]!.revealed).toEqual([{ instanceId: aHand[0], printingId: card!.id }]);
+
+    // A fresh GET for Bob is projected too.
+    const view = (await ctx.app.inject({ url: `/rooms/${room}`, headers: { cookie: bob } })).json();
+    expect(view.game.cards[aHand[1]!].printingId).toBeNull();
+    expect(view.game.cards[aHand[0]!].printingId).toBe(card!.id);
+    await b.close();
+  });
+});

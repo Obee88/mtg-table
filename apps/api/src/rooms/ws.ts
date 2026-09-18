@@ -1,4 +1,4 @@
-import { clientMessageSchema, WS_CLOSE, type RoomEvent, type ServerMessage } from '@mtg/shared';
+import { clientMessageSchema, projectEvents, projectState, WS_CLOSE, type RoomEvent, type RoomState, type ServerMessage } from '@mtg/shared';
 import type { FastifyInstance } from 'fastify';
 import type { WebSocket } from 'ws';
 import { z } from 'zod';
@@ -45,8 +45,8 @@ export async function roomSocketRoutes(app: FastifyInstance): Promise<void> {
     const log = req.log.child({ roomId, userId: user.id });
     let helloDone = false;
 
-    const unsubscribe = app.rooms.subscribe(roomId, (events: RoomEvent[]) => {
-      if (helloDone) send(socket, { type: 'events', events });
+    const unsubscribe = app.rooms.subscribe(roomId, (events: RoomEvent[], _after: RoomState, before: RoomState) => {
+      if (helloDone) send(socket, { type: 'events', events: projectEvents(events, user.id, before) });
     });
     const sockets = presence.get(roomId) ?? new Map<WebSocket, string>();
     presence.set(roomId, sockets);
@@ -68,10 +68,11 @@ export async function roomSocketRoutes(app: FastifyInstance): Promise<void> {
           case 'hello': {
             const state = await app.rooms.get(roomId);
             if (msg.lastSeq > 0 && msg.lastSeq <= state.seq && state.seq - msg.lastSeq <= MAX_GAP) {
+              const base = await app.rooms.stateAt(roomId, msg.lastSeq);
               const events = await app.rooms.eventsSince(roomId, msg.lastSeq);
-              send(socket, { type: 'events', events });
+              send(socket, { type: 'events', events: projectEvents(events, user.id, base) });
             } else {
-              send(socket, { type: 'state', state });
+              send(socket, { type: 'state', state: projectState(state, user.id) });
             }
             helloDone = true;
             return;

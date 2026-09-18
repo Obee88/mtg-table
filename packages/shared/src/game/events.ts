@@ -14,7 +14,7 @@ export const roomSettingsSchema = z.object({
  * Every change to a room is one of these. Events are facts: the reducer
  * applies them without validation. Later milestones add game events here.
  */
-const startedCard = z.object({ id: z.string(), printingId: z.string() });
+const startedCard = z.object({ id: z.string(), printingId: z.string().nullable() });
 const startedPlayer = z.object({
   library: z.array(startedCard),
   hand: z.array(startedCard),
@@ -57,4 +57,6 @@ export interface RoomEvent {
   actorId: string | null;
   at: string;
   event: GameEvent;
+  /** Identities the receiving viewer just became allowed to see (projection only). */
+  revealed?: { instanceId: string; printingId: string }[];
 }

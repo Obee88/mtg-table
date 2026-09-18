@@ -1,4 +1,4 @@
-import { reduce, type ClientMessage, type GameCommand, type PlayerId, type RoomEvent, type RoomState, type ServerMessage } from '@mtg/shared';
+import { applyRoomEvent, type ClientMessage, type GameCommand, type PlayerId, type RoomState, type ServerMessage } from '@mtg/shared';
 
 export interface RoomSnapshot {
   state: RoomState | null;
@@ -123,7 +123,7 @@ export class RoomConnection {
           this.emit({ type: 'hello', lastSeq: 0 });
           return;
         }
-        for (const e of msg.events) state = applyEvent(state, e);
+        for (const e of msg.events) state = applyRoomEvent(state, e);
         this.update({ state, status: 'open', lastError: null });
         return;
       }
@@ -154,11 +154,6 @@ export class RoomConnection {
   }
 }
 
-/** Applies one stored event, skipping any already applied (duplicates on reconnect). */
-export function applyEvent(state: RoomState, e: RoomEvent): RoomState {
-  if (e.seq <= state.seq) return state;
-  return { ...reduce(state, e.event), seq: e.seq };
-}
 
 export function roomSocketUrl(apiUrl: string, roomId: string): string {
   return `${apiUrl.replace(/^http/, 'ws')}/rooms/${roomId}/ws`;
