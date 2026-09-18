@@ -2,7 +2,10 @@
   "name": "@mtg/api",
   "version": "0.0.0",
   "private": true,
-  "files": ["dist", "drizzle"],
+  "files": [
+    "dist",
+    "drizzle"
+  ],
   "type": "module",
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=.env src/main.ts",
@@ -16,6 +19,7 @@
     "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.3.0",
     "@mtg/shared": "workspace:*",
+    "croner": "^10.0.1",
     "drizzle-orm": "^0.45.2",
     "fastify": "^5.12.5",
     "postgres": "^3.4.9",

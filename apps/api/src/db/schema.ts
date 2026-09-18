@@ -1,4 +1,5 @@
-import { boolean, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { boolean, date, index, integer, jsonb, pgTable, real, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -36,3 +37,63 @@ export const invites = pgTable('invites', {
 
 export type UserRow = typeof users.$inferSelect;
 export type InviteRow = typeof invites.$inferSelect;
+
+/** One row per Scryfall printing (from the `default_cards` bulk file). */
+export const cards = pgTable(
+  'cards',
+  {
+    id: uuid('id').primaryKey(), // Scryfall card id
+    oracleId: uuid('oracle_id'),
+    name: text('name').notNull(),
+    lang: text('lang').notNull(),
+    layout: text('layout').notNull(),
+    setCode: text('set_code').notNull(),
+    setName: text('set_name').notNull(),
+    setType: text('set_type').notNull(),
+    collectorNumber: text('collector_number').notNull(),
+    releasedAt: date('released_at').notNull(),
+    rarity: text('rarity').notNull(),
+    typeLine: text('type_line'),
+    manaCost: text('mana_cost'),
+    cmc: real('cmc'),
+    colors: text('colors').array(),
+    colorIdentity: text('color_identity').array().notNull(),
+    oracleText: text('oracle_text'),
+    /** Front-face images: { small, normal, large, png, art_crop, border_crop }. */
+    imageUris: jsonb('image_uris').$type<Record<string, string>>(),
+    /** All faces; length 1 for ordinary cards. */
+    faces: jsonb('faces').$type<CardFace[]>().notNull(),
+    isToken: boolean('is_token').notNull().default(false),
+    isDigital: boolean('is_digital').notNull().default(false),
+    isPromo: boolean('is_promo').notNull().default(false),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('cards_name_lower_idx').on(sql`lower(${t.name})`),
+    index('cards_oracle_id_idx').on(t.oracleId),
+    index('cards_set_code_idx').on(t.setCode),
+  ],
+);
+
+export interface CardFace {
+  name: string;
+  manaCost: string | null;
+  typeLine: string | null;
+  oracleText: string | null;
+  imageUris: Record<string, string> | null;
+}
+
+export const cardIngests = pgTable('card_ingests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  status: text('status', { enum: ['running', 'success', 'failed'] }).notNull(),
+  /** Scryfall's `updated_at` for the bulk file that was ingested. */
+  bulkUpdatedAt: text('bulk_updated_at'),
+  processed: integer('processed').notNull().default(0),
+  startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  error: text('error'),
+});
+
+export type CardRow = typeof cards.$inferSelect;
+export type NewCardRow = typeof cards.$inferInsert;
+export type CardIngestRow = typeof cardIngests.$inferSelect;

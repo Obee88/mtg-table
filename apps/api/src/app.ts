@@ -3,6 +3,9 @@ import cors from '@fastify/cors';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { authRoutes } from './auth/routes.js';
 import { findSessionUser, SESSION_COOKIE } from './auth/session.js';
+import { CardIngestService } from './cards/ingest.js';
+import { cardAdminRoutes } from './cards/routes.js';
+import { scryfallSource, type CardSource } from './cards/scryfall.js';
 import type { Config } from './config.js';
 import type { Db, UserRow } from './db/index.js';
 import { HttpError } from './errors.js';
@@ -13,6 +16,7 @@ declare module 'fastify' {
   interface FastifyInstance {
     config: Config;
     db: Db;
+    cardIngest: CardIngestService;
   }
   interface FastifyRequest {
     user: UserRow | null;
@@ -20,9 +24,14 @@ declare module 'fastify' {
   }
 }
 
+export interface AppDeps {
+  /** Card data source; defaults to Scryfall. Tests inject a fake. */
+  cardSource?: CardSource;
+}
+
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-export async function buildApp(config: Config, db: Db): Promise<FastifyInstance> {
+export async function buildApp(config: Config, db: Db, deps: AppDeps = {}): Promise<FastifyInstance> {
   const app = Fastify({
     logger: { level: config.LOG_LEVEL },
     trustProxy: true,
@@ -30,10 +39,15 @@ export async function buildApp(config: Config, db: Db): Promise<FastifyInstance>
 
   app.decorate('config', config);
   app.decorate('db', db);
+  app.decorate('cardIngest', new CardIngestService(db, deps.cardSource ?? scryfallSource, app.log));
   app.decorateRequest('user', null);
   app.decorateRequest('sessionToken', null);
 
-  await app.register(cors, { origin: config.WEB_ORIGIN, credentials: true });
+  await app.register(cors, {
+    origin: config.WEB_ORIGIN,
+    credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
+  });
   await app.register(cookie);
 
   // CSRF: browsers always send Origin on cross-site mutating requests.
@@ -68,6 +82,7 @@ export async function buildApp(config: Config, db: Db): Promise<FastifyInstance>
   await app.register(healthRoutes);
   await app.register(authRoutes);
   await app.register(inviteRoutes);
+  await app.register(cardAdminRoutes);
 
   return app;
 }

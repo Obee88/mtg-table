@@ -64,8 +64,9 @@ mtg-table/
   ingest schedule all live in memory; sessions live in Postgres. A redeploy is survived by the
   event log, not by an external cache. Redis would only enter the picture with a second API
   replica, which the CPX22 host does not justify.
-- Scryfall bulk ingest runs inside the API process on a schedule (and via an admin
-  endpoint), streaming the JSON so it fits in the memory budget.
+- Scryfall bulk ingest runs inside the API process: nightly cron, on boot when the `cards` table is
+  empty, and via `POST /admin/cards/ingest[?force=true]` (status at `GET /admin/cards/ingest`). It streams
+  the gzipped JSONL bulk file (~80 MB compressed) line by line and upserts in batches, so memory stays flat.
 
 Dockerfile shape:
 
@@ -103,7 +104,7 @@ Env vars (set in the dashboard):
 | `DATABASE_URL` | auto-managed by the platform |
 | `WEB_ORIGIN` | `https://mtg.codes.hr` — allowed CORS origin and WS `Origin` check |
 | `PORT` | 3000 (default in image) |
-| `SCRYFALL_INGEST_CRON` | optional, e.g. `0 4 * * *` |
+| `SCRYFALL_INGEST_CRON` | UTC cron for the Scryfall card refresh; default `0 4 * * *`, empty string disables |
 
 ---
 

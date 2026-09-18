@@ -15,6 +15,7 @@ export async function testApp(): Promise<{ app: FastifyInstance; close: () => Pr
     WEB_ORIGIN: TEST_ORIGIN,
     LOG_LEVEL: 'fatal',
     GIT_SHA: 'test',
+    SCRYFALL_INGEST_CRON: '',
   };
   const app = await buildApp(config, db);
   return {

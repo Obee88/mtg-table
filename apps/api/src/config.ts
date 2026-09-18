@@ -8,6 +8,8 @@ const schema = z.object({
   WEB_ORIGIN: z.url(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   GIT_SHA: z.string().default('dev'),
+  /** Cron expression (UTC) for the Scryfall card refresh; empty string disables it. */
+  SCRYFALL_INGEST_CRON: z.string().default('0 4 * * *'),
 });
 
 export type Config = z.infer<typeof schema>;
