@@ -1,5 +1,6 @@
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
+import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { authRoutes } from './auth/routes.js';
 import { findSessionUser, SESSION_COOKIE } from './auth/session.js';
@@ -15,6 +16,7 @@ import { healthRoutes } from './routes/health.js';
 import { inviteRoutes } from './routes/invites.js';
 import { roomRoutes } from './rooms/routes.js';
 import { RoomService } from './rooms/service.js';
+import { roomSocketRoutes } from './rooms/ws.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -55,6 +57,7 @@ export async function buildApp(config: Config, db: Db, deps: AppDeps = {}): Prom
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
   });
   await app.register(cookie);
+  await app.register(websocket, { options: { maxPayload: 64 * 1024 } });
 
   // CSRF: browsers always send Origin on cross-site mutating requests.
   app.addHook('onRequest', async (req) => {
@@ -92,6 +95,7 @@ export async function buildApp(config: Config, db: Db, deps: AppDeps = {}): Prom
   await app.register(cardRoutes);
   await app.register(deckRoutes);
   await app.register(roomRoutes);
+  await app.register(roomSocketRoutes);
 
   return app;
 }
