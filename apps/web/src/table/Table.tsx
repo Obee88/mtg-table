@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type DragEvent, type MouseEvent, type
 import { Button, ErrorText } from '../components';
 import type { CommandResult } from '../rooms/connection';
 import { ContextMenu, type MenuItem } from './ContextMenu';
+import { LibraryDialog } from './LibraryDialog';
 import { PlayerBar } from './PlayerBar';
 import { CARD_H, CARD_W, CardBack, TableCard } from './TableCard';
 import { TokenDialog } from './TokenDialog';
@@ -27,6 +28,8 @@ export function Table({ state, meId, send }: { state: RoomState; meId: string; s
   const [error, setError] = useState<string | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
   const [tokenDialog, setTokenDialog] = useState(false);
+  const [libraryDialog, setLibraryDialog] = useState(false);
+  const [pileMenu, setPileMenu] = useState<{ x: number; y: number } | null>(null);
   /** Card waiting for an attachment target to be clicked. */
   const [attaching, setAttaching] = useState<string | null>(null);
 
@@ -105,11 +108,43 @@ export function Table({ state, meId, send }: { state: RoomState; meId: string; s
       }
       items.push('sep');
     }
+    if (card.zone === 'hand' || card.zone === 'library' || card.faceDown) {
+      items.push('sep');
+      items.push({ label: 'Reveal to everyone', onSelect: () => void run({ type: 'revealCards', instanceIds: [card.id], to: 'all', until: card.zone === 'hand' ? 'zoneChange' : 'dismissed' }) });
+      for (const o of opponents) items.push({ label: `Reveal to ${o.displayName}`, onSelect: () => void run({ type: 'revealCards', instanceIds: [card.id], to: [o.id], until: card.zone === 'hand' ? 'zoneChange' : 'dismissed' }) });
+      if (card.revealUntil) items.push({ label: 'Hide again', onSelect: () => void run({ type: 'dismissReveal', instanceIds: [card.id] }) });
+    }
     const moves: [ZoneName, string][] = [['battlefield', 'battlefield'], ['hand', 'hand'], ['graveyard', 'graveyard'], ['exile', 'exile']];
     for (const [zone, label] of moves) if (zone !== card.zone) items.push({ label: `Move to ${label}`, onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: zone }) });
     items.push({ label: 'Top of library', onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: 'library', libraryPosition: 'top' }) });
     items.push({ label: 'Bottom of library', onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: 'library', libraryPosition: 'bottom' }) });
     return items;
+  };
+
+  /** Menu on an opponent's hand card that was revealed to me: discard-style effects. */
+  const opponentHandItems = (card: CardInstance): (MenuItem | 'sep')[] => [
+    { label: 'Put into graveyard', onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: 'graveyard' }) },
+    { label: 'Exile', onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: 'exile' }) },
+    { label: 'Bottom of library', onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: 'library', libraryPosition: 'bottom' }) },
+    { label: 'Top of library', onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: 'library', libraryPosition: 'top' }) },
+  ];
+
+  const libraryItems = (): (MenuItem | 'sep')[] => {
+    const pgs = game.players[meId];
+    const ask = (label: string, max: number) => {
+      const n = Number(prompt(label, '1'));
+      return Number.isInteger(n) && n >= 1 ? Math.min(n, max) : null;
+    };
+    return [
+      { label: 'Look at top…', onSelect: () => { const n = ask('Look at how many?', pgs?.zones.library.length ?? 0); if (n) { void run({ type: 'lookAtTop', count: n }); setLibraryDialog(true); } } },
+      { label: 'Reveal top… to everyone', onSelect: () => { const n = ask('Reveal how many?', pgs?.zones.library.length ?? 0); if (n) void run({ type: 'revealTop', count: n, to: 'all' }); } },
+      { label: 'Search library', onSelect: () => { void run({ type: 'lookAtTop', count: Math.max(1, pgs?.zones.library.length ?? 1) }); setLibraryDialog(true); } },
+      { label: 'Browse visible cards', onSelect: () => setLibraryDialog(true) },
+      'sep',
+      { label: pgs?.topRevealed ? 'Stop revealing top card' : 'Play with top card revealed', onSelect: () => void run({ type: 'setTopRevealed', enabled: !pgs?.topRevealed }) },
+      { label: 'Hide all revealed cards', onSelect: () => void run({ type: 'dismissReveal' }) },
+      { label: 'Shuffle', onSelect: () => void run({ type: 'shuffleLibrary' }) },
+    ];
   };
 
   const openMenu = (card: CardInstance) => (e: MouseEvent) => {
@@ -121,20 +156,24 @@ export function Table({ state, meId, send }: { state: RoomState; meId: string; s
     <div className="flex flex-col gap-3">
       {attaching && <p className="rounded-md bg-accent/20 px-3 py-1 text-sm text-accent">Click the permanent to attach to (Esc to cancel).</p>}
       {opponents.map((p) => (
-        <PlayerArea key={p.id} state={state} player={p} pgs={game.players[p.id]!} cards={game.cards} printings={printings} mine={false} run={run} flipped onCardClick={onCardClick} attaching={attaching !== null} />
+        <PlayerArea key={p.id} state={state} player={p} pgs={game.players[p.id]!} cards={game.cards} printings={printings} mine={false} run={run} flipped onCardClick={onCardClick} onCardMenu={openMenu} attaching={attaching !== null} />
       ))}
       {me && (
-        <PlayerArea state={state} player={me} pgs={game.players[me.id]!} cards={game.cards} printings={printings} mine run={run} onCardClick={onCardClick} onCardMenu={openMenu} onToken={() => setTokenDialog(true)} attaching={attaching !== null} />
+        <PlayerArea state={state} player={me} pgs={game.players[me.id]!} cards={game.cards} printings={printings} mine run={run} onCardClick={onCardClick} onCardMenu={openMenu} onLibraryMenu={(e) => { e.preventDefault(); setPileMenu({ x: e.clientX, y: e.clientY }); }} onToken={() => setTokenDialog(true)} attaching={attaching !== null} />
       )}
       <ErrorText error={error} />
       {menu && (
         <ContextMenu
           x={menu.x}
           y={menu.y}
-          items={menuItems(menu.card)}
+          items={menu.card.controllerId === meId ? menuItems(menu.card) : opponentHandItems(menu.card)}
           onClose={() => setMenu(null)}
           header={menu.card.customName ?? (menu.card.printingId ? printings.get(menu.card.printingId)?.name : 'Card')}
         />
+      )}
+      {pileMenu && <ContextMenu x={pileMenu.x} y={pileMenu.y} items={libraryItems()} onClose={() => setPileMenu(null)} header="Library" />}
+      {libraryDialog && me && (
+        <LibraryDialog library={game.players[me.id]!.zones.library} cards={game.cards} printings={printings} run={run} onClose={() => setLibraryDialog(false)} />
       )}
       {tokenDialog && (
         <TokenDialog
@@ -152,7 +191,7 @@ export function Table({ state, meId, send }: { state: RoomState; meId: string; s
 /** Attachments render slightly offset behind their host. */
 const ATTACH_OFFSET = 14;
 
-function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped = false, onCardClick, onCardMenu, onToken, attaching }: {
+function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped = false, onCardClick, onCardMenu, onToken, onLibraryMenu, attaching }: {
   state: RoomState;
   player: RoomPlayer;
   pgs: PlayerGameState;
@@ -164,6 +203,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped =
   onCardClick: (card: CardInstance) => void;
   onCardMenu?: ((card: CardInstance) => (e: MouseEvent) => void) | undefined;
   onToken?: (() => void) | undefined;
+  onLibraryMenu?: ((e: MouseEvent) => void) | undefined;
   attaching: boolean;
 }) {
   const zoneCards = (zone: ZoneName) => pgs.zones[zone].map((id) => cards[id]).filter((c): c is CardInstance => !!c);
@@ -226,7 +266,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped =
   const hand = (
     <div className="flex min-h-[calc(112px+1rem)] flex-wrap items-center gap-2 rounded-lg border border-border bg-surface/60 p-2" onDragOver={allowDrop} onDrop={dropTo('hand')}>
       {zoneCards('hand').map((c) => (
-        <TableCard key={c.id} card={c} printing={c.printingId ? printings.get(c.printingId) : undefined} mine={mine} onContextMenu={mine && onCardMenu ? onCardMenu(c) : undefined} />
+        <TableCard key={c.id} card={c} printing={c.printingId ? printings.get(c.printingId) : undefined} mine={mine} onContextMenu={onCardMenu && (mine || c.printingId !== null) ? onCardMenu(c) : undefined} />
       ))}
       {pgs.zones.hand.length === 0 && <span className="px-2 text-xs text-text-muted">empty hand</span>}
     </div>
@@ -234,8 +274,8 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped =
 
   const piles = (
     <div className="flex shrink-0 gap-2">
-      <Pile label="Library" count={pgs.zones.library.length} onDragOver={allowDrop} onDrop={dropTo('library')}>
-        {pgs.zones.library.length > 0 && <CardBack />}
+      <Pile label={pgs.topRevealed ? 'Library (top revealed)' : 'Library'} count={pgs.zones.library.length} onDragOver={allowDrop} onDrop={dropTo('library')} onContextMenu={mine ? onLibraryMenu : undefined}>
+        {pgs.zones.library.length > 0 && (cards[pgs.zones.library[0]!]?.printingId ? topCard(zoneCards('library').slice(0, 1), printings, false) : <CardBack />)}
       </Pile>
       <Pile label="Graveyard" count={pgs.zones.graveyard.length} onDragOver={allowDrop} onDrop={dropTo('graveyard')}>
         {topCard(zoneCards('graveyard'), printings, mine, onCardMenu)}
@@ -285,7 +325,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped =
   );
 }
 
-function Pile({ label, count, children, ...drop }: { label: string; count: number; children?: ReactNode; onDragOver?: ((e: DragEvent) => void) | undefined; onDrop?: ((e: DragEvent<HTMLDivElement>) => void) | undefined }) {
+function Pile({ label, count, children, ...drop }: { label: string; count: number; children?: ReactNode; onDragOver?: ((e: DragEvent) => void) | undefined; onDrop?: ((e: DragEvent<HTMLDivElement>) => void) | undefined; onContextMenu?: ((e: MouseEvent) => void) | undefined }) {
   return (
     <div className="flex flex-col items-center gap-1 text-xs text-text-muted" {...drop}>
       <div className="flex items-center justify-center rounded-[4.5%] border border-dashed border-border" style={{ width: CARD_W, height: CARD_H }}>

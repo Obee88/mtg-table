@@ -66,6 +66,7 @@ export function TableCard({ card, printing, mine, onClick, onContextMenu }: {
         <img src={src} alt={label ?? ''} draggable={false} className="h-full w-full rounded-[4.5%] object-cover shadow-md" />
       )}
       {card.isToken && <span className="absolute right-0.5 top-0.5 rounded bg-accent px-1 text-[9px] font-semibold text-bg">T</span>}
+      {revealedToOthers(card) && <span className="absolute right-0.5 bottom-5 rounded bg-success px-1 text-[9px] font-semibold text-bg" title="revealed">👁</span>}
       {counters.length > 0 && (
         <div className="absolute left-0.5 top-0.5 flex flex-col gap-0.5">
           {counters.map(([kind, value]) => (
@@ -76,4 +77,10 @@ export function TableCard({ card, printing, mine, onClick, onContextMenu }: {
       {card.note && <span className="absolute inset-x-0.5 bottom-0.5 truncate rounded bg-accent/90 px-1 text-center text-[9px] text-bg">{card.note}</span>}
     </div>
   );
+}
+
+/** True when a normally hidden card is currently revealed beyond its owner. */
+function revealedToOthers(card: CardInstance): boolean {
+  if (card.zone !== 'hand' && card.zone !== 'library' && !card.faceDown) return false;
+  return card.visibleTo === 'all' || (Array.isArray(card.visibleTo) && card.visibleTo.length > 1);
 }

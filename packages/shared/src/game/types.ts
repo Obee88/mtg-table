@@ -46,6 +46,8 @@ export interface PlayerGameState {
   counters: Record<string, number>;
   commanderTax: number;
   commanderDamage: Record<PlayerId, number>;
+  /** Top card of the library is permanently revealed to everyone. */
+  topRevealed: boolean;
   /** Ordered instance ids per zone; library index 0 is the top. */
   zones: Record<ZoneName, InstanceId[]>;
 }
@@ -99,6 +101,7 @@ export function emptyPlayerGameState(startingLife: number): PlayerGameState {
     counters: {},
     commanderTax: 0,
     commanderDamage: {},
+    topRevealed: false,
     zones: { library: [], hand: [], battlefield: [], graveyard: [], exile: [], command: [], sideboard: [] },
   };
 }

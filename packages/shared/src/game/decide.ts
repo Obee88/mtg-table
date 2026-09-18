@@ -1,6 +1,7 @@
 import type { GameCommand } from './commands.js';
 import type { GameEvent } from './events.js';
 import type { DeckContents } from '../decks.js';
+import { defaultVisibility } from './reduce.js';
 import { shuffled, teamForSeat, type CardInstance, type PlayerGameState, type RoomState } from './types.js';
 
 const HAND_SIZE = 7;
@@ -93,8 +94,16 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
 
     case 'moveCard': {
       const found = ownCard(state, ctx.actorId, command.instanceId);
-      if ('error' in found) return reject(found.error);
-      const { card } = found;
+      let card: CardInstance;
+      if ('error' in found) {
+        // A revealed hand card may be taken by whoever it was revealed to (e.g. discard effects).
+        const other = state.game?.cards[command.instanceId];
+        const allowed = other && other.zone === 'hand' && ['graveyard', 'exile', 'library'].includes(command.to) && Array.isArray(other.visibleTo) && other.visibleTo.includes(ctx.actorId);
+        if (!allowed || state.phase !== 'playing') return reject(found.error);
+        card = other;
+      } else {
+        card = found.card;
+      }
       return accept({
         type: 'cardMoved',
         instanceId: card.id,
@@ -276,6 +285,71 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       return accept({ type: 'coinFlipped', playerId: ctx.actorId, results });
     }
 
+    case 'revealCards': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      const events: GameEvent[] = [];
+      for (const id of command.instanceIds) {
+        const card = state.game!.cards[id];
+        if (!card || card.ownerId !== ctx.actorId) return reject('Not your card');
+        events.push(revealEvent(card, ctx.actorId, command.to, command.until));
+      }
+      return accept(...events);
+    }
+
+    case 'revealHand': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      return accept(...pgs.zones.hand.map((id) => revealEvent(state.game!.cards[id]!, ctx.actorId, command.to, 'zoneChange')));
+    }
+
+    case 'revealTop': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      const top = pgs.zones.library.slice(0, command.count);
+      if (top.length === 0) return reject('Library is empty');
+      return accept(...top.map((id) => revealEvent(state.game!.cards[id]!, ctx.actorId, command.to, 'dismissed')));
+    }
+
+    case 'lookAtTop': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      const top = pgs.zones.library.slice(0, command.count);
+      if (top.length === 0) return reject('Library is empty');
+      return accept(...top.map((id) => revealEvent(state.game!.cards[id]!, ctx.actorId, [], 'dismissed')));
+    }
+
+    case 'reorderLibraryTop': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      const current = pgs.zones.library.slice(0, command.instanceIds.length);
+      const same = current.length === command.instanceIds.length && [...current].sort().join() === [...command.instanceIds].sort().join();
+      if (!same) return reject('Can only reorder the top cards of the library');
+      if (current.join() === command.instanceIds.join()) return accept();
+      return accept({ type: 'libraryReordered', playerId: ctx.actorId, top: command.instanceIds });
+    }
+
+    case 'setTopRevealed': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      if (pgs.topRevealed === command.enabled) return accept();
+      return accept({ type: 'topRevealedChanged', playerId: ctx.actorId, enabled: command.enabled });
+    }
+
+    case 'dismissReveal': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      const ids = command.instanceIds ?? Object.values(state.game!.cards).filter((c) => c.ownerId === ctx.actorId && c.revealUntil === 'dismissed').map((c) => c.id);
+      const events: GameEvent[] = [];
+      for (const id of ids) {
+        const card = state.game!.cards[id];
+        if (!card || card.ownerId !== ctx.actorId) return reject('Not your card');
+        if (card.revealUntil !== 'dismissed') continue;
+        events.push({ type: 'visibilityChanged', instanceId: id, visibleTo: card.faceDown ? 'owner' : defaultVisibility(card.zone), revealUntil: null });
+      }
+      return accept(...events);
+    }
+
     case 'closeRoom':
       if (!isOwner) return reject('Only the owner can close the room');
       return accept({ type: 'roomClosed' });
@@ -321,4 +395,15 @@ function shuffleEvent(state: RoomState, playerId: string, ids: readonly string[]
     previousId,
   }));
   return { type: 'libraryShuffled', playerId, cards };
+}
+
+/** Visibility after revealing `card` to `to`: the owner always keeps (or gains) sight. */
+function revealEvent(card: CardInstance, ownerId: string, to: 'all' | string[], until: 'dismissed' | 'zoneChange'): GameEvent {
+  let visibleTo: CardInstance['visibleTo'];
+  if (card.visibleTo === 'all' || to === 'all') visibleTo = 'all';
+  else {
+    const current = card.visibleTo === 'owner' ? [ownerId] : card.visibleTo;
+    visibleTo = [...new Set([ownerId, ...current, ...to])];
+  }
+  return { type: 'visibilityChanged', instanceId: card.id, visibleTo, revealUntil: until };
 }

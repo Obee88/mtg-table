@@ -1,5 +1,8 @@
 import { z } from 'zod';
 import { positionSchema, roomSettingsSchema } from './events.js';
+
+export const revealTargetSchema = z.union([z.literal('all'), z.array(z.string()).min(1).max(8)]);
+export type RevealTarget = z.infer<typeof revealTargetSchema>;
 import { ZONES } from './types.js';
 
 /** What a client may ask for. Validated by `decide` against the current state. */
@@ -29,6 +32,18 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('setFaceDown'), instanceId: z.string(), faceDown: z.boolean() }),
   z.object({ type: z.literal('addCounter'), instanceId: z.string(), kind: z.string().trim().min(1).max(32), delta: z.number().int().min(-99).max(99) }),
   z.object({ type: z.literal('attachCard'), instanceId: z.string(), to: z.string().nullable() }),
+  // ---- visibility ----
+  /** Reveal specific own cards (hand, library, face-down) to everyone or to given players. */
+  z.object({ type: z.literal('revealCards'), instanceIds: z.array(z.string()).min(1).max(200), to: revealTargetSchema, until: z.enum(['dismissed', 'zoneChange']) }),
+  z.object({ type: z.literal('revealHand'), to: revealTargetSchema }),
+  z.object({ type: z.literal('revealTop'), count: z.number().int().min(1).max(200), to: revealTargetSchema }),
+  /** Look at the top N privately (scry, surveil, search = whole library). */
+  z.object({ type: z.literal('lookAtTop'), count: z.number().int().min(1).max(500) }),
+  /** New order for the top cards; must be a permutation of the current top N. */
+  z.object({ type: z.literal('reorderLibraryTop'), instanceIds: z.array(z.string()).min(1).max(500) }),
+  z.object({ type: z.literal('setTopRevealed'), enabled: z.boolean() }),
+  /** Ends 'until dismissed' reveals on own cards (all of them, or the given ones). */
+  z.object({ type: z.literal('dismissReveal'), instanceIds: z.array(z.string()).max(500).optional() }),
   // ---- players ----
   z.object({ type: z.literal('adjustLife'), delta: z.number().int().min(-999).max(999) }),
   z.object({ type: z.literal('adjustPoison'), delta: z.number().int().min(-99).max(99) }),

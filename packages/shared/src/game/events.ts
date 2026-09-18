@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { ZONES } from './types.js';
 
 export const positionSchema = z.object({ x: z.number(), y: z.number() });
+export const visibilitySchema = z.union([z.literal('owner'), z.literal('all'), z.array(z.string())]);
 
 export const counterTargetSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('card'), instanceId: z.string() }),
@@ -57,6 +58,10 @@ export const gameEventSchema = z.discriminatedUnion('type', [
   /** One mechanism for card and player counters. `value` is the resulting total. */
   z.object({ type: z.literal('counterChanged'), target: counterTargetSchema, kind: z.string(), delta: z.number().int(), value: z.number().int() }),
   z.object({ type: z.literal('cardAttached'), instanceId: z.string(), to: z.string().nullable() }),
+  // ---- visibility ----
+  z.object({ type: z.literal('visibilityChanged'), instanceId: z.string(), visibleTo: visibilitySchema, revealUntil: z.enum(['dismissed', 'zoneChange']).nullable() }),
+  z.object({ type: z.literal('libraryReordered'), playerId: z.string(), top: z.array(z.string()) }),
+  z.object({ type: z.literal('topRevealedChanged'), playerId: z.string(), enabled: z.boolean() }),
   // ---- players ----
   z.object({ type: z.literal('lifeChanged'), target: lifeTargetSchema, delta: z.number().int(), value: z.number().int() }),
   z.object({ type: z.literal('poisonChanged'), playerId: z.string(), delta: z.number().int(), value: z.number().int() }),
@@ -97,4 +102,6 @@ export interface RoomEvent {
   event: GameEvent;
   /** Identities the receiving viewer just became allowed to see (projection only). */
   revealed?: { instanceId: string; printingId: string }[];
+  /** Cards whose identity the viewer may no longer see (projection only). */
+  hidden?: string[];
 }

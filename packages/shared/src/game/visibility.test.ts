@@ -173,3 +173,120 @@ describe('face-down projection', () => {
     expect(projectState({ ...reduceAll(state, events.slice(0, 2).map((e) => e.event)), seq: 0 }, 'a').game!.cards[id]!.printingId).toBe('card-of-a');
   });
 });
+
+describe('reveals', () => {
+  const setup = () => {
+    const { state } = game(twoPlayer, ['a', 'b']);
+    return state;
+  };
+  const step = (s: RoomState, actor: string, c: Parameters<typeof decide>[1]) => {
+    const d = decide(s, c, ctx(actor));
+    if (!d.ok) throw new Error(d.error);
+    return reduceAll(s, d.events);
+  };
+  const seen = (s: RoomState, viewer: string, id: string) => projectState(s, viewer).game!.cards[id]!.printingId !== null;
+
+  it('reveal hand to one player lasts until the card changes zones', () => {
+    let s = setup();
+    const [h0] = s.game!.players.a!.zones.hand;
+    s = step(s, 'a', { type: 'revealHand', to: ['b'] });
+    expect(seen(s, 'b', h0!)).toBe(true);
+    expect(seen(s, 'a', h0!)).toBe(true);
+    s = step(s, 'a', { type: 'draw', count: 1 });
+    const drawn = s.game!.players.a!.zones.hand.at(-1)!;
+    expect(seen(s, 'b', drawn)).toBe(false); // drawn later, not part of the reveal
+    s = step(s, 'a', { type: 'moveCard', instanceId: h0!, to: 'library', libraryPosition: 'bottom' });
+    expect(seen(s, 'b', h0!)).toBe(false);
+    expect(seen(s, 'a', h0!)).toBe(false);
+  });
+
+  it('look at top is private, reorder must be a permutation, dismiss hides again', () => {
+    let s = setup();
+    const lib = s.game!.players.a!.zones.library;
+    expect(lib).toHaveLength(2); // 9-card deck, 7 drawn
+    s = step(s, 'a', { type: 'lookAtTop', count: 1 });
+    expect(seen(s, 'a', lib[0]!)).toBe(true);
+    expect(seen(s, 'a', lib[1]!)).toBe(false);
+    expect(seen(s, 'b', lib[0]!)).toBe(false);
+    expect(decide(s, { type: 'reorderLibraryTop', instanceIds: [lib[0]!, 'nope'] }, ctx('a')).ok).toBe(false);
+    s = step(s, 'a', { type: 'reorderLibraryTop', instanceIds: [lib[1]!, lib[0]!] });
+    expect(s.game!.players.a!.zones.library).toEqual([lib[1], lib[0]]);
+    s = step(s, 'a', { type: 'dismissReveal' });
+    expect(seen(s, 'a', lib[0]!)).toBe(false);
+    for (const v of ['a', 'b']) assertNoLeak(s, v);
+  });
+
+  it('reveal top to everyone, and the permanent top-card reveal follows the library', () => {
+    let s = setup();
+    const lib = s.game!.players.a!.zones.library;
+    s = step(s, 'a', { type: 'revealTop', count: 1, to: 'all' });
+    expect(seen(s, 'b', lib[0]!)).toBe(true);
+    s = step(s, 'a', { type: 'dismissReveal', instanceIds: [lib[0]!] });
+    expect(seen(s, 'b', lib[0]!)).toBe(false);
+    s = step(s, 'a', { type: 'setTopRevealed', enabled: true });
+    expect(seen(s, 'b', lib[0]!)).toBe(true);
+    expect(seen(s, 'b', lib[1]!)).toBe(false);
+    s = step(s, 'a', { type: 'draw', count: 1 });
+    expect(seen(s, 'b', lib[0]!)).toBe(false); // now in a's hand
+    expect(seen(s, 'b', lib[1]!)).toBe(true); // new top
+    s = step(s, 'a', { type: 'setTopRevealed', enabled: false });
+    expect(seen(s, 'b', lib[1]!)).toBe(false);
+  });
+
+  it('a player may discard a hand card that was revealed to them, but nothing else', () => {
+    let s = setup();
+    const [h0, h1] = s.game!.players.a!.zones.hand;
+    expect(decide(s, { type: 'moveCard', instanceId: h0!, to: 'graveyard' }, ctx('b')).ok).toBe(false);
+    s = step(s, 'a', { type: 'revealCards', instanceIds: [h0!], to: ['b'], until: 'zoneChange' });
+    expect(decide(s, { type: 'moveCard', instanceId: h0!, to: 'battlefield' }, ctx('b')).ok).toBe(false);
+    expect(decide(s, { type: 'moveCard', instanceId: h1!, to: 'graveyard' }, ctx('b')).ok).toBe(false);
+    s = step(s, 'b', { type: 'moveCard', instanceId: h0!, to: 'graveyard' });
+    expect(s.game!.cards[h0!]).toMatchObject({ zone: 'graveyard', ownerId: 'a', visibleTo: 'all' });
+    expect(s.game!.players.a!.zones.graveyard).toEqual([h0]);
+  });
+
+  it('projected replay with reveals still equals projected state, and reveals produce revealed identities', () => {
+    const { state, log } = game(twoPlayer, ['a', 'b']);
+    const lib = state.game!.players.a!.zones.library;
+    const cmds: [string, Parameters<typeof decide>[1]][] = [
+      ['a', { type: 'revealTop', count: 2, to: ['b'] }],
+      ['a', { type: 'reorderLibraryTop', instanceIds: [lib[1]!, lib[0]!] }],
+      ['a', { type: 'dismissReveal' }],
+      ['a', { type: 'setTopRevealed', enabled: true }],
+      ['b', { type: 'draw', count: 1 }],
+    ];
+    let s = state;
+    const extra: RoomEvent[] = [];
+    for (const [actor, c] of cmds) {
+      const d = decide(s, c, ctx(actor));
+      if (!d.ok) throw new Error(d.error);
+      for (const event of d.events) extra.push({ seq: log.length + extra.length + 1, actorId: actor, at: '', event });
+      s = reduceAll(s, d.events);
+    }
+    const full = { ...s, seq: log.length + extra.length };
+    for (const viewer of ['a', 'b']) {
+      const projected = projectEvents([...log, ...extra], viewer, initialRoomState('r'));
+      expect(projected.reduce(applyRoomEvent, initialRoomState('r'))).toEqual(projectState(full, viewer));
+    }
+    const forB = projectEvents(extra, 'b', state);
+    expect(forB[0]?.revealed?.map((r) => r.instanceId)).toEqual([lib[0]]);
+    expect(forB[1]?.revealed?.map((r) => r.instanceId)).toEqual([lib[1]]);
+  });
+});
+
+describe('hidden identities', () => {
+  it('tells the viewer to forget a card after a dismissed reveal', () => {
+    const { state, log } = game(twoPlayer, ['a', 'b']);
+    const top = state.game!.players.a!.zones.library[0]!;
+    const d1 = decide(state, { type: 'revealTop', count: 1, to: 'all' }, ctx('a'));
+    const s1 = reduceAll(state, d1.ok ? d1.events : []);
+    const d2 = decide(s1, { type: 'dismissReveal' }, ctx('a'));
+    const events: RoomEvent[] = [...(d1.ok ? d1.events : []), ...(d2.ok ? d2.events : [])].map((event, i) => ({ seq: log.length + i + 1, actorId: 'a', at: '', event }));
+    const forB = projectEvents(events, 'b', state);
+    expect(forB[0]?.revealed?.[0]?.instanceId).toBe(top);
+    expect(forB[1]?.hidden).toEqual([top]);
+    let client = projectState(state, 'b');
+    for (const e of forB) client = applyRoomEvent(client, e);
+    expect(client.game!.cards[top]!.printingId).toBeNull();
+  });
+});

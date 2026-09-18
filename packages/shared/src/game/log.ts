@@ -87,6 +87,15 @@ export function describeEvent(e: RoomEvent, ctx: LogContext): string | null {
       return `${ctx.playerName(ev.playerId)}'s commander tax is now ${ev.value}`;
     case 'commanderDamageChanged':
       return `${ctx.playerName(ev.playerId)} has taken ${ev.value} commander damage from ${ctx.playerName(ev.fromPlayerId)}`;
+    case 'visibilityChanged': {
+      if (ev.revealUntil === null) return null; // dismissals are noise
+      const to = ev.visibleTo === 'all' ? 'everyone' : ev.visibleTo === 'owner' ? 'themselves' : ev.visibleTo.filter((p) => p !== e.actorId).map(ctx.playerName).join(', ') || 'themselves';
+      return to === 'themselves' ? `${actor} looked at ${card(ev.instanceId)}` : `${actor} revealed ${card(ev.instanceId)} to ${to}`;
+    }
+    case 'libraryReordered':
+      return `${ctx.playerName(ev.playerId)} reordered the top ${ev.top.length} cards of their library`;
+    case 'topRevealedChanged':
+      return `${ctx.playerName(ev.playerId)} ${ev.enabled ? 'now plays with the top card revealed' : 'stopped revealing the top card'}`;
     case 'diceRolled':
       return `${actor} rolled ${ev.results.length > 1 ? `${ev.results.length}d${ev.sides}` : `a d${ev.sides}`}: ${ev.results.join(', ')}${ev.results.length > 1 ? ` (total ${ev.results.reduce((a, b) => a + b, 0)})` : ''}`;
     case 'coinFlipped':

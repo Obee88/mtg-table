@@ -234,6 +234,19 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
     case 'coinFlipped':
       return state; // log-only facts
 
+    case 'visibilityChanged':
+      return patchCard(state, event.instanceId, { visibleTo: event.visibleTo, revealUntil: event.revealUntil });
+
+    case 'libraryReordered': {
+      const pgs = state.game?.players[event.playerId];
+      if (!pgs) return state;
+      const rest = pgs.zones.library.filter((id) => !event.top.includes(id));
+      return patchPlayer(state, event.playerId, { zones: { ...pgs.zones, library: [...event.top, ...rest] } });
+    }
+
+    case 'topRevealedChanged':
+      return patchPlayer(state, event.playerId, { topRevealed: event.enabled });
+
     case 'roomClosed':
       return { ...state, phase: 'ended' };
   }
