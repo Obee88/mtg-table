@@ -112,8 +112,19 @@ describe('auth', () => {
   });
 
   it('validation errors are 400 with a message', async () => {
-    const res = await post('/auth/register', { email: 'not-an-email', password: 'short', displayName: 'x' });
+    const res = await post('/auth/register', { email: 'not-an-email', password: 'abc', displayName: 'x' });
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toBe('validation');
+  });
+});
+
+describe('password policy', () => {
+  it('accepts six lowercase letters and rejects five', async () => {
+    const login = await post('/auth/login', { email: 'admin@example.com', password: 'a-long-enough-password' });
+    const invite = (await post('/invites', {}, { cookie: sessionCookie(login) })).json().code;
+    const ok = await post('/auth/register', { email: 'six@example.com', password: 'abcdef', displayName: 'Six', inviteCode: invite });
+    expect(ok.statusCode).toBe(201);
+    const short = await post('/auth/register', { email: 'five@example.com', password: 'abcde', displayName: 'Five', inviteCode: invite });
+    expect(short.statusCode).toBe(400);
   });
 });

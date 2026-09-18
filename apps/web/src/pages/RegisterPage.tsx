@@ -28,7 +28,7 @@ export function RegisterPage() {
           <Input label="Invite code" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} />
           <Input label="Display name" autoComplete="nickname" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required minLength={2} />
           <Input label="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <Input label="Password (10+ characters)" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={10} />
+          <Input label="Password (6+ characters)" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
           <ErrorText error={register.error} />
           <Button type="submit" disabled={register.isPending}>
             {register.isPending ? 'Creating…' : 'Create account'}

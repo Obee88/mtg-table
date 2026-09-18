@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const emailSchema = z.email().trim().toLowerCase().max(254);
-export const passwordSchema = z.string().min(10).max(200);
+export const passwordSchema = z.string().min(6).max(200);
 export const displayNameSchema = z.string().trim().min(2).max(32);
 
 export const registerSchema = z.object({
