@@ -4,6 +4,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { authRoutes } from './auth/routes.js';
 import { findSessionUser, SESSION_COOKIE } from './auth/session.js';
 import { CardIngestService } from './cards/ingest.js';
+import { cardRoutes } from './cards/public-routes.js';
 import { cardAdminRoutes } from './cards/routes.js';
 import { scryfallSource, type CardSource } from './cards/scryfall.js';
 import type { Config } from './config.js';
@@ -83,6 +84,7 @@ export async function buildApp(config: Config, db: Db, deps: AppDeps = {}): Prom
   await app.register(authRoutes);
   await app.register(inviteRoutes);
   await app.register(cardAdminRoutes);
+  await app.register(cardRoutes);
 
   return app;
 }

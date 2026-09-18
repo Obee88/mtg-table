@@ -1,5 +1,6 @@
 import type { Invite, User } from '@mtg/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router';
 import { Button, Card, ErrorText } from '../components';
 import { api } from '../lib/api';
 import { useLogout } from '../lib/auth';
@@ -20,6 +21,7 @@ export function HomePage({ user }: { user: User }) {
 
       <Card title="Table">
         <p className="text-text-muted">Rooms, decks and drafts will appear here.</p>
+        <Link to="/cards" className="mt-3 inline-block text-sm text-accent hover:underline">Browse cards</Link>
       </Card>
 
       {user.isAdmin && <InvitesPanel />}

@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import type { CardFace, NewCardRow } from '../db/index.js';
+import type { CardFace } from '@mtg/shared';
+import type { NewCardRow } from '../db/index.js';
 
 const imageUris = z.record(z.string(), z.string());
 

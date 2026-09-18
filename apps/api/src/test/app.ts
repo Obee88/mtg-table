@@ -1,11 +1,11 @@
 import type { FastifyInstance } from 'fastify';
-import { buildApp } from '../app.js';
+import { buildApp, type AppDeps } from '../app.js';
 import type { Config } from '../config.js';
 import { testDb } from './db.js';
 
 export const TEST_ORIGIN = 'http://localhost:5173';
 
-export async function testApp(): Promise<{ app: FastifyInstance; close: () => Promise<void> }> {
+export async function testApp(deps: AppDeps = {}): Promise<{ app: FastifyInstance; close: () => Promise<void> }> {
   const { db, close } = await testDb();
   const config: Config = {
     NODE_ENV: 'test',
@@ -17,7 +17,7 @@ export async function testApp(): Promise<{ app: FastifyInstance; close: () => Pr
     GIT_SHA: 'test',
     SCRYFALL_INGEST_CRON: '',
   };
-  const app = await buildApp(config, db);
+  const app = await buildApp(config, db, deps);
   return {
     app,
     close: async () => {

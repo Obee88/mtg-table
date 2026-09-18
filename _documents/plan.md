@@ -122,7 +122,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 
 **M1 — Cards & decks**
 - [x] Scryfall bulk ingest into a `cards` table (streaming parse, admin-triggered endpoint, nightly schedule)
-- [ ] Card search endpoint (name autocomplete, printings per oracle id) and a web card search page with hover preview
+- [x] Card search endpoint (name autocomplete, printings per oracle id) and a web card search page with hover preview
 - [ ] Decklist parser in `packages/shared` (`4 Lightning Bolt`, optional `(SET) 123`, sideboard/commander sections) with tests
 - [ ] Deck import endpoint: resolve names → printings, report unknown names; saved decks CRUD
 - [ ] Web deck pages: paste/upload, validation errors, printing picker, deck list

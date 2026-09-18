@@ -1,4 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+import { CardPreviewProvider } from './cards/CardPreview';
+import { CardsPage } from './cards/CardsPage';
 import { useMe } from './lib/auth';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
@@ -12,12 +14,15 @@ export function App() {
 
   return (
     <BrowserRouter>
+      <CardPreviewProvider>
       <Routes>
         <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
         <Route path="/register" element={user ? <Navigate to="/" replace /> : <RegisterPage />} />
         <Route path="/" element={user ? <HomePage user={user} /> : <Navigate to="/login" replace />} />
+        <Route path="/cards" element={user ? <CardsPage /> : <Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </CardPreviewProvider>
     </BrowserRouter>
   );
 }

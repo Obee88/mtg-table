@@ -1,3 +1,4 @@
+import type { CardFace } from '@mtg/shared';
 import { sql } from 'drizzle-orm';
 import { boolean, date, index, integer, jsonb, pgTable, real, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
@@ -75,13 +76,6 @@ export const cards = pgTable(
   ],
 );
 
-export interface CardFace {
-  name: string;
-  manaCost: string | null;
-  typeLine: string | null;
-  oracleText: string | null;
-  imageUris: Record<string, string> | null;
-}
 
 export const cardIngests = pgTable('card_ingests', {
   id: uuid('id').primaryKey().defaultRandom(),
