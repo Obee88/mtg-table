@@ -40,6 +40,12 @@ export const gameEventSchema = z.discriminatedUnion('type', [
     libraryPosition: z.enum(['top', 'bottom']).nullable(),
   }),
   z.object({ type: z.literal('cardTapped'), instanceId: z.string(), tapped: z.boolean() }),
+  /** Library re-keyed: every card gets a fresh id so nobody can track one through the shuffle. Identities are stripped by projection. */
+  z.object({
+    type: z.literal('libraryShuffled'),
+    playerId: z.string(),
+    cards: z.array(z.object({ id: z.string(), printingId: z.string().nullable(), previousId: z.string().nullable() })),
+  }),
   z.object({
     type: z.literal('gameStarted'),
     firstPlayerId: z.string(),

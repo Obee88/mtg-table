@@ -74,6 +74,8 @@ function projectPayload(event: GameEvent, viewerId: PlayerId, after: RoomState):
         ),
       };
     }
+    case 'libraryShuffled':
+      return { ...event, cards: event.cards.map((c) => ({ id: c.id, printingId: null, previousId: null })) };
     default:
       return event;
   }

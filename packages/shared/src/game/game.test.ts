@@ -249,3 +249,75 @@ describe('rollForFirst safety', () => {
     if (d.ok && d.events[0]?.type === 'gameStarted') expect(d.events[0].firstPlayerId).toBe('a');
   });
 });
+
+describe('untap all, shuffle, mulligan', () => {
+  const settings: RoomSettings = { playerCount: 2, mode: '1v1', startingLife: 20, commander: false };
+  const decks = {
+    a: { main: [{ printingId: 'bolt', quantity: 6 }, { printingId: 'mountain', quantity: 6 }], sideboard: [], commander: [] },
+    b: { main: [{ printingId: 'island', quantity: 9 }], sideboard: [], commander: [] },
+  };
+  let n = 0;
+  let r = 0;
+  const rnd = () => ((r += 7) % 11) / 11;
+  const full = (actor: string): CommandContext => ({ ...ctx(actor), random: rnd, newId: () => `n${++n}` });
+  const playing = () => {
+    let s = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings });
+    for (const p of ['a', 'b']) {
+      s = run(s, p, { type: 'join' });
+      s = run(s, p, { type: 'selectDeck', deckId: `deck-${p}` });
+      s = run(s, p, { type: 'setReady', ready: true });
+    }
+    const d = decide(s, { type: 'start' }, { ...full('a'), decks });
+    if (!d.ok) throw new Error(d.error);
+    return reduceAll(s, d.events);
+  };
+  const g = (s: ReturnType<typeof playing>) => s.game!;
+  const runFull = (s: ReturnType<typeof playing>, actor: string, command: Parameters<typeof decide>[1]) => {
+    const d = decide(s, command, full(actor));
+    if (!d.ok) throw new Error(d.error);
+    return reduceAll(s, d.events);
+  };
+
+  it('untaps every tapped permanent of the actor only', () => {
+    let s = playing();
+    const [x, y] = g(s).players.a!.zones.hand;
+    s = run(s, 'a', { type: 'moveCard', instanceId: x!, to: 'battlefield' });
+    s = run(s, 'a', { type: 'moveCard', instanceId: y!, to: 'battlefield' });
+    s = run(s, 'a', { type: 'tapCard', instanceId: x!, tapped: true });
+    s = run(s, 'a', { type: 'tapCard', instanceId: y!, tapped: true });
+    const other = g(s).players.b!.zones.hand[0]!;
+    s = run(s, 'b', { type: 'moveCard', instanceId: other, to: 'battlefield' });
+    s = run(s, 'b', { type: 'tapCard', instanceId: other, tapped: true });
+    s = run(s, 'a', { type: 'untapAll' });
+    expect(g(s).cards[x!]?.tapped).toBe(false);
+    expect(g(s).cards[y!]?.tapped).toBe(false);
+    expect(g(s).cards[other]?.tapped).toBe(true);
+    expect(decide(s, { type: 'untapAll' }, ctx('a'))).toEqual({ ok: true, events: [] });
+  });
+
+  it('shuffling re-keys the library, keeps its contents, and removes the old ids', () => {
+    let s = playing();
+    const before = g(s).players.a!.zones.library;
+    const identities = before.map((id) => g(s).cards[id]!.printingId).sort();
+    s = runFull(s, 'a', { type: 'shuffleLibrary' });
+    const after = g(s).players.a!.zones.library;
+    expect(after).toHaveLength(before.length);
+    expect(after.some((id) => before.includes(id))).toBe(false);
+    expect(after.map((id) => g(s).cards[id]!.printingId).sort()).toEqual(identities);
+    for (const id of before) expect(g(s).cards[id]).toBeUndefined();
+    expect(Object.keys(g(s).cards)).toHaveLength(12 + 9);
+    expect(g(s).cards[after[0]!]).toMatchObject({ zone: 'library', visibleTo: [], ownerId: 'a' });
+  });
+
+  it('mulligan returns the hand, shuffles and draws the requested number', () => {
+    let s = playing();
+    const oldHand = g(s).players.a!.zones.hand;
+    s = runFull(s, 'a', { type: 'mulligan', count: 6 });
+    const p = g(s).players.a!;
+    expect(p.zones.hand).toHaveLength(6);
+    expect(p.zones.library).toHaveLength(6);
+    expect(p.zones.hand.some((id) => oldHand.includes(id))).toBe(false);
+    expect(Object.keys(g(s).cards)).toHaveLength(12 + 9);
+    expect(g(s).cards[p.zones.hand[0]!]).toMatchObject({ zone: 'hand', visibleTo: 'owner' });
+  });
+});

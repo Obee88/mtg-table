@@ -1,7 +1,7 @@
 import type { GameCommand } from './commands.js';
 import type { GameEvent } from './events.js';
 import type { DeckContents } from '../decks.js';
-import { shuffled, teamForSeat, type CardInstance, type RoomState } from './types.js';
+import { shuffled, teamForSeat, type CardInstance, type PlayerGameState, type RoomState } from './types.js';
 
 const HAND_SIZE = 7;
 const MAX_TIE_BREAK_ROUNDS = 20;
@@ -122,6 +122,33 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       return accept(...top.map((instanceId): GameEvent => ({ type: 'cardMoved', instanceId, from: 'library', to: 'hand', position: null, libraryPosition: null })));
     }
 
+    case 'untapAll': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      const tapped = pgs.zones.battlefield.filter((id) => state.game!.cards[id]?.tapped);
+      return accept(...tapped.map((instanceId): GameEvent => ({ type: 'cardTapped', instanceId, tapped: false })));
+    }
+
+    case 'shuffleLibrary': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      if (!ctx.random || !ctx.newId) return reject('Randomness unavailable');
+      return accept(shuffleEvent(state, ctx.actorId, pgs.zones.library, ctx.random, ctx.newId));
+    }
+
+    case 'mulligan': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      if (!ctx.random || !ctx.newId) return reject('Randomness unavailable');
+      const events: GameEvent[] = pgs.zones.hand.map((instanceId) => ({ type: 'cardMoved', instanceId, from: 'hand', to: 'library', position: null, libraryPosition: 'top' }));
+      const shuffle = shuffleEvent(state, ctx.actorId, [...pgs.zones.hand, ...pgs.zones.library], ctx.random, ctx.newId);
+      events.push(shuffle);
+      for (const c of shuffle.cards.slice(0, command.count)) {
+        events.push({ type: 'cardMoved', instanceId: c.id, from: 'library', to: 'hand', position: null, libraryPosition: null });
+      }
+      return accept(...events);
+    }
+
     case 'closeRoom':
       if (!isOwner) return reject('Only the owner can close the room');
       return accept({ type: 'roomClosed' });
@@ -149,4 +176,22 @@ function ownCard(state: RoomState, actorId: string, instanceId: string): { card:
   if (!card) return { error: 'No such card' };
   if (card.controllerId !== actorId) return { error: 'Not your card' };
   return { card };
+}
+
+/** The actor's own game-side state, in a running game. */
+function ownGame(state: RoomState, actorId: string): PlayerGameState | { error: string } {
+  if (state.phase !== 'playing' || !state.game) return { error: 'Game not running' };
+  const pgs = state.game.players[actorId];
+  if (!pgs) return { error: 'Not in the game' };
+  return pgs;
+}
+
+/** A `libraryShuffled` event for the given cards (ids currently in the library, plus any about to join it). */
+function shuffleEvent(state: RoomState, playerId: string, ids: readonly string[], random: () => number, newId: () => string): Extract<GameEvent, { type: 'libraryShuffled' }> {
+  const cards = shuffled(ids, random).map((previousId) => ({
+    id: newId(),
+    printingId: state.game?.cards[previousId]?.printingId ?? null,
+    previousId,
+  }));
+  return { type: 'libraryShuffled', playerId, cards };
 }

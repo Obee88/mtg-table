@@ -138,6 +138,23 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
       return { ...state, game: { ...state.game, cards: { ...state.game.cards, [card.id]: { ...card, tapped: event.tapped } } } };
     }
 
+    case 'libraryShuffled': {
+      if (!state.game) return state;
+      const owner = state.game.players[event.playerId];
+      if (!owner) return state;
+      const cards = { ...state.game.cards };
+      for (const id of owner.zones.library) delete cards[id];
+      for (const c of event.cards) {
+        cards[c.id] = {
+          id: c.id, printingId: c.printingId, ownerId: event.playerId, controllerId: event.playerId, zone: 'library',
+          tapped: false, transformed: false, flipped: false, faceDown: false, counters: {}, attachedTo: null,
+          note: null, isToken: false, visibleTo: [], revealUntil: null, position: null,
+        };
+      }
+      const zones = { ...owner.zones, library: event.cards.map((c) => c.id) };
+      return { ...state, game: { ...state.game, cards, players: { ...state.game.players, [event.playerId]: { ...owner, zones } } } };
+    }
+
     case 'roomClosed':
       return { ...state, phase: 'ended' };
   }

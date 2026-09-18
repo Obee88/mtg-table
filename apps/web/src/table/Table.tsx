@@ -28,7 +28,10 @@ export function Table({ state, meId, send }: { state: RoomState; meId: string; s
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.key === 'd' && me) void run({ type: 'draw', count: 1 });
+      if (!me) return;
+      if (e.key === 'd') void run({ type: 'draw', count: 1 });
+      if (e.key === 'u') void run({ type: 'untapAll' });
+      if (e.key === 's') void run({ type: 'shuffleLibrary' });
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -124,6 +127,18 @@ function PlayerArea({ player, pgs, cards, printings, mine, run, flipped = false 
         {mine && (
           <span className="ml-auto flex gap-2">
             <Button variant="ghost" className="!py-1" onClick={() => void run({ type: 'draw', count: 1 })} disabled={pgs.zones.library.length === 0}>Draw (d)</Button>
+            <Button variant="ghost" className="!py-1" onClick={() => void run({ type: 'untapAll' })}>Untap all (u)</Button>
+            <Button variant="ghost" className="!py-1" onClick={() => void run({ type: 'shuffleLibrary' })}>Shuffle (s)</Button>
+            <Button
+              variant="ghost"
+              className="!py-1"
+              onClick={() => {
+                const count = Math.max(0, pgs.zones.hand.length - 1);
+                if (confirm(`Mulligan to ${count}?`)) void run({ type: 'mulligan', count });
+              }}
+            >
+              Mulligan
+            </Button>
           </span>
         )}
       </div>

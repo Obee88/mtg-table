@@ -127,3 +127,22 @@ describe('projectEvents + applyRoomEvent', () => {
     expect(state.game).not.toBeNull();
   });
 });
+
+describe('shuffle projection', () => {
+  it('hides identities and the old→new mapping from everyone, including the owner', () => {
+    const { state, log } = game(twoPlayer, ['a', 'b']);
+    let k = 0;
+    const d = decide(state, { type: 'shuffleLibrary' }, { ...ctx('a'), random: () => ((k += 3) % 7) / 7, newId: () => `s${++k}` });
+    if (!d.ok) throw new Error(d.error);
+    const stored: RoomEvent = { seq: log.length + 1, actorId: 'a', at: '', event: d.events[0]! };
+    for (const viewer of ['a', 'b']) {
+      const [p] = projectEvents([stored], viewer, state);
+      if (p!.event.type !== 'libraryShuffled') throw new Error('expected libraryShuffled');
+      expect(p!.event.cards.every((c) => c.printingId === null && c.previousId === null)).toBe(true);
+      expect(p!.revealed).toBeUndefined();
+      const after = applyRoomEvent(projectState(state, viewer), p!);
+      const full = reduceAll(state, d.events);
+      expect(after).toEqual(projectState({ ...full, seq: stored.seq }, viewer));
+    }
+  });
+});

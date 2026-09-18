@@ -133,7 +133,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] Lobby: create/join room, seats, deck selection, ready, start (shuffle, draw 7, roll for first)
 - [x] Minimal table UI: own and opponent zones, hand, drag between zones, click to tap — cards on screen
 - [x] Visibility projection per player (state and events), with tests proving hidden cards never leak
-- [ ] Core card actions: move between zones, tap/untap, untap all, draw, shuffle, mulligan
+- [x] Core card actions: move between zones, tap/untap, untap all, draw, shuffle, mulligan
 - [ ] Card state: transform, flip, face-down, counters, attachments, notes, tokens
 - [ ] Player state: life, poison, custom counters; server dice/coins; game log events
 - [ ] Reveal/look/search actions and reveal durations
