@@ -1,4 +1,4 @@
-import { gameCommandSchema, roomSettingsSchema, type RoomState } from '@mtg/shared';
+import { gameCommandSchema, roomSettingsSchema, type RoomListItem, type RoomState } from '@mtg/shared';
 import { desc, eq, inArray } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -10,14 +10,6 @@ const idParam = z.object({ id: z.uuid() });
 const createInput = z.object({ settings: roomSettingsSchema });
 const sinceQuery = z.object({ after: z.coerce.number().int().min(0).default(0) });
 
-export interface RoomListItem {
-  id: string;
-  phase: RoomState['phase'];
-  settings: RoomState['settings'];
-  ownerId: string;
-  playerCount: number;
-  createdAt: string;
-}
 
 export async function roomRoutes(app: FastifyInstance): Promise<void> {
   const { db } = app;

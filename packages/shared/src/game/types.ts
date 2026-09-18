@@ -3,7 +3,7 @@ export type PlayerId = string;
 /** Id of one physical card at the table (not the printing). */
 export type InstanceId = string;
 
-export const ZONES = ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'] as const;
+export const ZONES = ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command', 'sideboard'] as const;
 export type ZoneName = (typeof ZONES)[number];
 
 export type GameMode = '1v1' | 'ffa' | '2v2';
@@ -53,6 +53,9 @@ export interface GameState {
   players: Record<PlayerId, PlayerGameState>;
   /** Shared life per team in 2v2 (keyed by team number). */
   teamLife: Record<number, number> | null;
+  firstPlayerId: PlayerId;
+  /** d20 each player rolled for first; ties were re-rolled. */
+  openingRoll: Record<PlayerId, number>;
   startedAt: string;
 }
 
@@ -94,6 +97,26 @@ export function emptyPlayerGameState(startingLife: number): PlayerGameState {
     counters: {},
     commanderTax: 0,
     commanderDamage: {},
-    zones: { library: [], hand: [], battlefield: [], graveyard: [], exile: [], command: [] },
+    zones: { library: [], hand: [], battlefield: [], graveyard: [], exile: [], command: [], sideboard: [] },
   };
+}
+
+/** Summary row for room lists. */
+export interface RoomListItem {
+  id: string;
+  phase: RoomPhase;
+  settings: RoomSettings;
+  ownerId: PlayerId;
+  playerCount: number;
+  createdAt: string;
+}
+
+/** Fisher–Yates with an injected random source, so shuffles are reproducible in tests. */
+export function shuffled<T>(items: readonly T[], random: () => number): T[] {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [out[i], out[j]] = [out[j]!, out[i]!];
+  }
+  return out;
 }

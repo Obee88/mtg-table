@@ -11,6 +11,14 @@ export const roomSettingsSchema = z.object({
  * Every change to a room is one of these. Events are facts: the reducer
  * applies them without validation. Later milestones add game events here.
  */
+const startedCard = z.object({ id: z.string(), printingId: z.string() });
+const startedPlayer = z.object({
+  library: z.array(startedCard),
+  hand: z.array(startedCard),
+  command: z.array(startedCard),
+  sideboard: z.array(startedCard),
+});
+
 export const gameEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('roomCreated'), ownerId: z.string(), settings: roomSettingsSchema }),
   z.object({ type: z.literal('settingsChanged'), settings: roomSettingsSchema }),
@@ -19,6 +27,12 @@ export const gameEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('deckSelected'), playerId: z.string(), deckId: z.string().nullable() }),
   z.object({ type: z.literal('readyChanged'), playerId: z.string(), ready: z.boolean() }),
   z.object({ type: z.literal('roomClosed') }),
+  z.object({
+    type: z.literal('gameStarted'),
+    firstPlayerId: z.string(),
+    openingRoll: z.record(z.string(), z.number().int()),
+    players: z.record(z.string(), startedPlayer),
+  }),
 ]);
 
 export type GameEvent = z.infer<typeof gameEventSchema>;

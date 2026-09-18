@@ -118,3 +118,35 @@ describe('RoomService', () => {
     await expect(service.get('00000000-0000-4000-8000-000000000000')).rejects.toMatchObject({ status: 404 });
   });
 });
+
+describe('start', () => {
+  it('loads each player\'s own deck and deals the game', async () => {
+    const service = new RoomService(db, silentLog);
+    const [card] = await db.insert(schema.cards).values({
+      id: '11111111-1111-4111-8111-111111111111', name: 'Lightning Bolt', lang: 'en', layout: 'normal', setCode: 'lea', setName: 'Alpha', setType: 'core',
+      collectorNumber: '161', releasedAt: '1993-08-05', rarity: 'common', colorIdentity: ['R'], faces: [], oracleId: null,
+    }).returning();
+    const [deckA] = await db.insert(schema.decks).values({ ownerId: alice.id, name: 'A', contents: { main: [{ printingId: card!.id, quantity: 10 }], sideboard: [], commander: [] } }).returning();
+    const [deckB] = await db.insert(schema.decks).values({ ownerId: bob.id, name: 'B', contents: { main: [{ printingId: card!.id, quantity: 8 }], sideboard: [], commander: [] } }).returning();
+
+    const room = await service.create(alice, settings);
+    await service.dispatch(room.id, bob, { type: 'join' });
+    // Bob tries to use Alice's deck: it is not his, so start fails for him.
+    await service.dispatch(room.id, alice, { type: 'selectDeck', deckId: deckA!.id });
+    await service.dispatch(room.id, bob, { type: 'selectDeck', deckId: deckA!.id });
+    await service.dispatch(room.id, alice, { type: 'setReady', ready: true });
+    await service.dispatch(room.id, bob, { type: 'setReady', ready: true });
+    expect(await service.dispatch(room.id, alice, { type: 'start' })).toEqual({ ok: false, error: 'Bob has no usable deck' });
+
+    await service.dispatch(room.id, bob, { type: 'selectDeck', deckId: deckB!.id });
+    await service.dispatch(room.id, bob, { type: 'setReady', ready: true });
+    const started = await service.dispatch(room.id, alice, { type: 'start' });
+    expect(started.ok).toBe(true);
+    const state = await new RoomService(db, silentLog).get(room.id);
+    expect(state.phase).toBe('playing');
+    expect(state.game?.players[alice.id]?.zones.hand).toHaveLength(7);
+    expect(state.game?.players[bob.id]?.zones.library).toHaveLength(1);
+    const [row] = await db.select().from(schema.rooms).where(eq(schema.rooms.id, room.id));
+    expect(row?.phase).toBe('playing');
+  });
+});

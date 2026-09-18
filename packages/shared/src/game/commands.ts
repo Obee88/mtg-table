@@ -9,6 +9,7 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('setReady'), ready: z.boolean() }),
   z.object({ type: z.literal('updateSettings'), settings: roomSettingsSchema }),
   z.object({ type: z.literal('closeRoom') }),
+  z.object({ type: z.literal('start') }),
 ]);
 
 export type GameCommand = z.infer<typeof gameCommandSchema>;

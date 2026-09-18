@@ -4,6 +4,8 @@ import { CardsPage } from './cards/CardsPage';
 import { DeckImportPage } from './decks/DeckImportPage';
 import { DeckListPage } from './decks/DeckListPage';
 import { DeckPage } from './decks/DeckPage';
+import { RoomListPage } from './rooms/RoomListPage';
+import { RoomPage } from './rooms/RoomPage';
 import { useMe } from './lib/auth';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
@@ -26,6 +28,8 @@ export function App() {
         <Route path="/decks" element={user ? <DeckListPage /> : <Navigate to="/login" replace />} />
         <Route path="/decks/new" element={user ? <DeckImportPage /> : <Navigate to="/login" replace />} />
         <Route path="/decks/:id" element={user ? <DeckPage /> : <Navigate to="/login" replace />} />
+        <Route path="/rooms" element={user ? <RoomListPage /> : <Navigate to="/login" replace />} />
+        <Route path="/rooms/:id" element={user ? <RoomPage /> : <Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </CardPreviewProvider>

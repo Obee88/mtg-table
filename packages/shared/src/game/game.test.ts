@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { decide, type CommandContext } from './decide.js';
 import type { GameEvent } from './events.js';
 import { initialRoomState, reduce, reduceAll } from './reduce.js';
-import type { RoomSettings } from './types.js';
+import { shuffled, type RoomSettings } from './types.js';
 
 const settings: RoomSettings = { playerCount: 2, mode: '1v1', startingLife: 20, commander: false };
 const ctx = (actorId: string): CommandContext => ({ actorId, actorDisplayName: actorId.toUpperCase(), now: new Date('2026-01-01') });
@@ -91,5 +91,73 @@ describe('decide', () => {
   it('rejects commands from players not in the room', () => {
     expect(decide(created, { type: 'leave' }, ctx('z'))).toEqual({ ok: false, error: 'Not in the room' });
     expect(decide(created, { type: 'selectDeck', deckId: 'd' }, ctx('z')).ok).toBe(false);
+  });
+});
+
+describe('start', () => {
+  const settings: RoomSettings = { playerCount: 2, mode: '1v1', startingLife: 20, commander: false };
+  const decks = {
+    a: { main: [{ printingId: 'bolt', quantity: 8 }, { printingId: 'mountain', quantity: 2 }], sideboard: [{ printingId: 'rip', quantity: 1 }], commander: [] },
+    b: { main: [{ printingId: 'island', quantity: 9 }], sideboard: [], commander: [{ printingId: 'cmdr', quantity: 1 }] },
+  };
+  let n = 0;
+  const startCtx = (actorId: string, seq: number[] = []): CommandContext => {
+    let i = 0;
+    return { ...ctx(actorId), decks, random: () => seq[i++ % Math.max(seq.length, 1)] ?? 0.5, newId: () => `c${++n}` };
+  };
+  const lobby = () => {
+    let s = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings });
+    for (const p of ['a', 'b']) {
+      s = run(s, p, { type: 'join' });
+      s = run(s, p, { type: 'selectDeck', deckId: `deck-${p}` });
+    }
+    return s;
+  };
+
+  it('refuses until everyone is seated and ready, and only for the owner', () => {
+    let s = lobby();
+    expect(decide(s, { type: 'start' }, startCtx('a'))).toEqual({ ok: false, error: 'Not ready: A, B' });
+    s = run(s, 'a', { type: 'setReady', ready: true });
+    s = run(s, 'b', { type: 'setReady', ready: true });
+    expect(decide(s, { type: 'start' }, startCtx('b'))).toEqual({ ok: false, error: 'Only the owner can start the game' });
+    expect(decide(s, { type: 'start' }, ctx('a'))).toEqual({ ok: false, error: 'Decks unavailable' });
+  });
+
+  it('deals shuffled libraries, seven-card hands, command zone and sideboard, and rolls for first', () => {
+    let s = lobby();
+    s = run(s, 'a', { type: 'setReady', ready: true });
+    s = run(s, 'b', { type: 'setReady', ready: true });
+    const d = decide(s, { type: 'start' }, startCtx('a', [0.1, 0.9, 0.3, 0.7]));
+    if (!d.ok) throw new Error(d.error);
+    const started = d.events[0];
+    expect(started?.type).toBe('gameStarted');
+    s = reduceAll(s, d.events);
+    expect(s.phase).toBe('playing');
+    const g = s.game!;
+    expect(g.players.a?.zones.hand).toHaveLength(7);
+    expect(g.players.a?.zones.library).toHaveLength(3);
+    expect(g.players.a?.zones.sideboard).toHaveLength(1);
+    expect(g.players.b?.zones.command).toHaveLength(1);
+    expect(g.players.b?.zones.library).toHaveLength(2);
+    expect(Object.keys(g.cards)).toHaveLength(10 + 1 + 9 + 1);
+    const cmdr = g.cards[g.players.b!.zones.command[0]!]!;
+    expect(cmdr).toMatchObject({ printingId: 'cmdr', ownerId: 'b', zone: 'command', visibleTo: 'all' });
+    expect(g.cards[g.players.a!.zones.hand[0]!]?.visibleTo).toBe('owner');
+    expect(Object.keys(g.openingRoll).sort()).toEqual(['a', 'b']);
+    expect(['a', 'b']).toContain(g.firstPlayerId);
+    expect(g.players.a?.life).toBe(20);
+    expect(g.teamLife).toBeNull();
+  });
+
+  it('shuffles with the injected random source deterministically', () => {
+    const items = [1, 2, 3, 4, 5];
+    const seq = [0.9, 0.1, 0.5, 0.3];
+    let i = 0;
+    const a = shuffled(items, () => seq[i++ % seq.length]!);
+    i = 0;
+    const b = shuffled(items, () => seq[i++ % seq.length]!);
+    expect(a).toEqual(b);
+    expect([...a].sort()).toEqual(items);
+    expect(items).toEqual([1, 2, 3, 4, 5]);
   });
 });

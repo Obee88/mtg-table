@@ -4,13 +4,15 @@ import {
   reduce,
   reduceAll,
   type CommandContext,
+  type DeckContents,
   type GameCommand,
   type GameEvent,
   type RoomEvent,
   type RoomSettings,
   type RoomState,
 } from '@mtg/shared';
-import { and, asc, eq, gt } from 'drizzle-orm';
+import { randomInt, randomUUID } from 'node:crypto';
+import { and, asc, eq, gt, inArray } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import { schema, type Db } from '../db/index.js';
 import { HttpError } from '../errors.js';
@@ -77,7 +79,14 @@ export class RoomService {
   async dispatch(roomId: string, actor: Actor, command: GameCommand): Promise<DispatchResult> {
     const room = await this.room(roomId);
     const run = async (): Promise<DispatchResult> => {
-      const ctx: CommandContext = { actorId: actor.id, actorDisplayName: actor.displayName, now: new Date() };
+      const ctx: CommandContext = {
+        actorId: actor.id,
+        actorDisplayName: actor.displayName,
+        now: new Date(),
+        random: () => randomInt(0, 2 ** 32) / 2 ** 32,
+        newId: () => randomUUID(),
+      };
+      if (command.type === 'start') ctx.decks = await this.loadDecks(room.state);
       const decision = decide(room.state, command, ctx);
       if (!decision.ok) return decision;
       if (decision.events.length === 0) return { ok: true, events: [], state: room.state };
@@ -88,6 +97,19 @@ export class RoomService {
     const result = room.queue.then(run, run);
     room.queue = result.catch(() => undefined);
     return result;
+  }
+
+  /** Each seated player's chosen deck, only if it belongs to them. */
+  private async loadDecks(state: RoomState): Promise<Record<string, DeckContents>> {
+    const wanted = Object.values(state.players).filter((p) => p.deckId).map((p) => ({ playerId: p.id, deckId: p.deckId! }));
+    if (wanted.length === 0) return {};
+    const rows = await this.db.select().from(schema.decks).where(inArray(schema.decks.id, wanted.map((w) => w.deckId)));
+    const decks: Record<string, DeckContents> = {};
+    for (const w of wanted) {
+      const row = rows.find((r) => r.id === w.deckId && r.ownerId === w.playerId);
+      if (row) decks[w.playerId] = row.contents;
+    }
+    return decks;
   }
 
   subscribe(roomId: string, listener: RoomListener): () => void {

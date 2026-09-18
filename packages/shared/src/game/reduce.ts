@@ -1,5 +1,5 @@
 import type { GameEvent } from './events.js';
-import type { RoomState } from './types.js';
+import { emptyPlayerGameState, type GameState, type RoomState } from './types.js';
 
 export function initialRoomState(id: string): RoomState {
   return {
@@ -45,6 +45,34 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
 
     case 'readyChanged':
       return updatePlayer(state, event.playerId, (p) => ({ ...p, ready: event.ready }));
+
+    case 'gameStarted': {
+      const { settings } = state;
+      const cards: GameState['cards'] = {};
+      const players: GameState['players'] = {};
+      for (const [playerId, layout] of Object.entries(event.players)) {
+        const pgs = emptyPlayerGameState(settings.startingLife);
+        for (const zone of ['library', 'hand', 'command', 'sideboard'] as const) {
+          for (const c of layout[zone]) {
+            cards[c.id] = {
+              id: c.id, printingId: c.printingId, ownerId: playerId, controllerId: playerId, zone,
+              tapped: false, transformed: false, flipped: false, faceDown: false, counters: {}, attachedTo: null,
+              note: null, isToken: false, visibleTo: zone === 'command' ? 'all' : 'owner', revealUntil: null, position: null,
+            };
+            pgs.zones[zone].push(c.id);
+          }
+        }
+        players[playerId] = pgs;
+      }
+      const teamLife = settings.mode === '2v2'
+        ? Object.fromEntries([...new Set(Object.values(state.players).map((p) => p.team))].map((t) => [t, settings.startingLife]))
+        : null;
+      return {
+        ...state,
+        phase: 'playing',
+        game: { cards, players, teamLife, firstPlayerId: event.firstPlayerId, openingRoll: event.openingRoll, startedAt: '' },
+      };
+    }
 
     case 'roomClosed':
       return { ...state, phase: 'ended' };

@@ -20,8 +20,9 @@ export function HomePage({ user }: { user: User }) {
       </header>
 
       <Card title="Table">
-        <p className="text-text-muted">Rooms, decks and drafts will appear here.</p>
+        <p className="text-text-muted">Create a room, import a deck, sit down.</p>
         <div className="mt-3 flex gap-4 text-sm">
+          <Link to="/rooms" className="text-accent hover:underline">Rooms</Link>
           <Link to="/decks" className="text-accent hover:underline">My decks</Link>
           <Link to="/cards" className="text-accent hover:underline">Browse cards</Link>
         </div>
