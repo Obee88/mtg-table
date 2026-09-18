@@ -1,2 +1,3 @@
 export * from './auth.js';
 export * from './cards.js';
+export * from './decklist.js';
