@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 
 export async function healthRoutes(app: FastifyInstance): Promise<void> {
   // Liveness: 200 as soon as the process serves HTTP. Used by the Docker HEALTHCHECK.
-  app.get('/healthz', async () => ({ ok: true }));
+  app.get('/healthz', async () => ({ ok: true, sha: app.config.GIT_SHA }));
 
   // Readiness: also proves the database is reachable.
   app.get('/readyz', async (req, reply) => {

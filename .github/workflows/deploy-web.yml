@@ -45,6 +45,8 @@ jobs:
         with:
           context: .
           file: apps/web/Dockerfile
+          build-args: |
+            GIT_SHA=${{ steps.meta.outputs.sha }}
           push: true
           tags: |
             ${{ steps.meta.outputs.image }}

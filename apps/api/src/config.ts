@@ -7,6 +7,7 @@ const schema = z.object({
   DATABASE_URL: z.string().min(1),
   WEB_ORIGIN: z.url(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  GIT_SHA: z.string().default('dev'),
 });
 
 export type Config = z.infer<typeof schema>;

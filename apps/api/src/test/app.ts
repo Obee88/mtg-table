@@ -14,6 +14,7 @@ export async function testApp(): Promise<{ app: FastifyInstance; close: () => Pr
     DATABASE_URL: 'pglite',
     WEB_ORIGIN: TEST_ORIGIN,
     LOG_LEVEL: 'fatal',
+    GIT_SHA: 'test',
   };
   const app = await buildApp(config, db);
   return {

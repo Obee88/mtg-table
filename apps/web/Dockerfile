@@ -9,7 +9,8 @@ RUN pnpm install --frozen-lockfile
 COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
 COPY apps/web apps/web
-RUN pnpm --filter @mtg/shared build && pnpm --filter @mtg/web build
+ARG GIT_SHA=dev
+RUN pnpm --filter @mtg/shared build && pnpm --filter @mtg/web build && printf "%s" "$GIT_SHA" > apps/web/dist/version.txt
 
 FROM nginxinc/nginx-unprivileged:1.27-alpine AS runner
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf

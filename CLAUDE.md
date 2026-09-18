@@ -23,4 +23,7 @@ Online Magic: The Gathering table (no rules engine) with cube drafting. Product 
 - API tests use PGlite (in-memory Postgres) via `apps/api/src/test/`; no database needed.
 - The web app calls the API by absolute URL from `window.__APP_CONFIG__.apiUrl` (`public/config.js`
   in dev, rendered from `API_URL` by the nginx entrypoint in prod). No Vite proxy.
-- Push to `main` deploys; `deploy-api.yml` / `deploy-web.yml` are path-filtered.
+- Push to `main` deploys; `deploy-api.yml` / `deploy-web.yml` are path-filtered. Images carry the
+  short git sha: `GET /healthz` on the API and `/version.txt` on the web return it.
+- `/go-next` (`.claude/skills/go-next`) implements the first unchecked item in `plan.md` → Progress,
+  pushes, waits for green, and verifies the live sha.

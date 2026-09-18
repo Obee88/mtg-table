@@ -110,31 +110,68 @@ PickAndPassSettings { packSize, packsPerPlayer, rounds, direction: 'alternate' |
 
 ---
 
-## Milestones
+## Progress
+
+Ordered checklist. `/go-next` takes the first unchecked item. Split an item in place if it is too big for one run.
 
 **M0 — Foundation**
-Monorepo scaffold, Fastify + Vite dev setup (`pnpm run start`, `compose.dev.yml` for local Postgres, VS Code `launch.json`), two Dockerfiles (multi-stage, non-root, `/healthz`, `HEALTHCHECK` with wget), `ci.yml` + `deploy-api.yml` + `deploy-web.yml`, Drizzle migrations at startup, email/password auth with the cross-origin cookie setup, invites, both projects live on the VPS.
+- [x] Monorepo scaffold, dev setup, Dockerfiles, CI + path-filtered deploy workflows
+- [x] Email/password auth, sessions, admin invites, first-account bootstrap
+- [x] Both projects live on mtg.codes.hr / api.mtg.codes.hr
+- [x] Build sha exposed at `/healthz` (API) and `/version.txt` (web) for deploy verification
 
 **M1 — Cards & decks**
-Scryfall bulk ingest, card search endpoint, decklist paste/upload with validation and printing choice, saved decks.
+- [ ] Scryfall bulk ingest into a `cards` table (streaming parse, admin-triggered endpoint, nightly schedule)
+- [ ] Card search endpoint (name autocomplete, printings per oracle id) and a web card search page with hover preview
+- [ ] Decklist parser in `packages/shared` (`4 Lightning Bolt`, optional `(SET) 123`, sideboard/commander sections) with tests
+- [ ] Deck import endpoint: resolve names → printings, report unknown names; saved decks CRUD
+- [ ] Web deck pages: paste/upload, validation errors, printing picker, deck list
 
 **M2 — 1v1 table (first playable)**
-Room create/join lobby, seats, event-sourced room, all zones, full card state, all game actions incl. reveal/look/search, life/poison/counters, dice, log, undo, reconnect. UI as described above. Playtest with the group.
+- [ ] Room model: event log + snapshots in Postgres, shared reducer skeleton, per-room command queue
+- [ ] WebSocket transport: cookie auth, subscribe, command/event protocol, reconnect with `lastSeq`
+- [ ] Visibility projection per player, with tests proving hidden cards never leak
+- [ ] Lobby: create/join room, seats, deck selection, ready, start (shuffle, draw 7, roll for first)
+- [ ] Core card actions: move between zones, tap/untap, untap all, draw, shuffle, mulligan
+- [ ] Card state: transform, flip, face-down, counters, attachments, notes, tokens
+- [ ] Player state: life, poison, custom counters; server dice/coins; game log events
+- [ ] Reveal/look/search actions and reveal durations
+- [ ] Undo of own last action (compensating event)
+- [ ] Table UI: zone layout, drag & drop, click to tap, context menu, hover preview, keyboard shortcuts, multi-select
+- [ ] Optimistic updates with reconciliation on the client
+- [ ] Log panel, change highlights, move/tap/reveal animations
+- [ ] Playtest round with the group; fix list
 
 **M3 — 4 players**
-FFA and 2v2 shared life (teammates see hands, diagonal seating), commander zone/tax/damage, focus mode & quadrant layout, per-format presets.
+- [ ] 4-player FFA rooms, quadrant layout, focus mode (1–4, Esc), own board as strip when zoomed
+- [ ] 2v2 shared life, teammate hand visibility, diagonal seating
+- [ ] Commander zone, tax, commander damage; format presets (20 / 30 / 40 / custom)
+- [ ] Battlefield rows (lands / creatures / other) and grouping of identical tokens
 
 **M4 — Cubes**
-Create/edit cubes as printings, paste-list import, Cube Cobra import, printing picker, version history with diff/restore.
+- [ ] Cube model with versions; create/edit as printings; paste-list import
+- [ ] Cube Cobra import
+- [ ] Printing picker per cube card
+- [ ] Version history: diff any two versions, restore
 
 **M5 — Draft**
-Draft engine with pick-and-pass phase type, draft config editor + house-rules preset, Cogwork Librarian hook, draft UI (packs, pass direction, pick counter, face-up picks per seat, sortable pool), deckbuilding step, hand-off to table with fixed seats.
+- [ ] Draft engine core: phases, pick-and-pass type, pack dealing, pass-direction rule, pick log with pack context
+- [ ] Draft config editor and the house-rules preset (phase 1 tri-color pool + phase 2 main cube)
+- [ ] Draft ability hooks with Cogwork Librarian
+- [ ] Draft UI: packs, pass direction / pick counter, face-up picks per seat, sortable pool
+- [ ] Deckbuilding step (main / sideboard / free basics) and handoff to the table with fixed seats
 
 **M6 — Stats**
-Report-result step, card stats per cube/version (avg pick, pick-rate-when-seen, first-pick rate, most-passed), player stats (W/L per format, head-to-head, tendencies, deck history).
+- [ ] Report-result step and `game_results`
+- [ ] Card stats per cube/version (avg pick, pick-rate-when-seen, first-pick rate, most-passed)
+- [ ] Player stats (W/L per format, head-to-head, draft tendencies, deck history)
 
 **M7 — Later**
-Rotisserie / Winston / Grid / Winchester phase types, Moxfield/Archidekt import, passkeys/YubiKey, tablet layout, card win-rate stats.
+- [ ] Rotisserie / Winston / Grid / Winchester phase types
+- [ ] Moxfield / Archidekt import
+- [ ] Passkeys / YubiKey
+- [ ] Tablet layout
+- [ ] Card win-rate stats
 
 ---
 

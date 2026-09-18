@@ -14,11 +14,12 @@ RUN pnpm --filter @mtg/shared build && pnpm --filter @mtg/api build
 RUN pnpm --filter @mtg/api deploy --prod --legacy /out
 
 FROM node:22-alpine AS runner
+ARG GIT_SHA=dev
 RUN addgroup -S app && adduser -S app -G app
 WORKDIR /app
 COPY --from=build --chown=app:app /out ./
 USER app
-ENV NODE_ENV=production PORT=3000 HOST=0.0.0.0
+ENV NODE_ENV=production PORT=3000 HOST=0.0.0.0 GIT_SHA=$GIT_SHA
 EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=5s --retries=3 --start-period=30s \
   CMD wget -qO- http://localhost:3000/healthz || exit 1
