@@ -29,6 +29,14 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('setFaceDown'), instanceId: z.string(), faceDown: z.boolean() }),
   z.object({ type: z.literal('addCounter'), instanceId: z.string(), kind: z.string().trim().min(1).max(32), delta: z.number().int().min(-99).max(99) }),
   z.object({ type: z.literal('attachCard'), instanceId: z.string(), to: z.string().nullable() }),
+  // ---- players ----
+  z.object({ type: z.literal('adjustLife'), delta: z.number().int().min(-999).max(999) }),
+  z.object({ type: z.literal('adjustPoison'), delta: z.number().int().min(-99).max(99) }),
+  z.object({ type: z.literal('adjustPlayerCounter'), kind: z.string().trim().min(1).max(32), delta: z.number().int().min(-999).max(999) }),
+  z.object({ type: z.literal('adjustCommanderTax'), delta: z.number().int().min(-99).max(99) }),
+  z.object({ type: z.literal('adjustCommanderDamage'), fromPlayerId: z.string(), delta: z.number().int().min(-99).max(99) }),
+  z.object({ type: z.literal('rollDice'), sides: z.number().int().min(2).max(1000), count: z.number().int().min(1).max(20).default(1) }),
+  z.object({ type: z.literal('flipCoin'), count: z.number().int().min(1).max(20).default(1) }),
   z.object({ type: z.literal('setNote'), instanceId: z.string(), note: z.string().trim().max(80).nullable() }),
   z.object({
     type: z.literal('createToken'),

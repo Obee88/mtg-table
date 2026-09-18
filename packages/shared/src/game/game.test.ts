@@ -424,3 +424,67 @@ describe('card state', () => {
     expect(s.game!.cards[s.game!.players.a!.zones.battlefield.at(-1)!]).toMatchObject({ isToken: true, printingId: 'bolt' });
   });
 });
+
+describe('player state and dice', () => {
+  const settings: RoomSettings = { playerCount: 2, mode: '1v1', startingLife: 20, commander: true };
+  const decks = {
+    a: { main: [{ printingId: 'bolt', quantity: 8 }], sideboard: [], commander: [{ printingId: 'cmd', quantity: 1 }] },
+    b: { main: [{ printingId: 'island', quantity: 8 }], sideboard: [], commander: [] },
+  };
+  let n = 0;
+  let r = 0;
+  const full = (actor: string): CommandContext => ({ ...ctx(actor), random: () => ((r += 7) % 11) / 11, newId: () => `p${++n}` });
+  const playing = (s0?: RoomSettings) => {
+    let s = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings: s0 ?? settings });
+    const ids = (s0?.playerCount ?? 2) === 4 ? ['a', 'b', 'c', 'd'] : ['a', 'b'];
+    const dk = Object.fromEntries(ids.map((id) => [id, decks.b]));
+    for (const p of ids) {
+      s = run(s, p, { type: 'join' });
+      s = run(s, p, { type: 'selectDeck', deckId: 'd' });
+      s = run(s, p, { type: 'setReady', ready: true });
+    }
+    const d = decide(s, { type: 'start' }, { ...full('a'), decks: dk });
+    if (!d.ok) throw new Error(d.error);
+    return reduceAll(s, d.events);
+  };
+
+  it('life, poison, counters, commander tax and damage change only for the actor', () => {
+    let s = playing();
+    s = run(s, 'a', { type: 'adjustLife', delta: -3 });
+    s = run(s, 'a', { type: 'adjustPoison', delta: 2 });
+    s = run(s, 'a', { type: 'adjustPlayerCounter', kind: 'energy', delta: 4 });
+    s = run(s, 'a', { type: 'adjustCommanderTax', delta: 2 });
+    s = run(s, 'a', { type: 'adjustCommanderDamage', fromPlayerId: 'b', delta: 5 });
+    expect(s.game!.players.a).toMatchObject({ life: 17, poison: 2, counters: { energy: 4 }, commanderTax: 2, commanderDamage: { b: 5 } });
+    expect(s.game!.players.b).toMatchObject({ life: 20, poison: 0, counters: {} });
+    s = run(s, 'a', { type: 'adjustPoison', delta: -9 });
+    s = run(s, 'a', { type: 'adjustPlayerCounter', kind: 'energy', delta: -4 });
+    s = run(s, 'a', { type: 'adjustCommanderDamage', fromPlayerId: 'b', delta: -5 });
+    expect(s.game!.players.a).toMatchObject({ poison: 0, counters: {}, commanderDamage: {} });
+    expect(decide(s, { type: 'adjustCommanderDamage', fromPlayerId: 'zz', delta: 1 }, ctx('a'))).toEqual({ ok: false, error: 'Unknown player' });
+    expect(decide(s, { type: 'adjustLife', delta: 0 }, ctx('a'))).toEqual({ ok: true, events: [] });
+  });
+
+  it('2v2 life is shared per team', () => {
+    let s = playing({ playerCount: 4, mode: '2v2', startingLife: 30, commander: false });
+    expect(s.game!.teamLife).toEqual({ 0: 30, 1: 30 });
+    s = run(s, 'a', { type: 'adjustLife', delta: -4 });
+    s = run(s, 'c', { type: 'adjustLife', delta: -1 }); // a's teammate
+    expect(s.game!.teamLife).toEqual({ 0: 25, 1: 30 });
+    expect(s.game!.players.a!.life).toBe(30); // untouched individual value
+  });
+
+  it('dice and coins come from the injected random source and change no state', () => {
+    const s = playing();
+    let i = 0;
+    const seq = [0, 0.999, 0.5, 0.25];
+    const c: CommandContext = { ...ctx('a'), random: () => seq[i++ % seq.length]! };
+    const dice = decide(s, { type: 'rollDice', sides: 20, count: 4 }, c);
+    expect(dice).toEqual({ ok: true, events: [{ type: 'diceRolled', playerId: 'a', sides: 20, results: [1, 20, 11, 6] }] });
+    i = 0;
+    const coins = decide(s, { type: 'flipCoin', count: 2 }, c);
+    expect(coins).toEqual({ ok: true, events: [{ type: 'coinFlipped', playerId: 'a', results: ['heads', 'tails'] }] });
+    expect(reduceAll(s, [...(dice.ok ? dice.events : []), ...(coins.ok ? coins.events : [])])).toEqual(s);
+    expect(decide(s, { type: 'rollDice', sides: 6, count: 1 }, ctx('a'))).toEqual({ ok: false, error: 'Randomness unavailable' });
+  });
+});

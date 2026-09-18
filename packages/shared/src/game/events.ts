@@ -9,6 +9,11 @@ export const counterTargetSchema = z.discriminatedUnion('type', [
 ]);
 export type CounterTarget = z.infer<typeof counterTargetSchema>;
 
+export const lifeTargetSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('player'), playerId: z.string() }),
+  z.object({ type: z.literal('team'), team: z.number().int() }),
+]);
+
 export const roomSettingsSchema = z.object({
   playerCount: z.union([z.literal(2), z.literal(4)]),
   mode: z.enum(['1v1', 'ffa', '2v2']),
@@ -52,6 +57,14 @@ export const gameEventSchema = z.discriminatedUnion('type', [
   /** One mechanism for card and player counters. `value` is the resulting total. */
   z.object({ type: z.literal('counterChanged'), target: counterTargetSchema, kind: z.string(), delta: z.number().int(), value: z.number().int() }),
   z.object({ type: z.literal('cardAttached'), instanceId: z.string(), to: z.string().nullable() }),
+  // ---- players ----
+  z.object({ type: z.literal('lifeChanged'), target: lifeTargetSchema, delta: z.number().int(), value: z.number().int() }),
+  z.object({ type: z.literal('poisonChanged'), playerId: z.string(), delta: z.number().int(), value: z.number().int() }),
+  z.object({ type: z.literal('commanderTaxChanged'), playerId: z.string(), delta: z.number().int(), value: z.number().int() }),
+  /** Commander damage dealt to `playerId` by `fromPlayerId`'s commander. */
+  z.object({ type: z.literal('commanderDamageChanged'), playerId: z.string(), fromPlayerId: z.string(), delta: z.number().int(), value: z.number().int() }),
+  z.object({ type: z.literal('diceRolled'), playerId: z.string(), sides: z.number().int(), results: z.array(z.number().int()) }),
+  z.object({ type: z.literal('coinFlipped'), playerId: z.string(), results: z.array(z.enum(['heads', 'tails'])) }),
   z.object({ type: z.literal('noteChanged'), instanceId: z.string(), note: z.string().nullable() }),
   z.object({
     type: z.literal('tokenCreated'),

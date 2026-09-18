@@ -135,7 +135,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] Visibility projection per player (state and events), with tests proving hidden cards never leak
 - [x] Core card actions: move between zones, tap/untap, untap all, draw, shuffle, mulligan
 - [x] Card state: transform, flip, face-down, counters, attachments, notes, tokens
-- [ ] Player state: life, poison, custom counters; server dice/coins; game log events
+- [x] Player state: life, poison, custom counters; server dice/coins; game log events
 - [ ] Reveal/look/search actions and reveal durations
 - [ ] Undo of own last action (compensating event)
 - [ ] Optimistic updates with reconciliation on the client

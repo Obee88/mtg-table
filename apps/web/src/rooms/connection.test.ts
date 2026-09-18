@@ -62,10 +62,12 @@ describe('RoomConnection', () => {
     expect(conn.getSnapshot()).toMatchObject({ status: 'open', state: { seq: 2 } });
     s.receive({ type: 'events', events: [joined(3, 'b')] });
     expect(conn.getSnapshot().state?.seq).toBe(3);
+    expect(conn.getSnapshot().events.map((e) => e.seq)).toEqual([3]);
     expect(conn.getSnapshot().state?.players.b?.displayName).toBe('b');
     // duplicates are ignored
     s.receive({ type: 'events', events: [joined(3, 'b')] });
     expect(conn.getSnapshot().state?.seq).toBe(3);
+    expect(conn.getSnapshot().events).toHaveLength(1);
   });
 
   it('resolves command results by id and fails pending commands on disconnect', async () => {

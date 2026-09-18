@@ -1,5 +1,5 @@
 import type { GameEvent } from './events.js';
-import { emptyPlayerGameState, type CardInstance, type GameState, type RoomState, type ZoneName } from './types.js';
+import { emptyPlayerGameState, type CardInstance, type GameState, type PlayerGameState, type RoomState, type ZoneName } from './types.js';
 
 /** Who may see a card's identity by default when it enters a zone. */
 export function defaultVisibility(zone: ZoneName): CardInstance['visibleTo'] {
@@ -207,6 +207,33 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
       return { ...state, game: { ...state.game, cards, players: { ...state.game.players, [event.controllerId]: { ...owner, zones } } } };
     }
 
+    case 'lifeChanged': {
+      if (!state.game) return state;
+      if (event.target.type === 'team') {
+        return { ...state, game: { ...state.game, teamLife: { ...(state.game.teamLife ?? {}), [event.target.team]: event.value } } };
+      }
+      return patchPlayer(state, event.target.playerId, { life: event.value });
+    }
+
+    case 'poisonChanged':
+      return patchPlayer(state, event.playerId, { poison: event.value });
+
+    case 'commanderTaxChanged':
+      return patchPlayer(state, event.playerId, { commanderTax: event.value });
+
+    case 'commanderDamageChanged': {
+      const pgs = state.game?.players[event.playerId];
+      if (!pgs) return state;
+      const commanderDamage = { ...pgs.commanderDamage };
+      if (event.value === 0) delete commanderDamage[event.fromPlayerId];
+      else commanderDamage[event.fromPlayerId] = event.value;
+      return patchPlayer(state, event.playerId, { commanderDamage });
+    }
+
+    case 'diceRolled':
+    case 'coinFlipped':
+      return state; // log-only facts
+
     case 'roomClosed':
       return { ...state, phase: 'ended' };
   }
@@ -230,4 +257,10 @@ function patchCard(state: RoomState, instanceId: string, patch: Partial<CardInst
   const card = state.game?.cards[instanceId];
   if (!state.game || !card) return state;
   return { ...state, game: { ...state.game, cards: { ...state.game.cards, [instanceId]: { ...card, ...patch } } } };
+}
+
+function patchPlayer(state: RoomState, playerId: string, patch: Partial<PlayerGameState>): RoomState {
+  const pgs = state.game?.players[playerId];
+  if (!state.game || !pgs) return state;
+  return { ...state, game: { ...state.game, players: { ...state.game.players, [playerId]: { ...pgs, ...patch } } } };
 }

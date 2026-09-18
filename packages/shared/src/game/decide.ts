@@ -214,6 +214,68 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       return accept({ type: 'tokenCreated', controllerId: ctx.actorId, cards, position: command.position });
     }
 
+    case 'adjustLife': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      if (command.delta === 0) return accept();
+      if (state.settings.mode === '2v2' && state.game!.teamLife) {
+        const team = me!.team;
+        const value = (state.game!.teamLife[team] ?? state.settings.startingLife) + command.delta;
+        return accept({ type: 'lifeChanged', target: { type: 'team', team }, delta: command.delta, value });
+      }
+      return accept({ type: 'lifeChanged', target: { type: 'player', playerId: ctx.actorId }, delta: command.delta, value: pgs.life + command.delta });
+    }
+
+    case 'adjustPoison': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      const value = Math.max(0, pgs.poison + command.delta);
+      if (value === pgs.poison) return accept();
+      return accept({ type: 'poisonChanged', playerId: ctx.actorId, delta: value - pgs.poison, value });
+    }
+
+    case 'adjustPlayerCounter': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      const value = Math.max(0, (pgs.counters[command.kind] ?? 0) + command.delta);
+      if (value === (pgs.counters[command.kind] ?? 0)) return accept();
+      return accept({ type: 'counterChanged', target: { type: 'player', playerId: ctx.actorId }, kind: command.kind, delta: command.delta, value });
+    }
+
+    case 'adjustCommanderTax': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      const value = Math.max(0, pgs.commanderTax + command.delta);
+      if (value === pgs.commanderTax) return accept();
+      return accept({ type: 'commanderTaxChanged', playerId: ctx.actorId, delta: value - pgs.commanderTax, value });
+    }
+
+    case 'adjustCommanderDamage': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      if (!state.players[command.fromPlayerId]) return reject('Unknown player');
+      const current = pgs.commanderDamage[command.fromPlayerId] ?? 0;
+      const value = Math.max(0, current + command.delta);
+      if (value === current) return accept();
+      return accept({ type: 'commanderDamageChanged', playerId: ctx.actorId, fromPlayerId: command.fromPlayerId, delta: value - current, value });
+    }
+
+    case 'rollDice': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      if (!ctx.random) return reject('Randomness unavailable');
+      const results = Array.from({ length: command.count }, () => 1 + Math.floor(ctx.random!() * command.sides));
+      return accept({ type: 'diceRolled', playerId: ctx.actorId, sides: command.sides, results });
+    }
+
+    case 'flipCoin': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      if (!ctx.random) return reject('Randomness unavailable');
+      const results = Array.from({ length: command.count }, () => (ctx.random!() < 0.5 ? 'heads' : 'tails') as 'heads' | 'tails');
+      return accept({ type: 'coinFlipped', playerId: ctx.actorId, results });
+    }
+
     case 'closeRoom':
       if (!isOwner) return reject('Only the owner can close the room');
       return accept({ type: 'roomClosed' });

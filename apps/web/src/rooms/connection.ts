@@ -1,7 +1,9 @@
-import { applyRoomEvent, type ClientMessage, type GameCommand, type PlayerId, type RoomState, type ServerMessage } from '@mtg/shared';
+import { applyRoomEvent, type ClientMessage, type GameCommand, type PlayerId, type RoomEvent, type RoomState, type ServerMessage } from '@mtg/shared';
 
 export interface RoomSnapshot {
   state: RoomState | null;
+  /** Most recent events received on this connection (newest last), for the log. */
+  events: RoomEvent[];
   status: 'connecting' | 'open' | 'closed';
   connected: PlayerId[];
   lastError: string | null;
@@ -28,6 +30,7 @@ export interface ConnectionOptions {
 }
 
 const DEFAULT_BACKOFF = [500, 1000, 2000, 5000, 10000];
+const EVENT_BUFFER = 500;
 
 /**
  * Keeps one room in sync over a WebSocket: applies streamed events with the
@@ -36,7 +39,7 @@ const DEFAULT_BACKOFF = [500, 1000, 2000, 5000, 10000];
  */
 export class RoomConnection {
   private socket: SocketLike | null = null;
-  private snapshot: RoomSnapshot = { state: null, status: 'connecting', connected: [], lastError: null };
+  private snapshot: RoomSnapshot = { state: null, events: [], status: 'connecting', connected: [], lastError: null };
   private listeners = new Set<() => void>();
   private pending = new Map<string, (r: CommandResult) => void>();
   private attempts = 0;
@@ -123,8 +126,9 @@ export class RoomConnection {
           this.emit({ type: 'hello', lastSeq: 0 });
           return;
         }
-        for (const e of msg.events) state = applyRoomEvent(state, e);
-        this.update({ state, status: 'open', lastError: null });
+        const fresh = msg.events.filter((e) => e.seq > state!.seq);
+        for (const e of fresh) state = applyRoomEvent(state, e);
+        this.update({ state, events: [...this.snapshot.events, ...fresh].slice(-EVENT_BUFFER), status: 'open', lastError: null });
         return;
       }
       case 'result': {

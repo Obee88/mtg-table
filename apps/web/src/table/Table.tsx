@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type DragEvent, type MouseEvent, type
 import { Button, ErrorText } from '../components';
 import type { CommandResult } from '../rooms/connection';
 import { ContextMenu, type MenuItem } from './ContextMenu';
+import { PlayerBar } from './PlayerBar';
 import { CARD_H, CARD_W, CardBack, TableCard } from './TableCard';
 import { TokenDialog } from './TokenDialog';
 import { useCards } from './useCards';
@@ -120,10 +121,10 @@ export function Table({ state, meId, send }: { state: RoomState; meId: string; s
     <div className="flex flex-col gap-3">
       {attaching && <p className="rounded-md bg-accent/20 px-3 py-1 text-sm text-accent">Click the permanent to attach to (Esc to cancel).</p>}
       {opponents.map((p) => (
-        <PlayerArea key={p.id} player={p} pgs={game.players[p.id]!} cards={game.cards} printings={printings} mine={false} run={run} flipped onCardClick={onCardClick} attaching={attaching !== null} />
+        <PlayerArea key={p.id} state={state} player={p} pgs={game.players[p.id]!} cards={game.cards} printings={printings} mine={false} run={run} flipped onCardClick={onCardClick} attaching={attaching !== null} />
       ))}
       {me && (
-        <PlayerArea player={me} pgs={game.players[me.id]!} cards={game.cards} printings={printings} mine run={run} onCardClick={onCardClick} onCardMenu={openMenu} onToken={() => setTokenDialog(true)} attaching={attaching !== null} />
+        <PlayerArea state={state} player={me} pgs={game.players[me.id]!} cards={game.cards} printings={printings} mine run={run} onCardClick={onCardClick} onCardMenu={openMenu} onToken={() => setTokenDialog(true)} attaching={attaching !== null} />
       )}
       <ErrorText error={error} />
       {menu && (
@@ -151,7 +152,8 @@ export function Table({ state, meId, send }: { state: RoomState; meId: string; s
 /** Attachments render slightly offset behind their host. */
 const ATTACH_OFFSET = 14;
 
-function PlayerArea({ player, pgs, cards, printings, mine, run, flipped = false, onCardClick, onCardMenu, onToken, attaching }: {
+function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped = false, onCardClick, onCardMenu, onToken, attaching }: {
+  state: RoomState;
   player: RoomPlayer;
   pgs: PlayerGameState;
   cards: Record<string, CardInstance>;
@@ -253,7 +255,7 @@ function PlayerArea({ player, pgs, cards, printings, mine, run, flipped = false,
     <section className={`flex flex-col gap-2 ${flipped ? 'flex-col-reverse' : ''}`}>
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <span className="font-medium">{player.displayName}{mine && ' (you)'}</span>
-        <span className="text-text-muted">life {pgs.life} · hand {pgs.zones.hand.length} · library {pgs.zones.library.length}</span>
+        <span className="text-text-muted">hand {pgs.zones.hand.length} · library {pgs.zones.library.length}</span>
         {mine && (
           <span className="ml-auto flex flex-wrap gap-2">
             <Button variant="ghost" className="!py-1" onClick={() => void run({ type: 'draw', count: 1 })} disabled={pgs.zones.library.length === 0}>Draw (d)</Button>
@@ -273,6 +275,7 @@ function PlayerArea({ player, pgs, cards, printings, mine, run, flipped = false,
           </span>
         )}
       </div>
+      <PlayerBar state={state} player={player} pgs={pgs} mine={mine} run={run} />
       <div className="flex gap-3">
         {piles}
         {battlefield}
