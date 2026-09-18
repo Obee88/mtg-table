@@ -6,18 +6,19 @@ import type { CommandResult } from '../rooms/connection';
 import { ContextMenu, type MenuItem } from './ContextMenu';
 import { LibraryDialog } from './LibraryDialog';
 import { PlayerBar } from './PlayerBar';
+import { ShortcutsDialog } from './ShortcutsDialog';
 import { CARD_H, CARD_W, CardBack, TableCard } from './TableCard';
 import { TokenDialog } from './TokenDialog';
 import { useCards } from './useCards';
+import { useMarquee } from './useMarquee';
 
 type Send = (command: GameCommand) => Promise<CommandResult>;
 type Run = (c: GameCommand) => Promise<void>;
+type Menu = { x: number; y: number; card: CardInstance };
 
-interface Menu {
-  x: number;
-  y: number;
-  card: CardInstance;
-}
+const DRAG_MIME = 'text/instance-ids';
+/** Attachments render slightly offset behind their host. */
+const ATTACH_OFFSET = 14;
 
 export function Table({ state, meId, send }: { state: RoomState; meId: string; send: Send }) {
   const game = state.game!;
@@ -27,11 +28,19 @@ export function Table({ state, meId, send }: { state: RoomState; meId: string; s
   const printings = useCards(Object.values(game.cards).map((c) => c.printingId));
   const [error, setError] = useState<string | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
+  const [pileMenu, setPileMenu] = useState<{ x: number; y: number } | null>(null);
   const [tokenDialog, setTokenDialog] = useState(false);
   const [libraryDialog, setLibraryDialog] = useState(false);
-  const [pileMenu, setPileMenu] = useState<{ x: number; y: number } | null>(null);
+  const [helpDialog, setHelpDialog] = useState(false);
   /** Card waiting for an attachment target to be clicked. */
   const [attaching, setAttaching] = useState<string | null>(null);
+  /** Own cards currently selected (battlefield or hand). */
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+
+  // Drop selections of cards that no longer exist or are no longer mine.
+  const liveSelected = new Set([...selected].filter((id) => game.cards[id]?.controllerId === meId));
+  const isSelected = (id: string) => liveSelected.has(id);
+  const selectedIds = () => [...liveSelected];
 
   const run = useCallback<Run>(
     async (command) => {
@@ -42,31 +51,93 @@ export function Table({ state, meId, send }: { state: RoomState; meId: string; s
     [send],
   );
 
+  const moveSelection = useCallback(
+    (to: ZoneName, libraryPosition?: 'top' | 'bottom') => {
+      const ids = [...selected].filter((id) => game.cards[id]?.controllerId === meId);
+      if (ids.length === 0) return;
+      const cmd: GameCommand = { type: 'moveCards', instanceIds: ids, to };
+      if (libraryPosition) cmd.libraryPosition = libraryPosition;
+      void run(cmd);
+      if (to !== 'battlefield') setSelected(new Set());
+    },
+    [selected, game.cards, meId, run],
+  );
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
       if (!me) return;
-      if (e.key === 'Escape') setAttaching(null);
-      if (e.key === 'd') void run({ type: 'draw', count: 1 });
-      if (e.key === 'u') void run({ type: 'untapAll' });
-      if (e.key === 's') void run({ type: 'shuffleLibrary' });
-      if (e.key === 't') setTokenDialog(true);
-      if (e.key === 'z' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); void run({ type: 'undo' }); }
+      if (e.key === '?') return setHelpDialog(true);
+      if (e.key === 'Escape') {
+        setAttaching(null);
+        setSelected(new Set());
+        return;
+      }
+      if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        return void run({ type: 'undo' });
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const ids = [...selected].filter((id) => game.cards[id]?.controllerId === meId);
+      switch (e.key) {
+        case 'd': return void run({ type: 'draw', count: 1 });
+        case 'u': return void run({ type: 'untapAll' });
+        case 's': return void run({ type: 'shuffleLibrary' });
+        case 't': return setTokenDialog(true);
+        case ' ': {
+          if (ids.length === 0) return;
+          e.preventDefault();
+          const anyUntapped = ids.some((id) => game.cards[id]?.zone === 'battlefield' && !game.cards[id]?.tapped);
+          return void run({ type: 'tapCards', instanceIds: ids, tapped: anyUntapped });
+        }
+        case 'g': return moveSelection('graveyard');
+        case 'e': return moveSelection('exile');
+        case 'h': return moveSelection('hand');
+        case 'b': return moveSelection('library', 'bottom');
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [run, me]);
+  }, [run, me, selected, game.cards, meId, moveSelection]);
 
-  const onCardClick = (card: CardInstance) => {
+  const onCardClick = (card: CardInstance, e: MouseEvent) => {
     if (attaching) {
       if (card.id !== attaching && card.zone === 'battlefield') void run({ type: 'attachCard', instanceId: attaching, to: card.id });
       setAttaching(null);
       return;
     }
-    if (card.zone === 'battlefield') void run({ type: 'tapCard', instanceId: card.id, tapped: !card.tapped });
+    if (card.controllerId !== meId) return;
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      const next = new Set(liveSelected);
+      if (next.has(card.id)) next.delete(card.id);
+      else next.add(card.id);
+      setSelected(next);
+      return;
+    }
+    if (card.zone !== 'battlefield') {
+      setSelected(new Set());
+      return;
+    }
+    // Plain click: tap the selection if the card is part of it, else just this card.
+    if (liveSelected.has(card.id) && liveSelected.size > 1) {
+      void run({ type: 'tapCards', instanceIds: selectedIds(), tapped: !card.tapped });
+    } else {
+      setSelected(new Set());
+      void run({ type: 'tapCard', instanceId: card.id, tapped: !card.tapped });
+    }
+  };
+
+  /** Dragging a selected card drags the whole selection. */
+  const onCardDragStart = (card: CardInstance) => (e: DragEvent) => {
+    const ids = liveSelected.has(card.id) ? selectedIds() : [card.id];
+    e.dataTransfer.setData(DRAG_MIME, JSON.stringify(ids));
+    e.dataTransfer.setData('text/dragged-id', card.id);
+    e.dataTransfer.effectAllowed = 'move';
   };
 
   const menuItems = (card: CardInstance): (MenuItem | 'sep')[] => {
+    const multi = liveSelected.has(card.id) && liveSelected.size > 1;
+    if (multi) return selectionItems();
     const p = card.printingId ? printings.get(card.printingId) : undefined;
     const onBattlefield = card.zone === 'battlefield';
     const items: (MenuItem | 'sep')[] = [];
@@ -114,11 +185,32 @@ export function Table({ state, meId, send }: { state: RoomState; meId: string; s
       items.push({ label: 'Reveal to everyone', onSelect: () => void run({ type: 'revealCards', instanceIds: [card.id], to: 'all', until: card.zone === 'hand' ? 'zoneChange' : 'dismissed' }) });
       for (const o of opponents) items.push({ label: `Reveal to ${o.displayName}`, onSelect: () => void run({ type: 'revealCards', instanceIds: [card.id], to: [o.id], until: card.zone === 'hand' ? 'zoneChange' : 'dismissed' }) });
       if (card.revealUntil) items.push({ label: 'Hide again', onSelect: () => void run({ type: 'dismissReveal', instanceIds: [card.id] }) });
+      items.push('sep');
     }
-    const moves: [ZoneName, string][] = [['battlefield', 'battlefield'], ['hand', 'hand'], ['graveyard', 'graveyard'], ['exile', 'exile']];
+    const moves: [ZoneName, string][] = [['battlefield', 'battlefield'], ['hand', 'hand (h)'], ['graveyard', 'graveyard (g)'], ['exile', 'exile (e)']];
     for (const [zone, label] of moves) if (zone !== card.zone) items.push({ label: `Move to ${label}`, onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: zone }) });
     items.push({ label: 'Top of library', onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: 'library', libraryPosition: 'top' }) });
-    items.push({ label: 'Bottom of library', onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: 'library', libraryPosition: 'bottom' }) });
+    items.push({ label: 'Bottom of library (b)', onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: 'library', libraryPosition: 'bottom' }) });
+    return items;
+  };
+
+  const selectionItems = (): (MenuItem | 'sep')[] => {
+    const ids = selectedIds();
+    const onBattlefield = ids.filter((id) => game.cards[id]?.zone === 'battlefield');
+    const items: (MenuItem | 'sep')[] = [];
+    if (onBattlefield.length > 0) {
+      items.push({ label: `Tap ${onBattlefield.length} (Space)`, onSelect: () => void run({ type: 'tapCards', instanceIds: onBattlefield, tapped: true }) });
+      items.push({ label: `Untap ${onBattlefield.length}`, onSelect: () => void run({ type: 'tapCards', instanceIds: onBattlefield, tapped: false }) });
+      items.push('sep');
+    }
+    items.push({ label: `Move ${ids.length} to battlefield`, onSelect: () => moveSelection('battlefield') });
+    items.push({ label: `Move ${ids.length} to hand (h)`, onSelect: () => moveSelection('hand') });
+    items.push({ label: `Move ${ids.length} to graveyard (g)`, onSelect: () => moveSelection('graveyard') });
+    items.push({ label: `Move ${ids.length} to exile (e)`, onSelect: () => moveSelection('exile') });
+    items.push({ label: `${ids.length} to top of library`, onSelect: () => moveSelection('library', 'top') });
+    items.push({ label: `${ids.length} to bottom of library (b)`, onSelect: () => moveSelection('library', 'bottom') });
+    items.push('sep');
+    items.push({ label: 'Clear selection (Esc)', onSelect: () => setSelected(new Set()) });
     return items;
   };
 
@@ -144,23 +236,44 @@ export function Table({ state, meId, send }: { state: RoomState; meId: string; s
       'sep',
       { label: pgs?.topRevealed ? 'Stop revealing top card' : 'Play with top card revealed', onSelect: () => void run({ type: 'setTopRevealed', enabled: !pgs?.topRevealed }) },
       { label: 'Hide all revealed cards', onSelect: () => void run({ type: 'dismissReveal' }) },
-      { label: 'Shuffle', onSelect: () => void run({ type: 'shuffleLibrary' }) },
+      { label: 'Shuffle (s)', onSelect: () => void run({ type: 'shuffleLibrary' }) },
     ];
   };
 
   const openMenu = (card: CardInstance) => (e: MouseEvent) => {
     e.preventDefault();
+    if (card.controllerId === meId && !liveSelected.has(card.id)) setSelected(new Set());
     setMenu({ x: e.clientX, y: e.clientY, card });
   };
+
+  const onMarquee = useCallback((ids: string[], additive: boolean) => {
+    setSelected((prev) => (additive ? new Set([...prev, ...ids]) : new Set(ids)));
+  }, []);
+
+  const shared = { cards: game.cards, printings, run, onCardClick, attaching: attaching !== null };
 
   return (
     <div className="flex flex-col gap-3">
       {attaching && <p className="rounded-md bg-accent/20 px-3 py-1 text-sm text-accent">Click the permanent to attach to (Esc to cancel).</p>}
       {opponents.map((p) => (
-        <PlayerArea key={p.id} state={state} player={p} pgs={game.players[p.id]!} cards={game.cards} printings={printings} mine={false} run={run} flipped onCardClick={onCardClick} onCardMenu={openMenu} attaching={attaching !== null} />
+        <PlayerArea key={p.id} {...shared} state={state} player={p} pgs={game.players[p.id]!} mine={false} flipped onCardMenu={openMenu} isSelected={() => false} />
       ))}
       {me && (
-        <PlayerArea state={state} player={me} pgs={game.players[me.id]!} cards={game.cards} printings={printings} mine run={run} onCardClick={onCardClick} onCardMenu={openMenu} onLibraryMenu={(e) => { e.preventDefault(); setPileMenu({ x: e.clientX, y: e.clientY }); }} onToken={() => setTokenDialog(true)} attaching={attaching !== null} />
+        <PlayerArea
+          {...shared}
+          state={state}
+          player={me}
+          pgs={game.players[me.id]!}
+          mine
+          onCardMenu={openMenu}
+          onCardDragStart={onCardDragStart}
+          onLibraryMenu={(e) => { e.preventDefault(); setPileMenu({ x: e.clientX, y: e.clientY }); }}
+          onToken={() => setTokenDialog(true)}
+          onHelp={() => setHelpDialog(true)}
+          isSelected={isSelected}
+          onMarquee={onMarquee}
+          selectedCount={liveSelected.size}
+        />
       )}
       <ErrorText error={error} />
       {menu && (
@@ -169,7 +282,7 @@ export function Table({ state, meId, send }: { state: RoomState; meId: string; s
           y={menu.y}
           items={menu.card.controllerId === meId ? menuItems(menu.card) : opponentHandItems(menu.card)}
           onClose={() => setMenu(null)}
-          header={menu.card.customName ?? (menu.card.printingId ? printings.get(menu.card.printingId)?.name : 'Card')}
+          header={liveSelected.has(menu.card.id) && liveSelected.size > 1 ? `${liveSelected.size} cards selected` : (menu.card.customName ?? (menu.card.printingId ? printings.get(menu.card.printingId)?.name : 'Card'))}
         />
       )}
       {pileMenu && <ContextMenu x={pileMenu.x} y={pileMenu.y} items={libraryItems()} onClose={() => setPileMenu(null)} header="Library" />}
@@ -185,14 +298,12 @@ export function Table({ state, meId, send }: { state: RoomState; meId: string; s
           }}
         />
       )}
+      {helpDialog && <ShortcutsDialog onClose={() => setHelpDialog(false)} />}
     </div>
   );
 }
 
-/** Attachments render slightly offset behind their host. */
-const ATTACH_OFFSET = 14;
-
-function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped = false, onCardClick, onCardMenu, onToken, onLibraryMenu, attaching }: {
+function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped = false, onCardClick, onCardMenu, onCardDragStart, onToken, onHelp, onLibraryMenu, attaching, isSelected, onMarquee, selectedCount = 0 }: {
   state: RoomState;
   player: RoomPlayer;
   pgs: PlayerGameState;
@@ -201,32 +312,51 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped =
   mine: boolean;
   run: Run;
   flipped?: boolean;
-  onCardClick: (card: CardInstance) => void;
+  onCardClick: (card: CardInstance, e: MouseEvent) => void;
   onCardMenu?: ((card: CardInstance) => (e: MouseEvent) => void) | undefined;
+  onCardDragStart?: ((card: CardInstance) => (e: DragEvent) => void) | undefined;
   onToken?: (() => void) | undefined;
+  onHelp?: (() => void) | undefined;
   onLibraryMenu?: ((e: MouseEvent) => void) | undefined;
   attaching: boolean;
+  isSelected: (id: string) => boolean;
+  onMarquee?: ((ids: string[], additive: boolean) => void) | undefined;
+  selectedCount?: number;
 }) {
+  const marquee = useMarquee(onMarquee ?? (() => undefined));
   const zoneCards = (zone: ZoneName) => pgs.zones[zone].map((id) => cards[id]).filter((c): c is CardInstance => !!c);
 
   const dropTo = (zone: ZoneName) => (e: DragEvent<HTMLDivElement>) => {
     if (!mine) return;
     e.preventDefault();
-    const instanceId = e.dataTransfer.getData('text/instance-id');
-    if (!instanceId) return;
-    const command: GameCommand = { type: 'moveCard', instanceId, to: zone };
+    let ids: string[];
+    try {
+      ids = JSON.parse(e.dataTransfer.getData(DRAG_MIME) || '[]') as string[];
+    } catch {
+      ids = [];
+    }
+    if (ids.length === 0) return;
+    const draggedId = e.dataTransfer.getData('text/dragged-id') || ids[0]!;
+    const command: GameCommand = { type: 'moveCards', instanceIds: ids, to: zone };
     if (zone === 'battlefield') {
       const rect = e.currentTarget.getBoundingClientRect();
-      command.position = {
-        x: Math.max(0, Math.min(100, ((e.clientX - rect.left - CARD_W / 2) / rect.width) * 100)),
-        y: Math.max(0, Math.min(100, ((e.clientY - rect.top - CARD_H / 2) / rect.height) * 100)),
-      };
+      const x = Math.max(0, Math.min(100, ((e.clientX - rect.left - CARD_W / 2) / rect.width) * 100));
+      const y = Math.max(0, Math.min(100, ((e.clientY - rect.top - CARD_H / 2) / rect.height) * 100));
+      const dragged = cards[draggedId];
+      const origin = dragged?.zone === 'battlefield' && dragged.position ? dragged.position : null;
+      const positions: Record<string, { x: number; y: number }> = {};
+      ids.forEach((id, i) => {
+        const c = cards[id];
+        // Cards already on the battlefield keep their offset from the dragged card; others fan out.
+        if (origin && c?.zone === 'battlefield' && c.position) positions[id] = { x: Math.max(0, Math.min(100, x + (c.position.x - origin.x))), y: Math.max(0, Math.min(100, y + (c.position.y - origin.y))) };
+        else positions[id] = { x: Math.min(100, x + i * 4), y };
+      });
+      command.positions = positions;
     }
     void run(command);
   };
   const allowDrop = mine ? (e: DragEvent) => e.preventDefault() : undefined;
 
-  // Hosts first (lower z), attachments tucked behind them; unattached cards at their own position.
   const battlefieldCards = zoneCards('battlefield');
   const placed = battlefieldCards.map((c) => {
     let host = c.attachedTo ? cards[c.attachedTo] : undefined;
@@ -239,36 +369,43 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped =
     const siblings = anchor ? battlefieldCards.filter((o) => o.attachedTo === anchor.id) : [];
     const index = anchor ? siblings.findIndex((o) => o.id === c.id) : 0;
     const base = anchor?.position ?? c.position ?? { x: 50, y: 50 };
-    const pos = anchor ? { x: base.x, y: base.y } : base;
-    return { card: c, x: pos.x, y: pos.y, dx: anchor ? (index + 1) * ATTACH_OFFSET : 0, z: anchor ? 10 - depth : 20 };
+    return { card: c, x: base.x, y: base.y, dx: anchor ? (index + 1) * ATTACH_OFFSET : 0, z: anchor ? 10 - depth : 20 };
   });
+
+  const cardEl = (c: CardInstance, extra: { onClick?: boolean } = {}) => (
+    <TableCard
+      card={c}
+      printing={c.printingId ? printings.get(c.printingId) : undefined}
+      mine={mine}
+      selected={isSelected(c.id)}
+      onClick={extra.onClick === false ? undefined : (e) => onCardClick(c, e)}
+      onContextMenu={onCardMenu && (mine || c.printingId !== null) ? onCardMenu(c) : undefined}
+      onDragStart={mine && onCardDragStart ? onCardDragStart(c) : undefined}
+    />
+  );
 
   const battlefield = (
     <div
-      className={`relative min-h-[240px] flex-1 rounded-lg border bg-surface/60 ${attaching && !mine ? 'border-border' : attaching ? 'border-accent' : 'border-border'}`}
+      className={`relative min-h-[240px] flex-1 touch-none rounded-lg border bg-surface/60 ${attaching && mine ? 'border-accent' : 'border-border'}`}
       onDragOver={allowDrop}
       onDrop={dropTo('battlefield')}
+      {...(mine ? marquee.handlers : {})}
     >
       {placed.map(({ card, x, y, dx, z }) => (
         <div key={card.id} className="absolute" style={{ left: `calc(${x}% + ${dx}px)`, top: `calc(${y}% + ${dx}px)`, zIndex: z }}>
-          <TableCard
-            card={card}
-            printing={card.printingId ? printings.get(card.printingId) : undefined}
-            mine={mine}
-            onClick={mine || attaching ? () => onCardClick(card) : undefined}
-            onContextMenu={mine && onCardMenu ? onCardMenu(card) : undefined}
-          />
+          {cardEl(card, { onClick: mine || attaching })}
         </div>
       ))}
-      {pgs.zones.battlefield.length === 0 && <span className="absolute inset-0 flex items-center justify-center text-xs text-text-muted">{mine ? 'drag cards here · right-click a card for actions' : 'battlefield'}</span>}
+      {marquee.rect && <div className="pointer-events-none absolute z-30 border border-accent bg-accent/10" style={marquee.rect} />}
+      {pgs.zones.battlefield.length === 0 && (
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-text-muted">{mine ? 'drag cards here · right-click for actions · ? for shortcuts' : 'battlefield'}</span>
+      )}
     </div>
   );
 
   const hand = (
     <div className="flex min-h-[calc(112px+1rem)] flex-wrap items-center gap-2 rounded-lg border border-border bg-surface/60 p-2" onDragOver={allowDrop} onDrop={dropTo('hand')}>
-      {zoneCards('hand').map((c) => (
-        <TableCard key={c.id} card={c} printing={c.printingId ? printings.get(c.printingId) : undefined} mine={mine} onContextMenu={onCardMenu && (mine || c.printingId !== null) ? onCardMenu(c) : undefined} />
-      ))}
+      {zoneCards('hand').map((c) => <span key={c.id}>{cardEl(c)}</span>)}
       {pgs.zones.hand.length === 0 && <span className="px-2 text-xs text-text-muted">empty hand</span>}
     </div>
   );
@@ -276,17 +413,17 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped =
   const piles = (
     <div className="flex shrink-0 gap-2">
       <Pile label={pgs.topRevealed ? 'Library (top revealed)' : 'Library'} count={pgs.zones.library.length} onDragOver={allowDrop} onDrop={dropTo('library')} onContextMenu={mine ? onLibraryMenu : undefined}>
-        {pgs.zones.library.length > 0 && (cards[pgs.zones.library[0]!]?.printingId ? topCard(zoneCards('library').slice(0, 1), printings, false) : <CardBack />)}
+        {pgs.zones.library.length > 0 && (cards[pgs.zones.library[0]!]?.printingId ? topCard(zoneCards('library').slice(0, 1), printings) : <CardBack />)}
       </Pile>
       <Pile label="Graveyard" count={pgs.zones.graveyard.length} onDragOver={allowDrop} onDrop={dropTo('graveyard')}>
-        {topCard(zoneCards('graveyard'), printings, mine, onCardMenu)}
+        {topCard(zoneCards('graveyard'), printings, mine ? onCardMenu : undefined)}
       </Pile>
       <Pile label="Exile" count={pgs.zones.exile.length} onDragOver={allowDrop} onDrop={dropTo('exile')}>
-        {topCard(zoneCards('exile'), printings, mine, onCardMenu)}
+        {topCard(zoneCards('exile'), printings, mine ? onCardMenu : undefined)}
       </Pile>
       {pgs.zones.command.length > 0 && (
         <Pile label="Command" count={pgs.zones.command.length} onDragOver={allowDrop} onDrop={dropTo('command')}>
-          {topCard(zoneCards('command'), printings, mine, onCardMenu)}
+          {topCard(zoneCards('command'), printings, mine ? onCardMenu : undefined)}
         </Pile>
       )}
     </div>
@@ -296,7 +433,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped =
     <section className={`flex flex-col gap-2 ${flipped ? 'flex-col-reverse' : ''}`}>
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <span className="font-medium">{player.displayName}{mine && ' (you)'}</span>
-        <span className="text-text-muted">hand {pgs.zones.hand.length} · library {pgs.zones.library.length}</span>
+        <span className="text-text-muted">hand {pgs.zones.hand.length} · library {pgs.zones.library.length}{selectedCount > 0 && ` · ${selectedCount} selected`}</span>
         {mine && (
           <span className="ml-auto flex flex-wrap gap-2">
             <Button variant="ghost" className="!py-1" onClick={() => void run({ type: 'draw', count: 1 })} disabled={pgs.zones.library.length === 0}>Draw (d)</Button>
@@ -314,6 +451,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped =
             >
               Mulligan
             </Button>
+            <Button variant="ghost" className="!py-1" onClick={onHelp} title="Keyboard shortcuts">?</Button>
           </span>
         )}
       </div>
@@ -338,8 +476,8 @@ function Pile({ label, count, children, ...drop }: { label: string; count: numbe
   );
 }
 
-function topCard(cards: CardInstance[], printings: Map<string, CardPrinting>, mine: boolean, onCardMenu?: ((card: CardInstance) => (e: MouseEvent) => void) | undefined) {
+function topCard(cards: CardInstance[], printings: Map<string, CardPrinting>, onCardMenu?: ((card: CardInstance) => (e: MouseEvent) => void) | undefined) {
   const top = cards[cards.length - 1];
   if (!top) return null;
-  return <TableCard card={top} printing={top.printingId ? printings.get(top.printingId) : undefined} mine={mine} onContextMenu={mine && onCardMenu ? onCardMenu(top) : undefined} />;
+  return <TableCard card={top} printing={top.printingId ? printings.get(top.printingId) : undefined} mine={false} onContextMenu={onCardMenu ? onCardMenu(top) : undefined} />;
 }

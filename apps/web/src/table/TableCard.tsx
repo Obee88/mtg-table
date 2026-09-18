@@ -22,19 +22,23 @@ export function faceImage(card: CardInstance, printing: CardPrinting | undefined
   return imageFor(printing, size);
 }
 
-export function TableCard({ card, printing, mine, onClick, onContextMenu }: {
+export function TableCard({ card, printing, mine, selected = false, onClick, onContextMenu, onDragStart: onDragStartProp }: {
   card: CardInstance;
   printing: CardPrinting | undefined;
   mine: boolean;
-  onClick?: (() => void) | undefined;
+  selected?: boolean;
+  onClick?: ((e: MouseEvent) => void) | undefined;
   onContextMenu?: ((e: MouseEvent) => void) | undefined;
+  /** Override the drag payload (multi-select drags). */
+  onDragStart?: ((e: DragEvent) => void) | undefined;
 }) {
   const src = faceImage(card, printing, 'small');
   const hidden = card.printingId === null || card.faceDown;
   const preview = useCardPreview(printing && !hidden ? faceImage(card, printing, 'normal') : mine && printing ? faceImage(card, printing, 'normal') : null);
 
   const onDragStart = (e: DragEvent) => {
-    e.dataTransfer.setData('text/instance-id', card.id);
+    if (onDragStartProp) return onDragStartProp(e);
+    e.dataTransfer.setData('text/instance-ids', JSON.stringify([card.id]));
     e.dataTransfer.effectAllowed = 'move';
   };
 
@@ -48,7 +52,8 @@ export function TableCard({ card, printing, mine, onClick, onContextMenu }: {
       onClick={onClick}
       onContextMenu={onContextMenu}
       {...preview}
-      className={`relative select-none transition-transform duration-150 ${mine ? 'cursor-grab active:cursor-grabbing' : ''} ${card.tapped ? 'rotate-90' : ''} ${card.flipped ? 'rotate-180' : ''}`}
+      data-instance-id={card.id}
+      className={`relative select-none transition-transform duration-150 ${mine ? 'cursor-grab active:cursor-grabbing' : ''} ${card.tapped ? 'rotate-90' : ''} ${card.flipped ? 'rotate-180' : ''} ${selected ? 'rounded-[4.5%] ring-2 ring-accent ring-offset-1 ring-offset-bg' : ''}`}
       style={{ width: CARD_W, height: CARD_H }}
       title={label ?? undefined}
     >

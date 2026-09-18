@@ -499,3 +499,43 @@ describe('actionUndone', () => {
     expect(decide(after, { type: 'undo' }, ctx('b'))).toEqual({ ok: false, error: 'Undo is handled by the server' });
   });
 });
+
+describe('multi-card commands', () => {
+  const settings: RoomSettings = { playerCount: 2, mode: '1v1', startingLife: 20, commander: false };
+  const decks = { a: { main: [{ printingId: 'bolt', quantity: 10 }], sideboard: [], commander: [] }, b: { main: [{ printingId: 'isle', quantity: 9 }], sideboard: [], commander: [] } };
+  let n = 0;
+  let r = 0;
+  const playing = () => {
+    let s = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings });
+    for (const p of ['a', 'b']) {
+      s = run(s, p, { type: 'join' });
+      s = run(s, p, { type: 'selectDeck', deckId: 'd' });
+      s = run(s, p, { type: 'setReady', ready: true });
+    }
+    const d = decide(s, { type: 'start' }, { ...ctx('a'), decks, random: () => ((r += 7) % 11) / 11, newId: () => `m${++n}` });
+    if (!d.ok) throw new Error(d.error);
+    return reduceAll(s, d.events);
+  };
+
+  it('moves several cards in one batch with per-card positions, then taps them together', () => {
+    let s = playing();
+    const [x, y, z] = s.game!.players.a!.zones.hand;
+    s = run(s, 'a', { type: 'moveCards', instanceIds: [x!, y!, x!], to: 'battlefield', positions: { [x!]: { x: 1, y: 1 }, [y!]: { x: 2, y: 2 } } });
+    expect(s.game!.players.a!.zones.battlefield).toEqual([x, y]);
+    expect(s.game!.cards[y!]?.position).toEqual({ x: 2, y: 2 });
+    s = run(s, 'a', { type: 'tapCards', instanceIds: [x!, y!, z!], tapped: true }); // z is in hand: skipped
+    expect(s.game!.cards[x!]?.tapped).toBe(true);
+    expect(s.game!.cards[y!]?.tapped).toBe(true);
+    expect(s.game!.cards[z!]?.tapped).toBe(false);
+    expect(decide(s, { type: 'tapCards', instanceIds: [x!], tapped: true }, ctx('a'))).toEqual({ ok: true, events: [] });
+    s = run(s, 'a', { type: 'moveCards', instanceIds: [x!, y!], to: 'library', libraryPosition: 'bottom' });
+    expect(s.game!.players.a!.zones.library.slice(-2)).toEqual([x, y]);
+  });
+
+  it('rejects the whole batch if any card is not yours', () => {
+    const s = playing();
+    const mine = s.game!.players.a!.zones.hand[0]!;
+    const theirs = s.game!.players.b!.zones.hand[0]!;
+    expect(decide(s, { type: 'moveCards', instanceIds: [mine, theirs], to: 'graveyard' }, ctx('a'))).toEqual({ ok: false, error: 'Not your card' });
+  });
+});

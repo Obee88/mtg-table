@@ -353,6 +353,35 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
     case 'undo':
       return reject('Undo is handled by the server');
 
+    case 'moveCards': {
+      const events: GameEvent[] = [];
+      for (const id of new Set(command.instanceIds)) {
+        const found = ownCard(state, ctx.actorId, id);
+        if ('error' in found) return reject(found.error);
+        const { card } = found;
+        events.push({
+          type: 'cardMoved',
+          instanceId: card.id,
+          from: card.zone,
+          to: command.to,
+          position: command.to === 'battlefield' ? (command.positions?.[card.id] ?? card.position ?? { x: 50, y: 50 }) : null,
+          libraryPosition: command.to === 'library' ? (command.libraryPosition ?? 'top') : null,
+        });
+      }
+      return accept(...events);
+    }
+
+    case 'tapCards': {
+      const events: GameEvent[] = [];
+      for (const id of new Set(command.instanceIds)) {
+        const found = ownCard(state, ctx.actorId, id);
+        if ('error' in found) return reject(found.error);
+        if (found.card.zone !== 'battlefield') continue;
+        if (found.card.tapped !== command.tapped) events.push({ type: 'cardTapped', instanceId: found.card.id, tapped: command.tapped });
+      }
+      return accept(...events);
+    }
+
     case 'closeRoom':
       if (!isOwner) return reject('Only the owner can close the room');
       return accept({ type: 'roomClosed' });

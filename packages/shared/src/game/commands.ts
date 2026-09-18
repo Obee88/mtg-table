@@ -25,6 +25,15 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
     libraryPosition: z.enum(['top', 'bottom']).optional(),
   }),
   z.object({ type: z.literal('tapCard'), instanceId: z.string(), tapped: z.boolean() }),
+  /** Multi-select versions: one batch, one undo. `positions` gives battlefield spots per card. */
+  z.object({
+    type: z.literal('moveCards'),
+    instanceIds: z.array(z.string()).min(1).max(200),
+    to: z.enum(ZONES),
+    positions: z.record(z.string(), positionSchema).optional(),
+    libraryPosition: z.enum(['top', 'bottom']).optional(),
+  }),
+  z.object({ type: z.literal('tapCards'), instanceIds: z.array(z.string()).min(1).max(200), tapped: z.boolean() }),
   z.object({ type: z.literal('draw'), count: z.number().int().min(1).max(20) }),
   z.object({ type: z.literal('untapAll') }),
   z.object({ type: z.literal('shuffleLibrary') }),
