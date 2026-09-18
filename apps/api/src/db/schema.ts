@@ -1,6 +1,6 @@
-import type { CardFace, DeckContents } from '@mtg/shared';
+import type { CardFace, DeckContents, GameEvent, RoomSettings, RoomState } from '@mtg/shared';
 import { sql } from 'drizzle-orm';
-import { boolean, date, index, integer, jsonb, pgTable, real, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, date, index, integer, jsonb, pgTable, primaryKey, real, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -108,3 +108,61 @@ export const decks = pgTable(
 );
 
 export type DeckRow = typeof decks.$inferSelect;
+
+// ---- rooms: event-sourced ----
+
+export const rooms = pgTable(
+  'rooms',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    ownerId: uuid('owner_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    phase: text('phase', { enum: ['lobby', 'playing', 'ended'] }).notNull().default('lobby'),
+    settings: jsonb('settings').$type<RoomSettings>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('rooms_phase_idx').on(t.phase)],
+);
+
+/** Denormalised membership for "my rooms" queries; the event log is the truth. */
+export const roomPlayers = pgTable(
+  'room_players',
+  {
+    roomId: uuid('room_id')
+      .notNull()
+      .references(() => rooms.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    seat: integer('seat').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.roomId, t.userId] }), index('room_players_user_id_idx').on(t.userId)],
+);
+
+export const roomEvents = pgTable(
+  'room_events',
+  {
+    roomId: uuid('room_id')
+      .notNull()
+      .references(() => rooms.id, { onDelete: 'cascade' }),
+    seq: integer('seq').notNull(),
+    actorId: uuid('actor_id'),
+    type: text('type').notNull(),
+    payload: jsonb('payload').$type<GameEvent>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.roomId, t.seq] })],
+);
+
+export const roomSnapshots = pgTable('room_snapshots', {
+  roomId: uuid('room_id')
+    .primaryKey()
+    .references(() => rooms.id, { onDelete: 'cascade' }),
+  seq: integer('seq').notNull(),
+  state: jsonb('state').$type<RoomState>().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type RoomRow = typeof rooms.$inferSelect;

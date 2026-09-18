@@ -128,17 +128,18 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] Web deck pages: paste/upload, validation errors, printing picker, deck list
 
 **M2 — 1v1 table (first playable)**
-- [ ] Room model: event log + snapshots in Postgres, shared reducer skeleton, per-room command queue
+- [x] Room model: event log + snapshots in Postgres, shared reducer skeleton, per-room command queue
 - [ ] WebSocket transport: cookie auth, subscribe, command/event protocol, reconnect with `lastSeq`
-- [ ] Visibility projection per player, with tests proving hidden cards never leak
 - [ ] Lobby: create/join room, seats, deck selection, ready, start (shuffle, draw 7, roll for first)
+- [ ] Minimal table UI: own and opponent zones, hand, drag between zones, click to tap — cards on screen
+- [ ] Visibility projection per player (state and events), with tests proving hidden cards never leak
 - [ ] Core card actions: move between zones, tap/untap, untap all, draw, shuffle, mulligan
 - [ ] Card state: transform, flip, face-down, counters, attachments, notes, tokens
 - [ ] Player state: life, poison, custom counters; server dice/coins; game log events
 - [ ] Reveal/look/search actions and reveal durations
 - [ ] Undo of own last action (compensating event)
-- [ ] Table UI: zone layout, drag & drop, click to tap, context menu, hover preview, keyboard shortcuts, multi-select
 - [ ] Optimistic updates with reconciliation on the client
+- [ ] Table UI polish: context menu, hover preview, keyboard shortcuts, multi-select
 - [ ] Log panel, change highlights, move/tap/reveal animations
 - [ ] Playtest round with the group; fix list
 

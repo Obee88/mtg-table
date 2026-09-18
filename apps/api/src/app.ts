@@ -13,12 +13,15 @@ import type { Db, UserRow } from './db/index.js';
 import { HttpError } from './errors.js';
 import { healthRoutes } from './routes/health.js';
 import { inviteRoutes } from './routes/invites.js';
+import { roomRoutes } from './rooms/routes.js';
+import { RoomService } from './rooms/service.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
     config: Config;
     db: Db;
     cardIngest: CardIngestService;
+    rooms: RoomService;
   }
   interface FastifyRequest {
     user: UserRow | null;
@@ -42,6 +45,7 @@ export async function buildApp(config: Config, db: Db, deps: AppDeps = {}): Prom
   app.decorate('config', config);
   app.decorate('db', db);
   app.decorate('cardIngest', new CardIngestService(db, deps.cardSource ?? scryfallSource, app.log));
+  app.decorate('rooms', new RoomService(db, app.log));
   app.decorateRequest('user', null);
   app.decorateRequest('sessionToken', null);
 
@@ -87,6 +91,7 @@ export async function buildApp(config: Config, db: Db, deps: AppDeps = {}): Prom
   await app.register(cardAdminRoutes);
   await app.register(cardRoutes);
   await app.register(deckRoutes);
+  await app.register(roomRoutes);
 
   return app;
 }
