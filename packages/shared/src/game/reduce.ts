@@ -66,7 +66,7 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
             cards[c.id] = {
               id: c.id, printingId: c.printingId, ownerId: playerId, controllerId: playerId, zone,
               tapped: false, transformed: false, flipped: false, faceDown: false, counters: {}, attachedTo: null,
-              note: null, isToken: false, visibleTo: defaultVisibility(zone), revealUntil: null, position: null,
+              note: null, isToken: false, customName: null, visibleTo: defaultVisibility(zone), revealUntil: null, position: null,
             };
             pgs.zones[zone].push(c.id);
           }
@@ -148,11 +148,63 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
         cards[c.id] = {
           id: c.id, printingId: c.printingId, ownerId: event.playerId, controllerId: event.playerId, zone: 'library',
           tapped: false, transformed: false, flipped: false, faceDown: false, counters: {}, attachedTo: null,
-          note: null, isToken: false, visibleTo: [], revealUntil: null, position: null,
+          note: null, isToken: false, customName: null, visibleTo: [], revealUntil: null, position: null,
         };
       }
       const zones = { ...owner.zones, library: event.cards.map((c) => c.id) };
       return { ...state, game: { ...state.game, cards, players: { ...state.game.players, [event.playerId]: { ...owner, zones } } } };
+    }
+
+    case 'cardTransformed':
+      return patchCard(state, event.instanceId, { transformed: event.transformed });
+
+    case 'cardFlipped':
+      return patchCard(state, event.instanceId, { flipped: event.flipped });
+
+    case 'cardFaceDownChanged': {
+      const card = state.game?.cards[event.instanceId];
+      if (!card) return state;
+      return patchCard(state, event.instanceId, { faceDown: event.faceDown, visibleTo: event.faceDown ? 'owner' : defaultVisibility(card.zone) });
+    }
+
+    case 'counterChanged': {
+      if (!state.game) return state;
+      if (event.target.type === 'card') {
+        const card = state.game.cards[event.target.instanceId];
+        if (!card) return state;
+        const counters = { ...card.counters };
+        if (event.value === 0) delete counters[event.kind];
+        else counters[event.kind] = event.value;
+        return patchCard(state, card.id, { counters });
+      }
+      const pgs = state.game.players[event.target.playerId];
+      if (!pgs) return state;
+      const counters = { ...pgs.counters };
+      if (event.value === 0) delete counters[event.kind];
+      else counters[event.kind] = event.value;
+      return { ...state, game: { ...state.game, players: { ...state.game.players, [event.target.playerId]: { ...pgs, counters } } } };
+    }
+
+    case 'cardAttached':
+      return patchCard(state, event.instanceId, { attachedTo: event.to });
+
+    case 'noteChanged':
+      return patchCard(state, event.instanceId, { note: event.note });
+
+    case 'tokenCreated': {
+      if (!state.game) return state;
+      const owner = state.game.players[event.controllerId];
+      if (!owner) return state;
+      const cards = { ...state.game.cards };
+      for (const t of event.cards) {
+        cards[t.id] = {
+          id: t.id, printingId: t.printingId, ownerId: event.controllerId, controllerId: event.controllerId, zone: 'battlefield',
+          tapped: false, transformed: false, flipped: false, faceDown: false, counters: {}, attachedTo: null, note: null,
+          isToken: true, customName: t.customName, visibleTo: 'all', revealUntil: null, position: event.position,
+        };
+      }
+      const zones = { ...owner.zones, battlefield: [...owner.zones.battlefield, ...event.cards.map((t) => t.id)] };
+      return { ...state, game: { ...state.game, cards, players: { ...state.game.players, [event.controllerId]: { ...owner, zones } } } };
     }
 
     case 'roomClosed':
@@ -172,4 +224,10 @@ function updatePlayer(state: RoomState, playerId: string, fn: (p: RoomState['pla
 
 function mapPlayers(state: RoomState, fn: (p: RoomState['players'][string]) => RoomState['players'][string]): RoomState['players'] {
   return Object.fromEntries(Object.entries(state.players).map(([id, p]) => [id, fn(p)]));
+}
+
+function patchCard(state: RoomState, instanceId: string, patch: Partial<CardInstance>): RoomState {
+  const card = state.game?.cards[instanceId];
+  if (!state.game || !card) return state;
+  return { ...state, game: { ...state.game, cards: { ...state.game.cards, [instanceId]: { ...card, ...patch } } } };
 }

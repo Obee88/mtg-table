@@ -24,6 +24,19 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('untapAll') }),
   z.object({ type: z.literal('shuffleLibrary') }),
   z.object({ type: z.literal('mulligan'), count: z.number().int().min(0).max(7).default(7) }),
+  z.object({ type: z.literal('transformCard'), instanceId: z.string(), transformed: z.boolean() }),
+  z.object({ type: z.literal('flipCard'), instanceId: z.string(), flipped: z.boolean() }),
+  z.object({ type: z.literal('setFaceDown'), instanceId: z.string(), faceDown: z.boolean() }),
+  z.object({ type: z.literal('addCounter'), instanceId: z.string(), kind: z.string().trim().min(1).max(32), delta: z.number().int().min(-99).max(99) }),
+  z.object({ type: z.literal('attachCard'), instanceId: z.string(), to: z.string().nullable() }),
+  z.object({ type: z.literal('setNote'), instanceId: z.string(), note: z.string().trim().max(80).nullable() }),
+  z.object({
+    type: z.literal('createToken'),
+    printingId: z.string().nullable(),
+    customName: z.string().trim().min(1).max(40).nullable(),
+    count: z.number().int().min(1).max(20),
+    position: positionSchema,
+  }),
 ]);
 
 export type GameCommand = z.infer<typeof gameCommandSchema>;

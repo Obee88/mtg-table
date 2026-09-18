@@ -8,6 +8,8 @@ import { getPrinting, getPrintings, listPrintings, searchCards } from './search.
 const searchQuery = z.object({
   q: z.string().trim().min(1).max(100),
   limit: z.coerce.number().int().min(1).max(50).default(20),
+  /** Tokens are excluded from card search unless asked for. */
+  kind: z.enum(['cards', 'tokens']).default('cards'),
 });
 const uuidParam = z.object({ id: z.uuid() });
 const lookupInput = z.object({ ids: z.array(z.uuid()).max(500) });
@@ -18,8 +20,8 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get('/cards/search', async (req): Promise<CardSearchResponse> => {
-    const { q, limit } = parse(searchQuery, req.query);
-    return { results: await searchCards(app.db, q, limit) };
+    const { q, limit, kind } = parse(searchQuery, req.query);
+    return { results: await searchCards(app.db, q, limit, kind) };
   });
 
   app.get('/cards/oracle/:id/printings', async (req): Promise<CardPrintingsResponse> => {

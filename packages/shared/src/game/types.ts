@@ -32,6 +32,8 @@ export interface CardInstance {
   attachedTo: InstanceId | null;
   note: string | null;
   isToken: boolean;
+  /** Label for tokens without a printing (e.g. a custom 2/2 Zombie). */
+  customName: string | null;
   visibleTo: Visibility;
   revealUntil: 'dismissed' | 'zoneChange' | null;
   /** Battlefield placement, in table units. */

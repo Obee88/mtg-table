@@ -3,6 +3,12 @@ import { ZONES } from './types.js';
 
 export const positionSchema = z.object({ x: z.number(), y: z.number() });
 
+export const counterTargetSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('card'), instanceId: z.string() }),
+  z.object({ type: z.literal('player'), playerId: z.string() }),
+]);
+export type CounterTarget = z.infer<typeof counterTargetSchema>;
+
 export const roomSettingsSchema = z.object({
   playerCount: z.union([z.literal(2), z.literal(4)]),
   mode: z.enum(['1v1', 'ffa', '2v2']),
@@ -40,6 +46,19 @@ export const gameEventSchema = z.discriminatedUnion('type', [
     libraryPosition: z.enum(['top', 'bottom']).nullable(),
   }),
   z.object({ type: z.literal('cardTapped'), instanceId: z.string(), tapped: z.boolean() }),
+  z.object({ type: z.literal('cardTransformed'), instanceId: z.string(), transformed: z.boolean() }),
+  z.object({ type: z.literal('cardFlipped'), instanceId: z.string(), flipped: z.boolean() }),
+  z.object({ type: z.literal('cardFaceDownChanged'), instanceId: z.string(), faceDown: z.boolean() }),
+  /** One mechanism for card and player counters. `value` is the resulting total. */
+  z.object({ type: z.literal('counterChanged'), target: counterTargetSchema, kind: z.string(), delta: z.number().int(), value: z.number().int() }),
+  z.object({ type: z.literal('cardAttached'), instanceId: z.string(), to: z.string().nullable() }),
+  z.object({ type: z.literal('noteChanged'), instanceId: z.string(), note: z.string().nullable() }),
+  z.object({
+    type: z.literal('tokenCreated'),
+    controllerId: z.string(),
+    cards: z.array(z.object({ id: z.string(), printingId: z.string().nullable(), customName: z.string().nullable() })),
+    position: positionSchema,
+  }),
   /** Library re-keyed: every card gets a fresh id so nobody can track one through the shuffle. Identities are stripped by projection. */
   z.object({
     type: z.literal('libraryShuffled'),

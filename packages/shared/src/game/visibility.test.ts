@@ -146,3 +146,30 @@ describe('shuffle projection', () => {
     }
   });
 });
+
+describe('face-down projection', () => {
+  it('opponents lose the identity while face down and get it back via revealed on face up', () => {
+    const { state, log } = game(twoPlayer, ['a', 'b']);
+    const id = state.game!.players.a!.zones.hand[0]!;
+    const steps: Parameters<typeof decide>[1][] = [
+      { type: 'moveCard', instanceId: id, to: 'battlefield' },
+      { type: 'setFaceDown', instanceId: id, faceDown: true },
+      { type: 'setFaceDown', instanceId: id, faceDown: false },
+    ];
+    let s = state;
+    const events: RoomEvent[] = [];
+    for (const c of steps) {
+      const d = decide(s, c, ctx('a'));
+      if (!d.ok) throw new Error(d.error);
+      for (const event of d.events) events.push({ seq: log.length + events.length + 1, actorId: 'a', at: '', event });
+      s = reduceAll(s, d.events);
+    }
+    const forB = projectEvents(events, 'b', state);
+    expect(forB[0]?.revealed?.[0]?.instanceId).toBe(id); // played face up
+    expect(forB[1]?.revealed).toBeUndefined();
+    expect(forB[2]?.revealed?.[0]?.instanceId).toBe(id); // turned face up again
+    const midway = projectState({ ...reduceAll(state, events.slice(0, 2).map((e) => e.event)), seq: 0 }, 'b');
+    expect(midway.game!.cards[id]!.printingId).toBeNull();
+    expect(projectState({ ...reduceAll(state, events.slice(0, 2).map((e) => e.event)), seq: 0 }, 'a').game!.cards[id]!.printingId).toBe('card-of-a');
+  });
+});

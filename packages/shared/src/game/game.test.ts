@@ -321,3 +321,106 @@ describe('untap all, shuffle, mulligan', () => {
     expect(g(s).cards[p.zones.hand[0]!]).toMatchObject({ zone: 'hand', visibleTo: 'owner' });
   });
 });
+
+describe('card state', () => {
+  const settings: RoomSettings = { playerCount: 2, mode: '1v1', startingLife: 20, commander: false };
+  const decks = {
+    a: { main: [{ printingId: 'bolt', quantity: 10 }], sideboard: [], commander: [] },
+    b: { main: [{ printingId: 'island', quantity: 9 }], sideboard: [], commander: [] },
+  };
+  let n = 0;
+  let r = 0;
+  const full = (actor: string): CommandContext => ({ ...ctx(actor), random: () => ((r += 7) % 11) / 11, newId: () => `t${++n}` });
+  const playing = () => {
+    let s = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings });
+    for (const p of ['a', 'b']) {
+      s = run(s, p, { type: 'join' });
+      s = run(s, p, { type: 'selectDeck', deckId: `deck-${p}` });
+      s = run(s, p, { type: 'setReady', ready: true });
+    }
+    const d = decide(s, { type: 'start' }, { ...full('a'), decks });
+    if (!d.ok) throw new Error(d.error);
+    s = reduceAll(s, d.events);
+    const [x, y] = s.game!.players.a!.zones.hand;
+    s = run(s, 'a', { type: 'moveCard', instanceId: x!, to: 'battlefield', position: { x: 10, y: 10 } });
+    s = run(s, 'a', { type: 'moveCard', instanceId: y!, to: 'battlefield', position: { x: 30, y: 10 } });
+    return { s, x: x!, y: y! };
+  };
+  const runFull = (s: ReturnType<typeof initialRoomState>, actor: string, command: Parameters<typeof decide>[1]) => {
+    const d = decide(s, command, full(actor));
+    if (!d.ok) throw new Error(d.error);
+    return reduceAll(s, d.events);
+  };
+
+  it('transform, flip and note are simple toggles with idempotent commands', () => {
+    const p = playing();
+    let s = p.s;
+    const { x } = p;
+    s = run(s, 'a', { type: 'transformCard', instanceId: x, transformed: true });
+    s = run(s, 'a', { type: 'flipCard', instanceId: x, flipped: true });
+    s = run(s, 'a', { type: 'setNote', instanceId: x, note: 'copy of Bolt' });
+    expect(s.game!.cards[x]).toMatchObject({ transformed: true, flipped: true, note: 'copy of Bolt' });
+    expect(decide(s, { type: 'transformCard', instanceId: x, transformed: true }, ctx('a'))).toEqual({ ok: true, events: [] });
+    s = run(s, 'a', { type: 'setNote', instanceId: x, note: '' });
+    expect(s.game!.cards[x]?.note).toBeNull();
+    // leaving the battlefield resets transform/flip but keeps the note
+    s = run(s, 'a', { type: 'setNote', instanceId: x, note: 'n' });
+    s = run(s, 'a', { type: 'moveCard', instanceId: x, to: 'graveyard' });
+    expect(s.game!.cards[x]).toMatchObject({ transformed: false, flipped: false, note: 'n' });
+  });
+
+  it('face-down hides the card from opponents until turned face up', () => {
+    const p = playing();
+    let s = p.s;
+    const { x } = p;
+    s = run(s, 'a', { type: 'setFaceDown', instanceId: x, faceDown: true });
+    expect(s.game!.cards[x]).toMatchObject({ faceDown: true, visibleTo: 'owner' });
+    s = run(s, 'a', { type: 'setFaceDown', instanceId: x, faceDown: false });
+    expect(s.game!.cards[x]).toMatchObject({ faceDown: false, visibleTo: 'all' });
+    const inHand = s.game!.players.a!.zones.hand[0]!;
+    expect(decide(s, { type: 'setFaceDown', instanceId: inHand, faceDown: true }, ctx('a')).ok).toBe(false);
+  });
+
+  it('counters accumulate per kind, never go negative, and vanish at zero', () => {
+    const p = playing();
+    let s = p.s;
+    const { x } = p;
+    s = run(s, 'a', { type: 'addCounter', instanceId: x, kind: '+1/+1', delta: 2 });
+    s = run(s, 'a', { type: 'addCounter', instanceId: x, kind: '+1/+1', delta: 1 });
+    s = run(s, 'a', { type: 'addCounter', instanceId: x, kind: 'loyalty', delta: 4 });
+    expect(s.game!.cards[x]?.counters).toEqual({ '+1/+1': 3, loyalty: 4 });
+    s = run(s, 'a', { type: 'addCounter', instanceId: x, kind: '+1/+1', delta: -5 });
+    expect(s.game!.cards[x]?.counters).toEqual({ loyalty: 4 });
+    expect(decide(s, { type: 'addCounter', instanceId: x, kind: '+1/+1', delta: -1 }, ctx('a'))).toEqual({ ok: true, events: [] });
+    s = run(s, 'a', { type: 'moveCard', instanceId: x, to: 'hand' });
+    expect(s.game!.cards[x]?.counters).toEqual({});
+  });
+
+  it('attachments: host must be a permanent, no self or loops, detach when the host leaves', () => {
+    const p = playing();
+    let s = p.s;
+    const { x, y } = p;
+    s = run(s, 'a', { type: 'attachCard', instanceId: x, to: y });
+    expect(s.game!.cards[x]?.attachedTo).toBe(y);
+    expect(decide(s, { type: 'attachCard', instanceId: y, to: x }, ctx('a'))).toEqual({ ok: false, error: 'Cannot create an attachment loop' });
+    expect(decide(s, { type: 'attachCard', instanceId: y, to: y }, ctx('a'))).toEqual({ ok: false, error: 'Cannot attach a card to itself' });
+    const inHand = s.game!.players.a!.zones.hand[0]!;
+    expect(decide(s, { type: 'attachCard', instanceId: x, to: inHand }, ctx('a'))).toEqual({ ok: false, error: 'Target is not on the battlefield' });
+    s = run(s, 'a', { type: 'moveCard', instanceId: y, to: 'graveyard' });
+    expect(s.game!.cards[x]?.attachedTo).toBeNull();
+  });
+
+  it('tokens are created on the battlefield, visible to all, and cease to exist when they leave', () => {
+    let { s } = playing();
+    s = runFull(s, 'a', { type: 'createToken', printingId: null, customName: 'Zombie 2/2', count: 3, position: { x: 50, y: 50 } });
+    const tokens = s.game!.players.a!.zones.battlefield.slice(-3);
+    expect(tokens).toHaveLength(3);
+    expect(s.game!.cards[tokens[0]!]).toMatchObject({ isToken: true, printingId: null, customName: 'Zombie 2/2', visibleTo: 'all', zone: 'battlefield' });
+    s = run(s, 'a', { type: 'moveCard', instanceId: tokens[0]!, to: 'graveyard' });
+    expect(s.game!.cards[tokens[0]!]).toBeUndefined();
+    expect(s.game!.players.a!.zones.graveyard).toEqual([]);
+    expect(decide(s, { type: 'createToken', printingId: null, customName: null, count: 1, position: { x: 0, y: 0 } }, full('a')).ok).toBe(false);
+    s = runFull(s, 'a', { type: 'createToken', printingId: 'bolt', customName: null, count: 1, position: { x: 1, y: 1 } });
+    expect(s.game!.cards[s.game!.players.a!.zones.battlefield.at(-1)!]).toMatchObject({ isToken: true, printingId: 'bolt' });
+  });
+});

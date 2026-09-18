@@ -149,6 +149,71 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       return accept(...events);
     }
 
+    case 'transformCard': {
+      const f = ownCard(state, ctx.actorId, command.instanceId);
+      if ('error' in f) return reject(f.error);
+      if (f.card.transformed === command.transformed) return accept();
+      return accept({ type: 'cardTransformed', instanceId: f.card.id, transformed: command.transformed });
+    }
+
+    case 'flipCard': {
+      const f = ownCard(state, ctx.actorId, command.instanceId);
+      if ('error' in f) return reject(f.error);
+      if (f.card.flipped === command.flipped) return accept();
+      return accept({ type: 'cardFlipped', instanceId: f.card.id, flipped: command.flipped });
+    }
+
+    case 'setFaceDown': {
+      const f = ownCard(state, ctx.actorId, command.instanceId);
+      if ('error' in f) return reject(f.error);
+      if (f.card.zone !== 'battlefield' && f.card.zone !== 'exile') return reject('Only battlefield or exiled cards can be face down');
+      if (f.card.faceDown === command.faceDown) return accept();
+      return accept({ type: 'cardFaceDownChanged', instanceId: f.card.id, faceDown: command.faceDown });
+    }
+
+    case 'addCounter': {
+      const f = ownCard(state, ctx.actorId, command.instanceId);
+      if ('error' in f) return reject(f.error);
+      if (f.card.zone !== 'battlefield') return reject('Only permanents can have counters');
+      const value = Math.max(0, (f.card.counters[command.kind] ?? 0) + command.delta);
+      if (value === (f.card.counters[command.kind] ?? 0)) return accept();
+      return accept({ type: 'counterChanged', target: { type: 'card', instanceId: f.card.id }, kind: command.kind, delta: command.delta, value });
+    }
+
+    case 'attachCard': {
+      const f = ownCard(state, ctx.actorId, command.instanceId);
+      if ('error' in f) return reject(f.error);
+      if (f.card.zone !== 'battlefield') return reject('Only permanents can be attached');
+      if (command.to !== null) {
+        if (command.to === f.card.id) return reject('Cannot attach a card to itself');
+        const host = state.game!.cards[command.to];
+        if (!host || host.zone !== 'battlefield') return reject('Target is not on the battlefield');
+        // No cycles: walk up from the host.
+        for (let cur: CardInstance | undefined = host; cur; cur = cur.attachedTo ? state.game!.cards[cur.attachedTo] : undefined) {
+          if (cur.id === f.card.id) return reject('Cannot create an attachment loop');
+        }
+      }
+      if (f.card.attachedTo === command.to) return accept();
+      return accept({ type: 'cardAttached', instanceId: f.card.id, to: command.to });
+    }
+
+    case 'setNote': {
+      const f = ownCard(state, ctx.actorId, command.instanceId);
+      if ('error' in f) return reject(f.error);
+      const note = command.note === '' ? null : command.note;
+      if (f.card.note === note) return accept();
+      return accept({ type: 'noteChanged', instanceId: f.card.id, note });
+    }
+
+    case 'createToken': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      if (!command.printingId && !command.customName) return reject('A token needs a printing or a name');
+      if (!ctx.newId) return reject('Ids unavailable');
+      const cards = Array.from({ length: command.count }, () => ({ id: ctx.newId!(), printingId: command.printingId, customName: command.customName }));
+      return accept({ type: 'tokenCreated', controllerId: ctx.actorId, cards, position: command.position });
+    }
+
     case 'closeRoom':
       if (!isOwner) return reject('Only the owner can close the room');
       return accept({ type: 'roomClosed' });

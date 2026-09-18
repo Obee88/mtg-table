@@ -26,6 +26,7 @@ beforeAll(async () => {
       rawCard({ id: 'a5555555-1111-4111-8111-111111111111', set: 'lea', lang: 'de', name: 'Blitzschlag' }),
       rawCard({ id: 'b1111111-1111-4111-8111-111111111111', oracle_id: BOLTLESS, name: 'Boltless Wonder', released_at: '2020-01-01' }),
       rawCard({ id: 'c1111111-1111-4111-8111-111111111111', oracle_id: HOUND, name: 'Bolt Hound', released_at: '2021-01-01' }),
+      rawCard({ id: 'd1111111-1111-4111-8111-111111111111', oracle_id: '99999999-9999-4999-8999-999999999999', name: 'Bolt Token', layout: 'token', set_type: 'token', set: 'tbol' }),
     ]),
     silentLog,
   );
@@ -56,5 +57,12 @@ describe('listPrintings', () => {
   it('returns every printing of the oracle id, newest first', async () => {
     const printings = await listPrintings(db, BOLT);
     expect(printings.map((p) => p.setCode)).toEqual(['ha1', 'plst', 'm11', 'lea', 'lea']);
+  });
+});
+
+describe('token search', () => {
+  it('excludes tokens by default and finds only tokens with kind=tokens', async () => {
+    expect((await searchCards(db, 'bolt', 10)).map((r) => r.name)).not.toContain('Bolt Token');
+    expect((await searchCards(db, 'bolt', 10, 'tokens')).map((r) => r.name)).toEqual(['Bolt Token']);
   });
 });

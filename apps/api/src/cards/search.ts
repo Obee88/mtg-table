@@ -33,7 +33,7 @@ const escapeLike = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
  * ranked before substring matches. Representative = latest English, non-promo,
  * non-digital printing.
  */
-export async function searchCards(db: Db, query: string, limit: number): Promise<CardPrinting[]> {
+export async function searchCards(db: Db, query: string, limit: number, kind: 'cards' | 'tokens' = 'cards'): Promise<CardPrinting[]> {
   const q = escapeLike(query.trim());
   if (!q) return [];
   const c = schema.cards;
@@ -41,7 +41,7 @@ export async function searchCards(db: Db, query: string, limit: number): Promise
   const best = db
     .selectDistinctOn([c.oracleId])
     .from(c)
-    .where(and(isNotNull(c.oracleId), ilike(c.name, `%${q}%`), eq(c.lang, 'en'), not(c.isDigital)))
+    .where(and(isNotNull(c.oracleId), ilike(c.name, `%${q}%`), eq(c.lang, 'en'), not(c.isDigital), eq(c.isToken, kind === 'tokens')))
     .orderBy(c.oracleId, asc(c.isPromo), desc(c.releasedAt))
     .as('best');
 
