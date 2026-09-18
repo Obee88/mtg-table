@@ -138,7 +138,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] Player state: life, poison, custom counters; server dice/coins; game log events
 - [x] Reveal/look/search actions and reveal durations
 - [x] Undo of own last action (compensating event)
-- [ ] Optimistic updates with reconciliation on the client
+- [x] Optimistic updates with reconciliation on the client
 - [ ] Table UI polish: context menu, hover preview, keyboard shortcuts, multi-select
 - [ ] Log panel, change highlights, move/tap/reveal animations
 - [ ] Playtest round with the group; fix list
