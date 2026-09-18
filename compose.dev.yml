@@ -1,0 +1,14 @@
+# Local development only. Production Postgres is provisioned by the VPS dashboard.
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: mtg
+      POSTGRES_PASSWORD: mtg
+      POSTGRES_DB: mtg
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:
