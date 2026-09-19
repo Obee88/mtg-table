@@ -64,7 +64,7 @@ export function RoomListPage() {
             <li key={r.id} className="flex items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-surface-raised">
               <Link to={`/rooms/${r.id}`} className="flex min-w-0 flex-1 items-center justify-between gap-3">
                 <span className="min-w-0">
-                  <span className="block font-medium">{describeSettings(r.settings)}{r.ownerId === me.data?.id && <Chip type="primary" emphasis="solid" shape="pill" className="ml-2">yours</Chip>}</span>
+                  <span className="block font-medium">{describeSettings(r.settings)}{r.ownerId === me.data?.id && <Chip type="primary" shape="pill" className="ml-2">yours</Chip>}</span>
                   <span className="mt-0.5 flex items-center gap-2 text-text-muted"><Chip type={r.phase === 'lobby' ? 'success' : r.phase === 'playing' ? 'primary' : 'neutral'}>{r.phase}</Chip>{r.playerCount}/{r.settings.playerCount} seated · {new Date(r.createdAt).toLocaleString()}</span>
                 </span>
                 <span className="text-accent">{r.phase === 'playing' ? 'Rejoin' : 'Open'}</span>

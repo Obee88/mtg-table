@@ -158,3 +158,10 @@ header and "top" marker, selection/banner in the strip, "1st", player counters, 
 team / ready, room phase and "yours", promo/digital on printings, used invites.
 - The whole battlefield accepts drops (row under or nearest to the pointer), not just the row strips.
 - The stack shows no "top" marker; the pile order says it.
+
+## Revision 2026-09-19 (e) — labels aligned to the source SCSS
+
+Dark label mapping exactly as the reference: deep fill (`*-darker`, `n800`), white text, **no border on
+primary/success/error**, yellow border on warning, white border on neutral; hover lightens the fill one
+step, no shadow; icons take the saturated step. Radius 3px, 20/24px tall, 11/12px at 600. The
+solid/badge look is no longer used anywhere; its tokens alias the label look.

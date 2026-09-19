@@ -20,7 +20,7 @@ function chipClass({ shape = 'rect', size = 'small', clickable = false, classNam
 
 function chipVars(type: ChipType, emphasis: 'soft' | 'solid'): CSSProperties {
   const p = `--chip-${emphasis}-${type}`;
-  return { '--chip-bg': `var(${p}-bg)`, '--chip-fg': `var(${p}-fg)`, '--chip-bd': `var(${p}-bd)`, '--chip-hover': `var(${p}-hover)` } as CSSProperties;
+  return { '--chip-bg': `var(${p}-bg)`, '--chip-fg': `var(${p}-fg)`, '--chip-bd': `var(${p}-bd)`, '--chip-hover': `var(${p}-hover)`, '--chip-icon': `var(${p}-icon)` } as CSSProperties;
 }
 
 /** Label/badge chip. Soft rect = label, solid pill = badge; mix the axes as needed. */

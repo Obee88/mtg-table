@@ -43,7 +43,7 @@ export function Tag({ children, cardW, type = 'neutral', className = '', adjust 
 /** The general counter: a solid round badge with the count (min-width = height keeps it circular). */
 export function CounterBadge({ value, adjust }: { value: number; cardW?: number; adjust?: Adjust | undefined }) {
   return (
-    <Chip type="neutral" emphasis="solid" shape="pill" size="medium" className="shadow-lg transition-transform" style={{ ...activeStyle(!!adjust?.active), minWidth: 26, height: 26, fontSize: 13 }} {...adjustHandlers(adjust)}>
+    <Chip type="neutral" shape="pill" size="medium" className="shadow-lg transition-transform" style={{ ...activeStyle(!!adjust?.active), minWidth: 26, height: 26, fontSize: 13 }} {...adjustHandlers(adjust)}>
       {value}
     </Chip>
   );
@@ -56,7 +56,7 @@ export function PTBadge({ power, toughness, cardW, adjust }: { power: number; to
   const type: ChipType = positive ? 'success' : negative ? 'error' : 'neutral';
   const inset = Math.round(cardW * 0.06);
   return (
-    <Chip type={type} emphasis="solid" shape="pill" size={sizeFor(cardW)} className="absolute shadow-lg transition-transform" style={{ top: inset, right: inset, ...activeStyle(!!adjust?.active) }} {...adjustHandlers(adjust)}>
+    <Chip type={type} shape="pill" size={sizeFor(cardW)} className="absolute shadow-lg transition-transform" style={{ top: inset, right: inset, ...activeStyle(!!adjust?.active) }} {...adjustHandlers(adjust)}>
       {signed(power)}/{signed(toughness)}
     </Chip>
   );

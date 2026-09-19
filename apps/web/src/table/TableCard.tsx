@@ -90,8 +90,8 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
       ) : (
         <img key={card.zone} src={src} alt={label ?? ''} draggable={false} className={`h-full w-full rounded-[4.5%] object-cover ${revealed ? 'card-revealed' : ''}`} />
       )}
-      {card.isToken && <Chip type="primary" emphasis="solid" shape="pill" className="absolute left-0.5 top-0.5 shadow" title="token">T</Chip>}
-      {revealed && <Chip type="success" emphasis="solid" shape="pill" className="absolute left-0.5 bottom-5 shadow" title="revealed">👁</Chip>}
+      {card.isToken && <Chip type="primary" shape="pill" className="absolute left-0.5 top-0.5 shadow" title="token">T</Chip>}
+      {revealed && <Chip type="success" shape="pill" className="absolute left-0.5 bottom-5 shadow" title="revealed">👁</Chip>}
       {view.pt && <PTBadge power={view.pt.power} toughness={view.pt.toughness} cardW={w} adjust={adjust(['+1/+1', 1], ['-1/-1', 1])} />}
       {view.loyalty !== null && <LoyaltyBadge value={view.loyalty} cardW={w} adjust={adjust(['loyalty', 1], ['loyalty', -1])} />}
       {view.other.length > 0 && (

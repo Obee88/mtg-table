@@ -133,19 +133,21 @@ body {
   --n100: #fbfcfc; --n150: #f9fafa; --n200: #f6f7f8; --n300: #eef0f2; --n400: #dee0e4; --n500: #cdd1d7; --n550: #a7acb5;
   --n600: #7a8394; --n700: #596479; --n800: #353c49; --n850: #28303e; --n900: #20252f; --n950: #171c25;
 
-  /* soft (label): deep fill, white text, saturated border; hover one step lighter */
-  --chip-soft-primary-bg: var(--primary-darker); --chip-soft-primary-fg: #fff; --chip-soft-primary-bd: var(--primary); --chip-soft-primary-hover: var(--primary-dark);
-  --chip-soft-success-bg: var(--green-darker);   --chip-soft-success-fg: #fff; --chip-soft-success-bd: var(--green);   --chip-soft-success-hover: var(--green-dark);
-  --chip-soft-error-bg: var(--red-darker);       --chip-soft-error-fg: #fff;   --chip-soft-error-bd: var(--red);       --chip-soft-error-hover: var(--red-dark);
-  --chip-soft-warning-bg: var(--yellow-darker);  --chip-soft-warning-fg: #fff; --chip-soft-warning-bd: var(--yellow);  --chip-soft-warning-hover: var(--yellow-dark);
-  --chip-soft-neutral-bg: var(--n800);           --chip-soft-neutral-fg: #fff; --chip-soft-neutral-bd: #fff;           --chip-soft-neutral-hover: var(--n700);
+  /* label (dark): deep fill, white text; border only on warning (yellow) and neutral (white);
+     hover lightens the fill one step, no shadow; icons take the saturated step */
+  --chip-soft-primary-bg: var(--primary-darker); --chip-soft-primary-fg: #fff; --chip-soft-primary-bd: transparent;   --chip-soft-primary-hover: var(--primary-dark); --chip-soft-primary-icon: var(--primary);
+  --chip-soft-success-bg: var(--green-darker);   --chip-soft-success-fg: #fff; --chip-soft-success-bd: transparent;   --chip-soft-success-hover: var(--green-dark);   --chip-soft-success-icon: var(--green);
+  --chip-soft-error-bg: var(--red-darker);       --chip-soft-error-fg: #fff;   --chip-soft-error-bd: transparent;     --chip-soft-error-hover: var(--red-dark);       --chip-soft-error-icon: var(--red);
+  --chip-soft-warning-bg: var(--yellow-darker);  --chip-soft-warning-fg: #fff; --chip-soft-warning-bd: var(--yellow); --chip-soft-warning-hover: var(--yellow-dark);  --chip-soft-warning-icon: var(--yellow);
+  --chip-soft-neutral-bg: var(--n800);           --chip-soft-neutral-fg: #fff; --chip-soft-neutral-bd: #fff;          --chip-soft-neutral-hover: var(--n700);         --chip-soft-neutral-icon: #fff;
 
   /* solid (badge) on dark felt: the ramp's dark step as fill, white text, light step as border; hover saturated */
-  --chip-solid-primary-bg: var(--primary-dark); --chip-solid-primary-fg: #fff; --chip-solid-primary-bd: var(--primary-light); --chip-solid-primary-hover: var(--primary);
-  --chip-solid-success-bg: var(--green-dark);   --chip-solid-success-fg: #fff; --chip-solid-success-bd: var(--green-light);   --chip-solid-success-hover: var(--green);
-  --chip-solid-error-bg: var(--red-dark);       --chip-solid-error-fg: #fff;   --chip-solid-error-bd: var(--red-light);       --chip-solid-error-hover: var(--red);
-  --chip-solid-warning-bg: var(--yellow-dark);  --chip-solid-warning-fg: #fff; --chip-solid-warning-bd: var(--yellow-light);  --chip-solid-warning-hover: var(--yellow);
-  --chip-solid-neutral-bg: var(--n700);         --chip-solid-neutral-fg: #fff; --chip-solid-neutral-bd: var(--n550);          --chip-solid-neutral-hover: var(--n600);
+  /* badge (solid) is currently unused in the UI; kept as an alias of the label look */
+  --chip-solid-primary-bg: var(--chip-soft-primary-bg); --chip-solid-primary-fg: #fff; --chip-solid-primary-bd: var(--chip-soft-primary-bd); --chip-solid-primary-hover: var(--chip-soft-primary-hover); --chip-solid-primary-icon: var(--chip-soft-primary-icon);
+  --chip-solid-success-bg: var(--chip-soft-success-bg); --chip-solid-success-fg: #fff; --chip-solid-success-bd: var(--chip-soft-success-bd); --chip-solid-success-hover: var(--chip-soft-success-hover); --chip-solid-success-icon: var(--chip-soft-success-icon);
+  --chip-solid-error-bg: var(--chip-soft-error-bg);     --chip-solid-error-fg: #fff;   --chip-solid-error-bd: var(--chip-soft-error-bd);     --chip-solid-error-hover: var(--chip-soft-error-hover);     --chip-solid-error-icon: var(--chip-soft-error-icon);
+  --chip-solid-warning-bg: var(--chip-soft-warning-bg); --chip-solid-warning-fg: #fff; --chip-solid-warning-bd: var(--chip-soft-warning-bd); --chip-solid-warning-hover: var(--chip-soft-warning-hover); --chip-solid-warning-icon: var(--chip-soft-warning-icon);
+  --chip-solid-neutral-bg: var(--chip-soft-neutral-bg); --chip-solid-neutral-fg: #fff; --chip-solid-neutral-bd: var(--chip-soft-neutral-bd); --chip-solid-neutral-hover: var(--chip-soft-neutral-hover); --chip-solid-neutral-icon: var(--chip-soft-neutral-icon);
 
   --chip-shadow-hover: none;
 }
@@ -155,6 +157,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 4px;
+  box-sizing: border-box;
   height: 20px;
   min-width: 20px;
   width: fit-content;
@@ -177,4 +180,4 @@ body {
 .chip--medium.chip--pill { padding: 0 7px; }
 .chip--clickable { cursor: pointer; }
 .chip--clickable:hover { background: var(--chip-hover); box-shadow: var(--chip-shadow-hover); }
-.chip svg { fill: currentColor; }
+.chip svg { fill: var(--chip-icon, currentColor); }
