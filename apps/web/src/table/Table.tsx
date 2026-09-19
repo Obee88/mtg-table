@@ -1,13 +1,14 @@
 import type { CardInstance, CardPrinting, GameCommand, PlayerGameState, RoomEvent, RoomPlayer, RoomState, ZoneName } from '@mtg/shared';
 import { seatedPlayers } from '@mtg/shared';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type DragEvent, type MouseEvent, type ReactNode } from 'react';
-import { Button } from '../components';
+
 import type { CommandResult } from '../rooms/connection';
 import { CardSizeProvider, cardSizeFor, DEFAULT_CARD_SIZE, useCardSize, type CardSize } from './cardSize';
 import { ContextMenu, type MenuItem } from './ContextMenu';
 import { Hand } from './Hand';
 import { LibraryDialog } from './LibraryDialog';
-import { PlayerBar } from './PlayerBar';
+import { PlayerStrip } from './PlayerStrip';
+import { Toolbar } from './Toolbar';
 import { ShortcutsDialog } from './ShortcutsDialog';
 import { CardBack, TableCard } from './TableCard';
 import { TokenDialog } from './TokenDialog';
@@ -25,7 +26,7 @@ const DRAG_MIME = 'text/instance-ids';
  * The whole game view. Fills its container (no page scroll): one row per
  * player, card size derived from the space each row gets.
  */
-export function Table({ state, meId, send, live = [] }: { state: RoomState; meId: string; send: Send; live?: RoomEvent[] }) {
+export function Table({ state, meId, send, live = [], connected = [] }: { state: RoomState; meId: string; send: Send; live?: RoomEvent[]; connected?: string[] }) {
   const game = state.game!;
   const players = seatedPlayers(state);
   const me = players.find((p) => p.id === meId);
@@ -272,12 +273,13 @@ export function Table({ state, meId, send, live = [] }: { state: RoomState; meId
   }, []);
 
   const shared = { cards: game.cards, printings, run, onCardClick, attaching: attaching !== null, highlighted };
+  const connectedSet = new Set(connected);
 
   return (
     <CardSizeProvider size={cardSize}>
-      <div ref={rootRef} className="grid h-full min-h-0 w-full gap-1" style={{ gridTemplateRows: `repeat(${Math.max(1, rows)}, minmax(0, 1fr))` }}>
+      <div ref={rootRef} className="grid h-full min-h-0 w-full" style={{ gridTemplateRows: `repeat(${Math.max(1, rows)}, minmax(0, 1fr))` }}>
         {opponents.map((p) => (
-          <PlayerArea key={p.id} {...shared} state={state} player={p} pgs={game.players[p.id]!} mine={false} flipped onCardMenu={openMenu} isSelected={() => false} />
+          <PlayerArea key={p.id} {...shared} state={state} player={p} pgs={game.players[p.id]!} mine={false} flipped connected={connectedSet.has(p.id)} onCardMenu={openMenu} isSelected={() => false} />
         ))}
         {me && (
           <PlayerArea
@@ -286,6 +288,7 @@ export function Table({ state, meId, send, live = [] }: { state: RoomState; meId
             player={me}
             pgs={game.players[me.id]!}
             mine
+            connected={connectedSet.has(me.id)}
             onCardMenu={openMenu}
             onCardDragStart={onCardDragStart}
             onLibraryMenu={(e) => { e.preventDefault(); setPileMenu({ x: e.clientX, y: e.clientY }); }}
@@ -328,13 +331,14 @@ export function Table({ state, meId, send, live = [] }: { state: RoomState; meId
   );
 }
 
-function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped = false, onCardClick, onCardMenu, onCardDragStart, onToken, onHelp, onLibraryMenu, attaching, isSelected, highlighted, onMarquee, selectedCount = 0, banner, bannerKind = 'error' }: {
+function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run, flipped = false, onCardClick, onCardMenu, onCardDragStart, onToken, onHelp, onLibraryMenu, attaching, isSelected, highlighted, onMarquee, selectedCount = 0, banner, bannerKind = 'error' }: {
   state: RoomState;
   player: RoomPlayer;
   pgs: PlayerGameState;
   cards: Record<string, CardInstance>;
   printings: Map<string, CardPrinting>;
   mine: boolean;
+  connected: boolean;
   run: Run;
   flipped?: boolean;
   onCardClick: (card: CardInstance, e: MouseEvent) => void;
@@ -416,7 +420,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped =
 
   const battlefield = (
     <div
-      className={`relative min-h-0 touch-none rounded-lg border bg-surface/60 ${attaching && mine ? 'border-accent' : 'border-border'}`}
+      className={`relative min-h-0 touch-none ${attaching && mine ? 'ring-1 ring-inset ring-accent/60' : ''}`}
       onDragOver={allowDrop}
       onDrop={dropTo('battlefield')}
       {...(mine ? marquee.handlers : {})}
@@ -427,18 +431,22 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped =
         </div>
       ))}
       {marquee.rect && <div className="pointer-events-none absolute z-30 border border-accent bg-accent/10" style={marquee.rect} />}
-      {pgs.zones.battlefield.length === 0 && (
-        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-text-muted">{mine ? 'drag cards here · right-click for actions · ? for shortcuts' : 'battlefield'}</span>
+      {pgs.zones.battlefield.length === 0 && mine && (
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-white/25">drag cards here · right-click for actions · ? for shortcuts</span>
       )}
     </div>
   );
 
   const handCards = zoneCards('hand');
-  const bottomRow = (
-    <div className="flex min-w-0 items-center gap-2">
-      <div className="flex shrink-0 gap-2">
-        <Pile label={pgs.topRevealed ? 'Library ●' : 'Library'} count={pgs.zones.library.length} onDragOver={allowDrop} onDrop={dropTo('library')} onContextMenu={mine ? onLibraryMenu : undefined}>
-          {pgs.zones.library.length > 0 && (cards[pgs.zones.library[0]!]?.printingId ? topCard(zoneCards('library').slice(0, 1), printings) : <CardBack />)}
+  const tray = (
+    <div className="tray flex min-w-0 items-center gap-3 px-2">
+      <Hand count={handCards.length} onDragOver={allowDrop} onDrop={dropTo('hand')}>
+        {handCards.map((c) => <span key={c.id}>{cardEl(c)}</span>)}
+        {handCards.length === 0 && <span className="px-2 text-xs text-white/25">empty hand</span>}
+      </Hand>
+      <div className="flex shrink-0 gap-2 py-1.5">
+        <Pile label="Library" count={pgs.zones.library.length} stack onDragOver={allowDrop} onDrop={dropTo('library')} onContextMenu={mine ? onLibraryMenu : undefined} hint={pgs.topRevealed ? 'top revealed' : undefined}>
+          {pgs.zones.library.length > 0 && cards[pgs.zones.library[0]!]?.printingId ? topCard(zoneCards('library').slice(0, 1), printings) : pgs.zones.library.length > 0 ? <CardBack /> : null}
         </Pile>
         <Pile label="Graveyard" count={pgs.zones.graveyard.length} onDragOver={allowDrop} onDrop={dropTo('graveyard')}>
           {topCard(zoneCards('graveyard'), printings, mine ? onCardMenu : undefined)}
@@ -452,49 +460,32 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped =
           </Pile>
         )}
       </div>
-      <Hand count={handCards.length} className="rounded-lg border border-border bg-surface/60" onDragOver={allowDrop} onDrop={dropTo('hand')}>
-        {handCards.map((c) => <span key={c.id}>{cardEl(c)}</span>)}
-        {handCards.length === 0 && <span className="px-2 text-xs text-text-muted">empty hand</span>}
-      </Hand>
     </div>
   );
 
-  const header = (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm leading-tight">
-      <span className="font-medium">{player.displayName}{mine && ' (you)'}</span>
-      <span className="text-text-muted">hand {pgs.zones.hand.length} · library {pgs.zones.library.length}{selectedCount > 0 && ` · ${selectedCount} selected`}</span>
-      {banner && <span className={`truncate ${bannerKind === 'info' ? 'text-accent' : 'text-danger'}`}>{banner}</span>}
-      {mine && (
-        <span className="ml-auto flex flex-wrap gap-1">
-          <Button variant="ghost" className="!px-2 !py-0.5 text-xs" onClick={() => void run({ type: 'draw', count: 1 })} disabled={pgs.zones.library.length === 0}>Draw (d)</Button>
-          <Button variant="ghost" className="!px-2 !py-0.5 text-xs" onClick={() => void run({ type: 'untapAll' })}>Untap all (u)</Button>
-          <Button variant="ghost" className="!px-2 !py-0.5 text-xs" onClick={() => void run({ type: 'shuffleLibrary' })}>Shuffle (s)</Button>
-          <Button variant="ghost" className="!px-2 !py-0.5 text-xs" onClick={onToken}>Token (t)</Button>
-          <Button variant="ghost" className="!px-2 !py-0.5 text-xs" onClick={() => void run({ type: 'undo' })} title="Undo your last action if nobody acted since">Undo (Ctrl+Z)</Button>
-          <Button
-            variant="ghost"
-            className="!px-2 !py-0.5 text-xs"
-            onClick={() => {
-              const count = Math.max(0, pgs.zones.hand.length - 1);
-              if (confirm(`Mulligan to ${count}?`)) void run({ type: 'mulligan', count });
-            }}
-          >
-            Mulligan
-          </Button>
-          <Button variant="ghost" className="!px-2 !py-0.5 text-xs" onClick={onHelp} title="Keyboard shortcuts">?</Button>
-        </span>
-      )}
+  const strip = (
+    <div className="flex items-center gap-3">
+      <PlayerStrip
+        state={state}
+        player={player}
+        pgs={pgs}
+        mine={mine}
+        connected={connected}
+        run={run}
+        toolbar={mine ? <Toolbar run={run} libraryCount={pgs.zones.library.length} handCount={pgs.zones.hand.length} onToken={onToken ?? (() => undefined)} onHelp={onHelp ?? (() => undefined)} /> : undefined}
+      />
+      {mine && selectedCount > 0 && <span className="text-[11px] text-accent">{selectedCount} selected</span>}
+      {mine && banner && <span className={`truncate text-[11px] ${bannerKind === 'info' ? 'text-accent' : 'text-danger'}`}>{banner}</span>}
     </div>
   );
-  const bar = <PlayerBar state={state} player={player} pgs={pgs} mine={mine} run={run} />;
 
-  // Opponents: their hand at the far edge, battlefield towards the middle. Me: mirrored.
-  const order = flipped ? [header, bar, bottomRow, battlefield] : [battlefield, bottomRow, bar, header];
-  const rowsTemplate = flipped ? 'auto auto auto minmax(0, 1fr)' : 'minmax(0, 1fr) auto auto auto';
+  // Opponents: strip at the top edge, hand next, battlefield towards the middle. Me: mirrored.
+  const order = flipped ? [strip, tray, battlefield] : [battlefield, tray, strip];
+  const rowsTemplate = flipped ? 'auto auto minmax(0, 1fr)' : 'minmax(0, 1fr) auto auto';
 
   return (
     <section
-      className={`grid min-h-0 gap-1 rounded-lg p-1 transition-shadow duration-300 ${highlighted.has(player.id) ? 'shadow-[0_0_0_2px_var(--color-accent)]' : ''}`}
+      className={`half grid min-h-0 transition-shadow duration-300 ${flipped ? 'border-b border-white/10' : ''} ${highlighted.has(player.id) ? 'shadow-[inset_0_0_0_2px_var(--color-accent)]' : ''}`}
       style={{ gridTemplateRows: rowsTemplate }}
     >
       {order.map((el, i) => <div key={i} className="min-h-0 min-w-0">{el}</div>)}
@@ -502,14 +493,17 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped =
   );
 }
 
-function Pile({ label, count, children, ...drop }: { label: string; count: number; children?: ReactNode; onDragOver?: ((e: DragEvent) => void) | undefined; onDrop?: ((e: DragEvent<HTMLDivElement>) => void) | undefined; onContextMenu?: ((e: MouseEvent) => void) | undefined }) {
+function Pile({ label, count, children, stack = false, hint, ...drop }: { label: string; count: number; children?: ReactNode; stack?: boolean; hint?: string | undefined; onDragOver?: ((e: DragEvent) => void) | undefined; onDrop?: ((e: DragEvent<HTMLDivElement>) => void) | undefined; onContextMenu?: ((e: MouseEvent) => void) | undefined }) {
   const { w, h } = useCardSize();
+  const empty = count === 0;
   return (
-    <div className="relative flex flex-col items-center text-xs text-text-muted" {...drop}>
-      <div className="flex items-center justify-center rounded-[4.5%] border border-dashed border-border" style={{ width: w, height: h }}>
-        {children}
-      </div>
-      <span className="pointer-events-none absolute bottom-1 rounded bg-black/70 px-1 text-[10px]">{label} · {count}</span>
+    <div className="relative" style={{ width: w, height: h }} {...drop} title={label}>
+      {stack && count > 2 && <div className="absolute inset-0 translate-x-[3px] translate-y-[3px] rounded-[4.5%] bg-[#1a1533] card-shadow" />}
+      {stack && count > 1 && <div className="absolute inset-0 translate-x-[1.5px] translate-y-[1.5px] rounded-[4.5%] bg-[#221b45] card-shadow" />}
+      <div className={`absolute inset-0 flex items-center justify-center rounded-[4.5%] ${empty ? 'border border-dashed border-white/15' : ''}`}>{children}</div>
+      <span className="pointer-events-none absolute inset-x-0 bottom-1 mx-auto w-max max-w-full truncate rounded bg-black/75 px-1.5 py-0.5 text-[10px] text-text-muted">
+        {label} · {count}{hint ? ` · ${hint}` : ''}
+      </span>
     </div>
   );
 }

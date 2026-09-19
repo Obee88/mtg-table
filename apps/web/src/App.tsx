@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { CardPreviewProvider } from './cards/CardPreview';
 import { CardsPage } from './cards/CardsPage';
+import { DesignPage } from './design/DesignPage';
 import { DeckImportPage } from './decks/DeckImportPage';
 import { DeckListPage } from './decks/DeckListPage';
 import { DeckPage } from './decks/DeckPage';
@@ -21,6 +22,7 @@ export function App() {
     <BrowserRouter>
       <CardPreviewProvider>
       <Routes>
+        <Route path="/design" element={<DesignPage />} />
         <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
         <Route path="/register" element={user ? <Navigate to="/" replace /> : <RegisterPage />} />
         <Route path="/" element={user ? <HomePage user={user} /> : <Navigate to="/login" replace />} />

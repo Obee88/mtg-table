@@ -55,3 +55,68 @@ body {
 .card-revealed {
   animation: reveal-glow 700ms ease-out;
 }
+
+/* ---- Table surface (see _documents/table-design.md) ---- */
+@theme {
+  --color-seat-0: #f2c14e;
+  --color-seat-1: #5cc8ff;
+  --color-seat-2: #ff7a90;
+  --color-seat-3: #8fe388;
+  --color-felt: #0e1f18;
+  --color-felt-deep: #07110d;
+}
+
+.felt {
+  background:
+    radial-gradient(ellipse at 50% 40%, var(--color-felt) 0%, var(--color-felt-deep) 100%);
+  position: relative;
+}
+.felt::before {
+  /* fine noise so the felt does not band */
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.felt::after {
+  /* vignette */
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 55%, rgb(0 0 0 / 0.45) 100%);
+}
+.felt > * {
+  position: relative;
+}
+
+.hairline {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.18) 20%, rgb(255 255 255 / 0.18) 80%, transparent);
+  box-shadow: 0 0 12px rgb(255 255 255 / 0.08);
+}
+
+.tray {
+  background: rgb(255 255 255 / 0.035);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+
+.card-shadow {
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(0 0 0 / 0.35);
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(0 0 0 / 0.35);
+}
+
+/* Chrome that only shows when its half is hovered or focused. */
+.reveal-on-hover {
+  opacity: 0.35;
+  transition: opacity 150ms ease-out;
+}
+.half:hover .reveal-on-hover,
+.half:focus-within .reveal-on-hover {
+  opacity: 1;
+}

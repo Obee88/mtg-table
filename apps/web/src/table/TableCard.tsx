@@ -56,7 +56,7 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
       onContextMenu={onContextMenu}
       {...preview}
       data-instance-id={card.id}
-      className={`card-enter relative select-none transition-transform duration-150 ${mine ? 'cursor-grab active:cursor-grabbing' : ''} ${card.tapped ? 'rotate-90' : ''} ${card.flipped ? 'rotate-180' : ''} ${selected ? 'rounded-[4.5%] ring-2 ring-accent ring-offset-1 ring-offset-bg' : ''}`}
+      className={`card-enter card-shadow card-lift relative select-none rounded-[4.5%] transition-[transform,box-shadow] duration-150 ${mine ? 'cursor-grab active:cursor-grabbing' : ''} ${card.tapped ? 'rotate-90' : ''} ${card.flipped ? 'rotate-180' : ''} ${selected ? 'rounded-[4.5%] ring-2 ring-accent ring-offset-1 ring-offset-bg' : ''}`}
       style={{ width: w, height: h }}
       title={label ?? undefined}
     >
@@ -71,7 +71,7 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
           )}
         </div>
       ) : (
-        <img key={card.zone} src={src} alt={label ?? ''} draggable={false} className={`h-full w-full rounded-[4.5%] object-cover shadow-md ${revealed ? 'card-revealed' : ''}`} />
+        <img key={card.zone} src={src} alt={label ?? ''} draggable={false} className={`h-full w-full rounded-[4.5%] object-cover ${revealed ? 'card-revealed' : ''}`} />
       )}
       {card.isToken && <span className={`absolute right-0.5 top-0.5 rounded bg-accent px-1 font-semibold text-bg ${badge}`}>T</span>}
       {revealed && <span className={`absolute right-0.5 bottom-5 rounded bg-success px-1 font-semibold text-bg ${badge}`} title="revealed">👁</span>}

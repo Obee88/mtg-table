@@ -7,8 +7,7 @@ import { Button, Card, ErrorText } from '../components';
 import { api } from '../lib/api';
 import { useMe } from '../lib/auth';
 import { describeSettings } from './RoomListPage';
-import { LogPanel } from '../table/LogPanel';
-import { Table } from '../table/Table';
+import { GameScreen } from '../table/GameScreen';
 import { useRoom } from './useRoom';
 
 export function RoomPage() {
@@ -21,21 +20,7 @@ export function RoomPage() {
 
   if (room.state.phase === 'playing') {
     // The game owns the whole viewport: no page scroll, everything sized to fit.
-    return (
-      <main className="flex h-dvh w-screen flex-col overflow-hidden">
-        <header className="flex h-8 shrink-0 items-center gap-3 border-b border-border px-2 text-xs text-text-muted">
-          <span className="font-medium text-text">MTG Table</span>
-          <span>{describeSettings(room.state.settings)}</span>
-          <span className={room.status === 'open' ? 'text-success' : 'text-accent'}>{room.status === 'open' ? 'connected' : 'reconnecting…'}</span>
-          <Started state={room.state} meId={me.data.id} />
-          <Link to="/rooms" className="ml-auto text-accent hover:underline">Leave to rooms</Link>
-        </header>
-        <div className="flex min-h-0 flex-1 gap-1 p-1">
-          <div className="min-h-0 min-w-0 flex-1"><Table state={room.state} meId={me.data.id} send={room.send} live={room.events} /></div>
-          <LogPanel roomId={room.state.id} state={room.state} live={room.events} />
-        </div>
-      </main>
-    );
+    return <GameScreen room={{ ...room, state: room.state }} meId={me.data.id} />;
   }
 
   return (
@@ -129,13 +114,3 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
   );
 }
 
-/** One-line game summary for the top bar. */
-function Started({ state, meId }: { state: RoomState; meId: string }) {
-  const g = state.game!;
-  const first = seatedPlayers(state).find((p) => p.id === g.firstPlayerId);
-  return (
-    <span>
-      {first?.id === meId ? 'You go' : `${first?.displayName} goes`} first (rolled {g.openingRoll[g.firstPlayerId]})
-    </span>
-  );
-}

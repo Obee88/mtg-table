@@ -39,3 +39,8 @@ export function useCards(ids: readonly (string | null)[]): Map<string, CardPrint
   }, [wanted]);
   return cache;
 }
+
+/** Preloads printings (design playground, tests). */
+export function seedCards(printings: CardPrinting[]): void {
+  for (const p of printings) cache.set(p.id, p);
+}
