@@ -31,14 +31,15 @@ export function layoutRows(cards: CardInstance[], all: Record<string, CardInstan
   return rows.map((row) => [...row.values()].sort((a, b) => a.col - b.col));
 }
 
-export const GAP = 12;
+/** Gap between columns: a tapped card overhangs its slot by 20% of its width on each side, so 40% keeps two tapped neighbours apart. */
+export const gapFor = (cardW: number) => Math.round(cardW * 0.4);
 /** Pile members shift down and right so the card beneath stays visible at its top and left. */
 export const PILE_DX = 0.22;
 export const PILE_DY = 0.16;
 
 /** Column pitch for a row: shrinks (cards overlap) only when the used columns do not fit the width. */
 export function columnStep(slots: Slot[], width: number, cardW: number): number {
-  const full = cardW + GAP;
+  const full = cardW + gapFor(cardW);
   const last = slots.length ? slots[slots.length - 1]!.col : 0;
   const needed = (last + 1) * full;
   if (width <= 0 || needed <= width || last === 0) return full;

@@ -1,6 +1,6 @@
 import type { CardInstance } from '@mtg/shared';
 import { describe, expect, it } from 'vitest';
-import { columnStep, dropSlot, freeColumns, GAP, layoutRows } from './Battlefield';
+import { columnStep, dropSlot, freeColumns, gapFor, layoutRows } from './Battlefield';
 
 const card = (id: string, row: number, col: number, attachedTo: string | null = null): CardInstance => ({
   id, printingId: 'p', ownerId: 'a', controllerId: 'a', zone: 'battlefield', tapped: false, transformed: false, flipped: false, faceDown: false,
@@ -20,11 +20,11 @@ describe('layoutRows', () => {
 describe('columnStep / dropSlot / freeColumns', () => {
   const slots = layoutRows([card('a', 0, 0), card('b', 0, 1), card('c', 0, 5)], {})[0]!;
   it('uses the full pitch when it fits and compresses otherwise', () => {
-    expect(columnStep(slots, 2000, 100)).toBe(100 + GAP);
+    expect(columnStep(slots, 2000, 100)).toBe(100 + gapFor(100));
     expect(columnStep(slots, 400, 100)).toBeCloseTo((400 - 100) / 5);
   });
   it('drops land on the column under the pointer, piling when occupied', () => {
-    const step = 100 + GAP;
+    const step = 100 + gapFor(100);
     expect(dropSlot(slots, 50, step)).toEqual({ col: 0, pile: true });
     expect(dropSlot(slots, 2 * step + 10, step)).toEqual({ col: 2, pile: false });
     expect(dropSlot(slots, 5 * step + 10, step)).toEqual({ col: 5, pile: true });

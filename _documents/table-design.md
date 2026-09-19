@@ -109,3 +109,13 @@ free placement**. This is the visual spec the table components follow. Iterate o
   beneath stays visible at its top and left edge.
 - No floating hover image at the table: the **preview panel** sits at the top of the log column
   (now 280–400px wide) and keeps the last hovered card. Other pages keep the floating preview.
+
+## Revision 2026-09-19 (c)
+
+- Battlefield column gap is 40% of the card width, so two adjacent tapped cards never touch.
+- The stack piles like the battlefield (down-right steps) and its panel widens with the pile;
+  more padding around the cards.
+- Graveyard and exile piles with more than one card show a caret pointing at the battlefield;
+  it opens a **zone browser** anchored to the pile, growing towards the battlefield: all cards
+  stacked with a vertical offset only, so every name line is readable; hover feeds the preview
+  panel; Esc / click outside closes.

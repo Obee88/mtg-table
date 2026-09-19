@@ -17,6 +17,7 @@ import { TokenDialog } from './TokenDialog';
 import { useCards } from './useCards';
 import { useHighlights } from './useHighlights';
 import { useMarquee } from './useMarquee';
+import { ZoneBrowser } from './ZoneBrowser';
 
 type Send = (command: GameCommand) => Promise<CommandResult>;
 type Run = (c: GameCommand) => Promise<void>;
@@ -361,6 +362,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
   bannerKind?: 'info' | 'error';
 }) {
   const marquee = useMarquee(onMarquee ?? (() => undefined));
+  const [expandedPile, setExpandedPile] = useState<'graveyard' | 'exile' | null>(null);
   const zoneCards = (zone: ZoneName) => pgs.zones[zone].map((id) => cards[id]).filter((c): c is CardInstance => !!c);
 
   const parseIds = (e: DragEvent): string[] => {
@@ -438,10 +440,10 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
         <Pile label="Library" count={pgs.zones.library.length} stack onDragOver={allowDrop} onDrop={dropTo('library')} onContextMenu={mine ? onLibraryMenu : undefined} hint={pgs.topRevealed ? 'top revealed' : undefined}>
           {pgs.zones.library.length > 0 && cards[pgs.zones.library[0]!]?.printingId ? topCard(zoneCards('library').slice(0, 1), printings) : pgs.zones.library.length > 0 ? <CardBack /> : null}
         </Pile>
-        <Pile label="Graveyard" count={pgs.zones.graveyard.length} onDragOver={allowDrop} onDrop={dropTo('graveyard')}>
+        <Pile label="Graveyard" count={pgs.zones.graveyard.length} onDragOver={allowDrop} onDrop={dropTo('graveyard')} browse={{ cards: zoneCards('graveyard'), open: expandedPile === 'graveyard', toggle: () => setExpandedPile((p) => (p === 'graveyard' ? null : 'graveyard')), close: () => setExpandedPile(null), towards: flipped ? 'down' : 'up', render: (c) => cardEl(c, { onClick: false }) }}>
           {topCard(zoneCards('graveyard'), printings, mine ? onCardMenu : undefined)}
         </Pile>
-        <Pile label="Exile" count={pgs.zones.exile.length} onDragOver={allowDrop} onDrop={dropTo('exile')}>
+        <Pile label="Exile" count={pgs.zones.exile.length} onDragOver={allowDrop} onDrop={dropTo('exile')} browse={{ cards: zoneCards('exile'), open: expandedPile === 'exile', toggle: () => setExpandedPile((p) => (p === 'exile' ? null : 'exile')), close: () => setExpandedPile(null), towards: flipped ? 'down' : 'up', render: (c) => cardEl(c, { onClick: false }) }}>
           {topCard(zoneCards('exile'), printings, mine ? onCardMenu : undefined)}
         </Pile>
         {pgs.zones.command.length > 0 && (
@@ -483,9 +485,19 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
   );
 }
 
-function Pile({ label, count, children, stack = false, hint, ...drop }: { label: string; count: number; children?: ReactNode; stack?: boolean; hint?: string | undefined; onDragOver?: ((e: DragEvent) => void) | undefined; onDrop?: ((e: DragEvent<HTMLDivElement>) => void) | undefined; onContextMenu?: ((e: MouseEvent) => void) | undefined }) {
+interface Browse {
+  cards: CardInstance[];
+  open: boolean;
+  toggle: () => void;
+  close: () => void;
+  towards: 'up' | 'down';
+  render: (card: CardInstance) => ReactNode;
+}
+
+function Pile({ label, count, children, stack = false, hint, browse, ...drop }: { label: string; count: number; children?: ReactNode; stack?: boolean; hint?: string | undefined; browse?: Browse | undefined; onDragOver?: ((e: DragEvent) => void) | undefined; onDrop?: ((e: DragEvent<HTMLDivElement>) => void) | undefined; onContextMenu?: ((e: MouseEvent) => void) | undefined }) {
   const { w, h } = useCardSize();
   const empty = count === 0;
+  const canBrowse = !!browse && count > 1;
   return (
     <div className="relative" style={{ width: w, height: h }} {...drop} title={label}>
       {stack && count > 2 && <div className="absolute inset-0 translate-x-[3px] translate-y-[3px] rounded-[4.5%] bg-[#1a1533] card-shadow" />}
@@ -494,6 +506,22 @@ function Pile({ label, count, children, stack = false, hint, ...drop }: { label:
       <span className="pointer-events-none absolute inset-x-0 bottom-1 mx-auto w-max max-w-full truncate rounded bg-black/75 px-1.5 py-0.5 text-[10px] text-text-muted">
         {label} · {count}{hint ? ` · ${hint}` : ''}
       </span>
+      {canBrowse && (
+        <button
+          type="button"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            browse.toggle();
+          }}
+          className={`absolute left-1/2 z-10 -translate-x-1/2 rounded-full border border-white/20 bg-black/80 px-2 text-[10px] leading-4 text-white/80 hover:bg-black ${browse.towards === 'up' ? '-top-2' : '-bottom-2'}`}
+          title={`Show all ${count} cards`}
+          aria-expanded={browse.open}
+        >
+          {browse.open ? (browse.towards === 'up' ? '▼' : '▲') : browse.towards === 'up' ? '▲' : '▼'}
+        </button>
+      )}
+      {canBrowse && browse.open && <ZoneBrowser cards={browse.cards} towards={browse.towards} renderCard={browse.render} onClose={browse.close} />}
     </div>
   );
 }
