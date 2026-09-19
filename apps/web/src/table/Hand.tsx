@@ -25,7 +25,7 @@ export function Hand({ count, children, className = '', ...rest }: { count: numb
   const items = Children.toArray(children);
 
   return (
-    <div ref={ref} className={`flex min-w-0 flex-1 items-center justify-center overflow-visible px-2 ${className}`} style={{ height: h + 12 }} {...rest}>
+    <div ref={ref} className={`flex min-w-0 flex-1 items-center justify-start overflow-visible px-2 ${className}`} style={{ height: h + 12 }} {...rest}>
       {items.map((child, i) => (
         <div key={i} className="shrink-0 transition-[margin,transform] duration-150 hover:z-50 hover:-translate-y-2" style={{ marginLeft: i === 0 ? 0 : gap - overlap, zIndex: i }}>
           {child}

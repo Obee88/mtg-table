@@ -10,7 +10,7 @@ import { LibraryDialog } from './LibraryDialog';
 import { PlayerStrip } from './PlayerStrip';
 import { Toolbar } from './Toolbar';
 import { ShortcutsDialog } from './ShortcutsDialog';
-import { BattlefieldRow, dropSlot, layoutRows } from './Battlefield';
+import { BattlefieldRow, dropSlot, freeColumns, layoutRows } from './Battlefield';
 import { StackZone } from './StackZone';
 import { CardBack, TableCard } from './TableCard';
 import { TokenDialog } from './TokenDialog';
@@ -382,18 +382,18 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
   const battlefieldCards = zoneCards('battlefield');
   const rows = layoutRows(battlefieldCards, cards);
 
-  /** Drop onto a battlefield row: join a pile or insert between columns; the rest of a selection follows. */
-  const dropToRow = (row: number) => (e: DragEvent<HTMLDivElement>, g: { cardW: number; gap: number; overlap: number }) => {
+  /** Drop onto a battlefield row: the column under the pointer; a pile if occupied, else the selection fills free columns from there. */
+  const dropToRow = (row: number) => (e: DragEvent<HTMLDivElement>, g: { step: number }) => {
     if (!mine) return;
     e.preventDefault();
     const ids = parseIds(e);
     if (ids.length === 0) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const slot = dropSlot(rows[row] ?? [], e.clientX - rect.left - 8, g.cardW, g.gap, g.overlap);
+    const slots = (rows[row] ?? []).filter((s) => !s.cards.every((c) => ids.includes(c.id)));
+    const slot = dropSlot(slots, e.clientX - rect.left - 8, g.step);
     const positions: Record<string, { row: number; col: number }> = {};
-    ids.forEach((id, i) => {
-      positions[id] = slot.pile ? { row, col: slot.col } : { row, col: slot.col + i * 0.001 };
-    });
+    if (slot.pile) ids.forEach((id) => (positions[id] = { row, col: slot.col }));
+    else freeColumns(slots, slot.col, ids.length).forEach((col, i) => (positions[ids[i]!] = { row, col }));
     void run({ type: 'moveCards', instanceIds: ids, to: 'battlefield', positions });
   };
   const allowDrop = mine ? (e: DragEvent) => e.preventDefault() : undefined;

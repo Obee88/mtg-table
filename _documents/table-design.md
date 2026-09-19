@@ -99,3 +99,13 @@ free placement**. This is the visual spec the table components follow. Iterate o
   hairline: one card wide, cards stacked vertically (top of stack on top), overlapping as it grows;
   a dashed placeholder when empty.
 - Card size formula accounts for two rows + tray (`/3.35`).
+
+## Revision 2026-09-19 (b)
+
+- Hand is left-aligned in the tray.
+- Battlefield columns are **absolute slots**: a card keeps the column it was dropped in and empty
+  columns stay empty (you may skip placeholders). Gap 12px; columns compress only when the row is
+  wider than the space. Piles step **down and to the right** (22% / 16% of a card) so the card
+  beneath stays visible at its top and left edge.
+- No floating hover image at the table: the **preview panel** sits at the top of the log column
+  (now 280–400px wide) and keeps the last hovered card. Other pages keep the floating preview.

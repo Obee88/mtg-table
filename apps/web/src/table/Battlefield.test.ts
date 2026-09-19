@@ -1,6 +1,6 @@
 import type { CardInstance } from '@mtg/shared';
 import { describe, expect, it } from 'vitest';
-import { dropSlot, layoutRows } from './Battlefield';
+import { columnStep, dropSlot, freeColumns, GAP, layoutRows } from './Battlefield';
 
 const card = (id: string, row: number, col: number, attachedTo: string | null = null): CardInstance => ({
   id, printingId: 'p', ownerId: 'a', controllerId: 'a', zone: 'battlefield', tapped: false, transformed: false, flipped: false, faceDown: false,
@@ -8,23 +8,30 @@ const card = (id: string, row: number, col: number, attachedTo: string | null = 
 });
 
 describe('layoutRows', () => {
-  it('groups by row, sorts by col, piles equal slots, tucks attachments with their host', () => {
-    const cards = [card('a', 0, 2), card('b', 0, 1), card('c', 0, 1), card('d', 1, 0), card('e', 1, 9, 'a')];
+  it('keeps absolute columns (gaps allowed), piles equal slots, tucks attachments with their host', () => {
+    const cards = [card('a', 0, 4), card('b', 0, 1), card('c', 0, 1), card('d', 1, 0), card('e', 1, 9, 'a')];
     const all = Object.fromEntries(cards.map((c) => [c.id, c]));
     const rows = layoutRows(cards, all);
-    expect(rows[0]!.map((s) => [s.col, s.cards.map((c) => c.id), s.attachments.map((c) => c.id)])).toEqual([[1, ['b', 'c'], []], [2, ['a'], ['e']]]);
+    expect(rows[0]!.map((s) => [s.col, s.cards.map((c) => c.id), s.attachments.map((c) => c.id)])).toEqual([[1, ['b', 'c'], []], [4, ['a'], ['e']]]);
     expect(rows[1]!.map((s) => s.cards.map((c) => c.id))).toEqual([['d']]);
   });
 });
 
-describe('dropSlot', () => {
+describe('columnStep / dropSlot / freeColumns', () => {
   const slots = layoutRows([card('a', 0, 0), card('b', 0, 1), card('c', 0, 5)], {})[0]!;
-  it('joins a pile in the middle of a card, inserts beside at the edges, appends past the end', () => {
-    expect(dropSlot(slots, 50, 100, 8, 0)).toEqual({ col: 0, pile: true });
-    expect(dropSlot(slots, 5, 100, 8, 0)).toEqual({ col: -1, pile: false });
-    expect(dropSlot(slots, 95, 100, 8, 0)).toEqual({ col: 0.5, pile: false });
-    expect(dropSlot(slots, 108 + 95, 100, 8, 0)).toEqual({ col: 3, pile: false });
-    expect(dropSlot(slots, 1000, 100, 8, 0)).toEqual({ col: 6, pile: false });
-    expect(dropSlot([], 30, 100, 8, 0)).toEqual({ col: 0, pile: false });
+  it('uses the full pitch when it fits and compresses otherwise', () => {
+    expect(columnStep(slots, 2000, 100)).toBe(100 + GAP);
+    expect(columnStep(slots, 400, 100)).toBeCloseTo((400 - 100) / 5);
+  });
+  it('drops land on the column under the pointer, piling when occupied', () => {
+    const step = 100 + GAP;
+    expect(dropSlot(slots, 50, step)).toEqual({ col: 0, pile: true });
+    expect(dropSlot(slots, 2 * step + 10, step)).toEqual({ col: 2, pile: false });
+    expect(dropSlot(slots, 5 * step + 10, step)).toEqual({ col: 5, pile: true });
+    expect(dropSlot(slots, 9 * step, step)).toEqual({ col: 9, pile: false });
+  });
+  it('finds the next free columns for a multi-drop', () => {
+    expect(freeColumns(slots, 0, 3)).toEqual([2, 3, 4]);
+    expect(freeColumns(slots, 4, 2)).toEqual([4, 6]);
   });
 });

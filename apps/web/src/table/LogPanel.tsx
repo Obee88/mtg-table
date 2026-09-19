@@ -3,6 +3,7 @@ import { describeEvent, logContextFor } from '@mtg/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
+import { PreviewPanel } from '../cards/CardPreview';
 import { api } from '../lib/api';
 import { mergeEvents } from './log';
 import { seatColor } from './PlayerStrip';
@@ -32,7 +33,7 @@ export function LogPanel({ roomId, state, live, status, leaveHref }: { roomId: s
   const seatOf = (id: string | null) => (id ? state.players[id]?.seat : undefined);
 
   return (
-    <aside className={`flex h-full min-h-0 shrink-0 flex-col border-l border-white/10 bg-black/40 backdrop-blur-sm ${open ? 'w-64' : 'w-6'}`}>
+    <aside className={`flex h-full min-h-0 shrink-0 flex-col border-l border-white/10 bg-black/40 backdrop-blur-sm ${open ? 'w-[clamp(280px,20vw,400px)]' : 'w-6'}`}>
       <div className="flex h-9 shrink-0 items-center gap-2 px-2 text-[11px] text-text-muted">
         <button type="button" onClick={() => setOpen((o) => !o)} className="text-text-muted hover:text-text" title={open ? 'Collapse log' : 'Expand log'}>{open ? '›' : '‹'}</button>
         {open && (
@@ -43,6 +44,7 @@ export function LogPanel({ roomId, state, live, status, leaveHref }: { roomId: s
           </>
         )}
       </div>
+      {open && <div className="shrink-0 px-2 pb-2"><PreviewPanel /></div>}
       {open && (
         <ol className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-2 text-[11px] leading-snug">
           {lines.map((l) => {
