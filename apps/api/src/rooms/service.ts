@@ -21,7 +21,7 @@ import { HttpError } from '../errors.js';
 const SNAPSHOT_EVERY = 50;
 const IDLE_EVICT_MS = 30 * 60 * 1000;
 /** Lobby and bookkeeping events are never undone. */
-const NOT_UNDOABLE = new Set(['roomCreated', 'settingsChanged', 'playerJoined', 'playerLeft', 'deckSelected', 'readyChanged', 'roomClosed', 'gameStarted', 'actionUndone']);
+const NOT_UNDOABLE = new Set(['roomCreated', 'settingsChanged', 'playerJoined', 'playerLeft', 'deckSelected', 'readyChanged', 'roomClosed', 'gameStarted', 'actionUndone', 'mulliganTaken', 'handKept']);
 
 export type RoomListener = (events: RoomEvent[], state: RoomState, before: RoomState) => void;
 
@@ -123,7 +123,7 @@ export class RoomService {
         random: () => randomInt(0, 2 ** 32) / 2 ** 32,
         newId: () => randomUUID(),
       };
-      if (command.type === 'start') ctx.decks = await this.loadDecks(room.state);
+      if (command.type === 'start' || command.type === 'restart') ctx.decks = await this.loadDecks(room.state);
       const decision = command.type === 'undo' ? await this.undoDecision(room, actor) : decide(room.state, command, ctx);
       if (!decision.ok) return decision;
       if (decision.events.length === 0) return { ok: true, events: [], state: room.state, before: room.state };

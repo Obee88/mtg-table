@@ -26,6 +26,7 @@ function game(settings: RoomSettings, ids: string[]): { state: RoomState; log: R
     step(id, { type: 'setReady', ready: true });
   }
   step(ids[0]!, { type: 'start' }, startCtx(ids[0]!, decks));
+  for (const id of ids) step(id, { type: 'keepHand', bottom: [] });
   return { state, log };
 }
 
@@ -116,7 +117,7 @@ describe('projectEvents + applyRoomEvent', () => {
 
   it('strips gameStarted identities the viewer may not see', () => {
     const { state, log } = game(twoPlayer, ['a', 'b']);
-    const started = projectEvents(log, 'a', initialRoomState('r')).at(-1)!;
+    const started = projectEvents(log, 'a', initialRoomState('r')).find((e) => e.event.type === 'gameStarted')!;
     if (started.event.type !== 'gameStarted') throw new Error('expected gameStarted');
     const layout = started.event.players;
     expect(layout.a!.hand.every((c) => c.printingId === 'card-of-a')).toBe(true);

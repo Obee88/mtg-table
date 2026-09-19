@@ -1,11 +1,13 @@
 import type { CardInstance, CardPrinting, GameCommand, PlayerGameState, RoomEvent, RoomPlayer, RoomState, ZoneName } from '@mtg/shared';
-import { seatedPlayers } from '@mtg/shared';
+import { activePlayer, inMulligan, seatedPlayers } from '@mtg/shared';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent, type ReactNode } from 'react';
-import { Chip } from '../components/Chip';
+import { Chip, ChipButton } from '../components/Chip';
 
 import type { CommandResult } from '../rooms/connection';
 import { CardSizeProvider, cardSizeFor, DEFAULT_CARD_SIZE, useCardSize, type CardSize } from './cardSize';
 import { ContextMenu, type MenuItem } from './ContextMenu';
+import { DrawByNameDialog } from './DrawByNameDialog';
+import { MulliganOverlay } from './MulliganOverlay';
 import { GENERAL_COUNTER } from './counters';
 import { Hand } from './Hand';
 import { LibraryDialog } from './LibraryDialog';
@@ -42,6 +44,7 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
   const [pileMenu, setPileMenu] = useState<{ x: number; y: number } | null>(null);
   const [tokenDialog, setTokenDialog] = useState(false);
   const [libraryDialog, setLibraryDialog] = useState(false);
+  const [drawDialog, setDrawDialog] = useState(false);
   const [helpDialog, setHelpDialog] = useState(false);
   /** Own cards currently selected (battlefield or hand). */
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
@@ -109,6 +112,7 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
         case 'u': return void run({ type: 'untapAll' });
         case 's': return void run({ type: 'shuffleLibrary' });
         case 't': return setTokenDialog(true);
+        case 'n': return void run({ type: 'endTurn' });
         case ' ': {
           if (ids.length === 0) return;
           e.preventDefault();
@@ -246,6 +250,7 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
       { label: 'Look at top…', onSelect: () => { const n = ask('Look at how many?', pgs?.zones.library.length ?? 0); if (n) { void run({ type: 'lookAtTop', count: n }); setLibraryDialog(true); } } },
       { label: 'Reveal top… to everyone', onSelect: () => { const n = ask('Reveal how many?', pgs?.zones.library.length ?? 0); if (n) void run({ type: 'revealTop', count: n, to: 'all' }); } },
       { label: 'Search library', onSelect: () => { void run({ type: 'lookAtTop', count: Math.max(1, pgs?.zones.library.length ?? 1) }); setLibraryDialog(true); } },
+      { label: 'Draw by name…', onSelect: () => setDrawDialog(true) },
       { label: 'Browse visible cards', onSelect: () => setLibraryDialog(true) },
       'sep',
       { label: pgs?.topRevealed ? 'Stop revealing top card' : 'Play with top card revealed', onSelect: () => void run({ type: 'setTopRevealed', enabled: !pgs?.topRevealed }) },
@@ -295,6 +300,7 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
         )}
       </div>
       <StackZone state={state} meId={meId} printings={printings} run={run} onCardMenu={openMenu} onCardDragStart={onCardDragStart} />
+      {inMulligan(game) && <MulliganOverlay state={state} meId={meId} printings={printings} run={run} />}
       </div>
       {menu && (
         <ContextMenu
@@ -307,6 +313,9 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
       )}
       {pileMenu && <ContextMenu x={pileMenu.x} y={pileMenu.y} items={libraryItems()} onClose={() => setPileMenu(null)} header="Library" />}
       <CardSizeProvider size={DEFAULT_CARD_SIZE}>
+        {drawDialog && me && (
+          <DrawByNameDialog library={game.players[me.id]!.zones.library} cards={game.cards} printings={printings} run={run} onClose={() => setDrawDialog(false)} />
+        )}
         {libraryDialog && me && (
           <LibraryDialog library={game.players[me.id]!.zones.library} cards={game.cards} printings={printings} run={run} onClose={() => setLibraryDialog(false)} />
         )}
@@ -448,7 +457,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
         {handCards.length === 0 && <span className="px-2 text-xs text-white/25">empty hand</span>}
       </Hand>
       <div className="flex shrink-0 gap-2 py-1.5">
-        <Pile label="Library" count={pgs.zones.library.length} stack onDragOver={allowDrop} onDrop={dropTo('library')} onContextMenu={mine ? onLibraryMenu : undefined} hint={pgs.topRevealed ? 'top revealed' : undefined}>
+        <Pile label="Library" count={pgs.zones.library.length} stack onDragOver={allowDrop} onDrop={dropTo('library')} onContextMenu={mine ? onLibraryMenu : undefined} onClick={mine && pgs.zones.library.length > 0 ? () => void run({ type: 'draw', count: 1 }) : undefined} onLabelClick={mine ? onLibraryMenu : undefined} hint={pgs.topRevealed ? 'top revealed' : undefined}>
           {pgs.zones.library.length > 0 && cards[pgs.zones.library[0]!]?.printingId ? topCard(zoneCards('library').slice(0, 1), printings) : pgs.zones.library.length > 0 ? <CardBack /> : null}
         </Pile>
         <Pile label="Graveyard" count={pgs.zones.graveyard.length} onDragOver={allowDrop} onDrop={dropTo('graveyard')} browse={{ cards: zoneCards('graveyard'), open: expandedPile === 'graveyard', toggle: () => setExpandedPile((p) => (p === 'graveyard' ? null : 'graveyard')), close: () => setExpandedPile(null), towards: flipped ? 'down' : 'up', render: (c) => cardEl(c, { onClick: false }) }}>
@@ -475,7 +484,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
         mine={mine}
         connected={connected}
         run={run}
-        toolbar={mine ? <Toolbar run={run} libraryCount={pgs.zones.library.length} handCount={pgs.zones.hand.length} onToken={onToken ?? (() => undefined)} onHelp={onHelp ?? (() => undefined)} /> : undefined}
+        toolbar={mine ? <Toolbar run={run} onToken={onToken ?? (() => undefined)} onHelp={onHelp ?? (() => undefined)} myTurn={activePlayer(state.game!) === player.id} /> : undefined}
       />
       {mine && selectedCount > 0 && <Chip type="primary">{selectedCount} selected</Chip>}
       {mine && banner && <Chip type={bannerKind === 'info' ? 'primary' : 'error'} className="!max-w-[40ch] truncate">{banner}</Chip>}
@@ -488,7 +497,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
 
   return (
     <section
-      className={`half grid min-h-0 transition-shadow duration-300 ${flipped ? 'border-b border-white/10' : ''} ${highlighted.has(player.id) ? 'shadow-[inset_0_0_0_2px_var(--color-accent)]' : ''}`}
+      className={`half grid min-h-0 transition-shadow duration-300 ${flipped ? 'border-b border-white/10' : ''} ${highlighted.has(player.id) ? 'shadow-[inset_0_0_0_2px_var(--color-accent)]' : activePlayer(state.game!) === player.id ? 'shadow-[inset_0_0_0_1px_var(--color-accent)]' : ''}`}
       style={{ gridTemplateRows: rowsTemplate }}
     >
       {order.map((el, i) => <div key={i} className="min-h-0 min-w-0">{el}</div>)}
@@ -505,16 +514,29 @@ interface Browse {
   render: (card: CardInstance) => ReactNode;
 }
 
-function Pile({ label, count, children, stack = false, hint, browse, ...drop }: { label: string; count: number; children?: ReactNode; stack?: boolean; hint?: string | undefined; browse?: Browse | undefined; onDragOver?: ((e: DragEvent) => void) | undefined; onDrop?: ((e: DragEvent<HTMLDivElement>) => void) | undefined; onContextMenu?: ((e: MouseEvent) => void) | undefined }) {
+function Pile({ label, count, children, stack = false, hint, browse, onClick, onLabelClick, ...drop }: { label: string; count: number; children?: ReactNode; stack?: boolean; hint?: string | undefined; browse?: Browse | undefined; onClick?: (() => void) | undefined; onLabelClick?: ((e: MouseEvent) => void) | undefined; onDragOver?: ((e: DragEvent) => void) | undefined; onDrop?: ((e: DragEvent<HTMLDivElement>) => void) | undefined; onContextMenu?: ((e: MouseEvent) => void) | undefined }) {
   const { w, h } = useCardSize();
   const empty = count === 0;
   const canBrowse = !!browse && count > 1;
+  const chipVars = { '--chip-bg': 'var(--chip-soft-neutral-bg)', '--chip-fg': 'var(--chip-soft-neutral-fg)', '--chip-bd': 'var(--chip-soft-neutral-bd)', '--chip-hover': 'var(--chip-soft-neutral-hover)' } as CSSProperties;
   return (
     <div className="relative" style={{ width: w, height: h }} {...drop} title={label}>
       {stack && count > 2 && <div className="absolute inset-0 translate-x-[3px] translate-y-[3px] rounded-[4.5%] bg-[#1a1533] card-shadow" />}
       {stack && count > 1 && <div className="absolute inset-0 translate-x-[1.5px] translate-y-[1.5px] rounded-[4.5%] bg-[#221b45] card-shadow" />}
-      <div className={`absolute inset-0 flex items-center justify-center rounded-[4.5%] ${empty ? 'border border-dashed border-white/15' : ''}`}>{children}</div>
-      <Chip type="neutral" className="pointer-events-none absolute inset-x-0 bottom-1 mx-auto !bg-[var(--n900)]/90">{label} · {count}{hint ? ` · ${hint}` : ''}</Chip>
+      <div
+        className={`absolute inset-0 flex items-center justify-center rounded-[4.5%] ${empty ? 'border border-dashed border-white/15' : ''} ${onClick ? 'cursor-pointer' : ''}`}
+        onClick={onClick}
+        title={onClick ? 'click to draw' : undefined}
+      >
+        {children}
+      </div>
+      {onLabelClick ? (
+        <ChipButton type="neutral" className="absolute inset-x-0 bottom-1 mx-auto !bg-[var(--n900)]/90" onClick={(e) => { e.stopPropagation(); onLabelClick(e); }} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onLabelClick(e); }} title="Library actions">
+          {label} · {count}{hint ? ` · ${hint}` : ''} ▾
+        </ChipButton>
+      ) : (
+        <Chip type="neutral" className="pointer-events-none absolute inset-x-0 bottom-1 mx-auto !bg-[var(--n900)]/90" style={chipVars}>{label} · {count}{hint ? ` · ${hint}` : ''}</Chip>
+      )}
       {canBrowse && !browse.open && (
         <button
           type="button"

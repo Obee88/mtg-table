@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { decide, type CommandContext } from './decide.js';
+import { activePlayer, inMulligan } from './types.js';
 import type { GameEvent } from './events.js';
 import { initialRoomState, reduce, reduceAll } from './reduce.js';
 import { shuffled, type RoomSettings } from './types.js';
@@ -147,6 +148,7 @@ describe('start', () => {
     expect(['a', 'b']).toContain(g.firstPlayerId);
     expect(g.players.a?.life).toBe(20);
     expect(g.teamLife).toBeNull();
+    expect(g.mulligans).toEqual({ a: { taken: 0, kept: false }, b: { taken: 0, kept: false } });
   });
 
   it('shuffles with the injected random source deterministically', () => {
@@ -179,7 +181,7 @@ describe('table actions', () => {
     let r = 0;
     const d = decide(s, { type: 'start' }, { ...ctx('a'), decks, random: () => ((r += 7) % 11) / 11, newId: () => `c${++n}` });
     if (!d.ok) throw new Error(d.error);
-    return reduceAll(s, d.events);
+    return keepAll(reduceAll(s, d.events));
   };
   const g = (s: ReturnType<typeof playing>) => s.game!;
 
@@ -269,7 +271,7 @@ describe('untap all, shuffle, mulligan', () => {
     }
     const d = decide(s, { type: 'start' }, { ...full('a'), decks });
     if (!d.ok) throw new Error(d.error);
-    return reduceAll(s, d.events);
+    return keepAll(reduceAll(s, d.events));
   };
   const g = (s: ReturnType<typeof playing>) => s.game!;
   const runFull = (s: ReturnType<typeof playing>, actor: string, command: Parameters<typeof decide>[1]) => {
@@ -309,17 +311,6 @@ describe('untap all, shuffle, mulligan', () => {
     expect(g(s).cards[after[0]!]).toMatchObject({ zone: 'library', visibleTo: [], ownerId: 'a' });
   });
 
-  it('mulligan returns the hand, shuffles and draws the requested number', () => {
-    let s = playing();
-    const oldHand = g(s).players.a!.zones.hand;
-    s = runFull(s, 'a', { type: 'mulligan', count: 6 });
-    const p = g(s).players.a!;
-    expect(p.zones.hand).toHaveLength(6);
-    expect(p.zones.library).toHaveLength(6);
-    expect(p.zones.hand.some((id) => oldHand.includes(id))).toBe(false);
-    expect(Object.keys(g(s).cards)).toHaveLength(12 + 9);
-    expect(g(s).cards[p.zones.hand[0]!]).toMatchObject({ zone: 'hand', visibleTo: 'owner' });
-  });
 });
 
 describe('card state', () => {
@@ -341,6 +332,7 @@ describe('card state', () => {
     const d = decide(s, { type: 'start' }, { ...full('a'), decks });
     if (!d.ok) throw new Error(d.error);
     s = reduceAll(s, d.events);
+    s = keepAll(s);
     const [x, y] = s.game!.players.a!.zones.hand;
     s = run(s, 'a', { type: 'moveCard', instanceId: x!, to: 'battlefield', position: { row: 0, col: 0 } });
     s = run(s, 'a', { type: 'moveCard', instanceId: y!, to: 'battlefield', position: { row: 0, col: 1 } });
@@ -445,7 +437,7 @@ describe('player state and dice', () => {
     }
     const d = decide(s, { type: 'start' }, { ...full('a'), decks: dk });
     if (!d.ok) throw new Error(d.error);
-    return reduceAll(s, d.events);
+    return keepAll(reduceAll(s, d.events));
   };
 
   it('life, poison, counters, commander tax and damage change only for the actor', () => {
@@ -514,7 +506,7 @@ describe('multi-card commands', () => {
     }
     const d = decide(s, { type: 'start' }, { ...ctx('a'), decks, random: () => ((r += 7) % 11) / 11, newId: () => `m${++n}` });
     if (!d.ok) throw new Error(d.error);
-    return reduceAll(s, d.events);
+    return keepAll(reduceAll(s, d.events));
   };
 
   it('moves several cards in one batch with per-card positions, then taps them together', () => {
@@ -554,7 +546,7 @@ describe('stack zone', () => {
     }
     const d = decide(s, { type: 'start' }, { ...ctx('a'), decks, random: () => ((r += 7) % 11) / 11, newId: () => `s${++n}` });
     if (!d.ok) throw new Error(d.error);
-    return reduceAll(s, d.events);
+    return keepAll(reduceAll(s, d.events));
   };
 
   it('is shared, public and ordered by cast order across players', () => {
@@ -592,6 +584,7 @@ describe('battlefield slots', () => {
     const d = decide(s, { type: 'start' }, { ...ctx('a'), decks, random: () => ((r += 7) % 11) / 11, newId: () => `b${++n}` });
     if (!d.ok) throw new Error(d.error);
     s = reduceAll(s, d.events);
+    s = keepAll(s);
     const [x, y, z] = s.game!.players.a!.zones.hand;
     s = run(s, 'a', { type: 'moveCard', instanceId: x!, to: 'battlefield' });
     s = run(s, 'a', { type: 'moveCard', instanceId: y!, to: 'battlefield' });
@@ -605,5 +598,111 @@ describe('battlefield slots', () => {
     s = run(s, 'a', { type: 'moveCards', instanceIds: [p!, q!], to: 'battlefield' });
     expect(s.game!.cards[p!]?.position).toEqual({ row: 0, col: 2 });
     expect(s.game!.cards[q!]?.position).toEqual({ row: 0, col: 3 });
+  });
+});
+
+/** Everyone keeps their opening hand so ordinary actions are allowed. */
+function keepAll(s: ReturnType<typeof initialRoomState>) {
+  return Object.keys(s.players).reduce((acc, p) => run(acc, p, { type: 'keepHand', bottom: [] }), s);
+}
+
+describe('mulligan phase', () => {
+  const settings: RoomSettings = { playerCount: 2, mode: '1v1', startingLife: 20, commander: false };
+  const decks = { a: { main: [{ printingId: 'bolt', quantity: 12 }], sideboard: [], commander: [] }, b: { main: [{ printingId: 'isle', quantity: 12 }], sideboard: [], commander: [] } };
+  let n = 0;
+  let r = 0;
+  const full = (actor: string): CommandContext => ({ ...ctx(actor), random: () => ((r += 7) % 11) / 11, newId: () => `mu${++n}`, decks });
+  const dealt = () => {
+    let s = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings });
+    for (const p of ['a', 'b']) {
+      s = run(s, p, { type: 'join' });
+      s = run(s, p, { type: 'selectDeck', deckId: 'd' });
+      s = run(s, p, { type: 'setReady', ready: true });
+    }
+    const d = decide(s, { type: 'start' }, full('a'));
+    if (!d.ok) throw new Error(d.error);
+    return reduceAll(s, d.events);
+  };
+  const runFull = (s: ReturnType<typeof initialRoomState>, actor: string, command: Parameters<typeof decide>[1]) => {
+    const d = decide(s, command, full(actor));
+    if (!d.ok) throw new Error(d.error);
+    return reduceAll(s, d.events);
+  };
+
+  it('blocks play until everyone has kept', () => {
+    let s = dealt();
+    expect(inMulligan(s.game!)).toBe(true);
+    const hand = s.game!.players.a!.zones.hand[0]!;
+    expect(decide(s, { type: 'moveCard', instanceId: hand, to: 'battlefield' }, ctx('a'))).toEqual({ ok: false, error: 'Waiting for everyone to keep their opening hand' });
+    expect(decide(s, { type: 'draw', count: 1 }, ctx('a')).ok).toBe(false);
+    s = run(s, 'a', { type: 'keepHand', bottom: [] });
+    expect(inMulligan(s.game!)).toBe(true);
+    expect(decide(s, { type: 'draw', count: 1 }, ctx('a')).ok).toBe(false);
+    s = run(s, 'b', { type: 'keepHand', bottom: [] });
+    expect(inMulligan(s.game!)).toBe(false);
+    expect(decide(s, { type: 'draw', count: 1 }, ctx('a')).ok).toBe(true);
+    expect(decide(s, { type: 'keepHand', bottom: [] }, ctx('a'))).toEqual({ ok: false, error: 'You have already kept your hand' });
+  });
+
+  it('a mulligan redraws seven and keeping then bottoms one card per mulligan', () => {
+    let s = dealt();
+    const before = s.game!.players.a!.zones.hand;
+    s = runFull(s, 'a', { type: 'mulligan' });
+    expect(s.game!.mulligans.a).toEqual({ taken: 1, kept: false });
+    expect(s.game!.players.a!.zones.hand).toHaveLength(7);
+    expect(s.game!.players.a!.zones.hand.some((id) => before.includes(id))).toBe(false);
+    expect(s.game!.players.a!.zones.library).toHaveLength(5);
+    s = runFull(s, 'a', { type: 'mulligan' });
+    expect(s.game!.mulligans.a?.taken).toBe(2);
+    expect(decide(s, { type: 'keepHand', bottom: [] }, ctx('a'))).toEqual({ ok: false, error: 'Choose 2 cards to put on the bottom' });
+    const [x, y] = s.game!.players.a!.zones.hand;
+    expect(decide(s, { type: 'keepHand', bottom: [x!, 'nope'] }, ctx('a')).ok).toBe(false);
+    s = run(s, 'a', { type: 'keepHand', bottom: [x!, y!] });
+    expect(s.game!.mulligans.a).toEqual({ taken: 2, kept: true });
+    expect(s.game!.players.a!.zones.hand).toHaveLength(5);
+    expect(s.game!.players.a!.zones.library.slice(-2)).toEqual([x, y]);
+    expect(decide(s, { type: 'mulligan' }, full('a')).ok).toBe(false);
+  });
+
+  it('restart re-deals for the owner only and re-enters the mulligan phase', () => {
+    let s = keepAll(dealt());
+    expect(decide(s, { type: 'restart' }, full('b'))).toEqual({ ok: false, error: 'Only the owner can restart the game' });
+    const oldHand = s.game!.players.a!.zones.hand;
+    s = runFull(s, 'a', { type: 'restart' });
+    expect(inMulligan(s.game!)).toBe(true);
+    expect(s.game!.players.a!.zones.hand).toHaveLength(7);
+    expect(s.game!.players.a!.zones.hand.some((id) => oldHand.includes(id))).toBe(false);
+    expect(Object.keys(s.game!.cards)).toHaveLength(24);
+  });
+});
+
+describe('turns', () => {
+  const settings: RoomSettings = { playerCount: 2, mode: '1v1', startingLife: 20, commander: false };
+  const decks = { a: { main: [{ printingId: 'bolt', quantity: 9 }], sideboard: [], commander: [] }, b: { main: [{ printingId: 'isle', quantity: 9 }], sideboard: [], commander: [] } };
+  it('starts with the roll winner and passes around the seats', () => {
+    let n = 0;
+    let r = 0;
+    let s = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings });
+    for (const p of ['a', 'b']) {
+      s = run(s, p, { type: 'join' });
+      s = run(s, p, { type: 'selectDeck', deckId: 'd' });
+      s = run(s, p, { type: 'setReady', ready: true });
+    }
+    const d = decide(s, { type: 'start' }, { ...ctx('a'), decks, random: () => ((r += 7) % 11) / 11, newId: () => `t${++n}` });
+    if (!d.ok) throw new Error(d.error);
+    s = reduceAll(s, d.events);
+    expect(decide(s, { type: 'endTurn' }, ctx(s.game!.firstPlayerId)).ok).toBe(false); // mulligan phase
+    s = keepAll(s);
+    const first = s.game!.firstPlayerId;
+    const other = first === 'a' ? 'b' : 'a';
+    expect(activePlayer(s.game!)).toBe(first);
+    expect(s.game!.turn).toBe(1);
+    expect(decide(s, { type: 'endTurn' }, ctx(other))).toEqual({ ok: false, error: 'It is not your turn' });
+    s = run(s, first, { type: 'endTurn' });
+    expect(activePlayer(s.game!)).toBe(other);
+    expect(s.game!.turn).toBe(2);
+    s = run(s, other, { type: 'endTurn' });
+    expect(activePlayer(s.game!)).toBe(first);
+    expect(s.game!.turn).toBe(3);
   });
 });

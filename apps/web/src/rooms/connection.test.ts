@@ -134,7 +134,13 @@ describe('optimistic updates', () => {
     let r = 0;
     const d = decide(s, { type: 'start' }, { actorId: 'a', actorDisplayName: 'A', now: new Date(0), decks, random: () => ((r += 7) % 11) / 11, newId: () => `c${++n}` });
     if (!d.ok) throw new Error(d.error);
-    return { ...reduceAll(s, d.events), seq: 10 };
+    let dealt = reduceAll(s, d.events);
+    for (const p of ['a', 'b']) {
+      const k = decide(dealt, { type: 'keepHand', bottom: [] }, { actorId: p, actorDisplayName: p, now: new Date(0) });
+      if (!k.ok) throw new Error(k.error);
+      dealt = reduceAll(dealt, k.events);
+    }
+    return { ...dealt, seq: 10 };
   }
 
   function setupPlaying() {

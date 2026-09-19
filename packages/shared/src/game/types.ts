@@ -61,6 +61,11 @@ export interface GameState {
   firstPlayerId: PlayerId;
   /** Shared stack of spells/abilities being cast, in cast order (last = top). Cards there are public. */
   stack: InstanceId[];
+  /** Opening-hand decisions; play is blocked until every seated player has kept. */
+  mulligans: Record<PlayerId, MulliganState>;
+  /** Whose turn it is (starts with the roll winner) and the turn number (1-based). */
+  activePlayerId: PlayerId;
+  turn: number;
   /** d20 each player rolled for first; ties were re-rolled. */
   openingRoll: Record<PlayerId, number>;
   startedAt: string;
@@ -127,4 +132,20 @@ export function shuffled<T>(items: readonly T[], random: () => number): T[] {
     [out[i], out[j]] = [out[j]!, out[i]!];
   }
   return out;
+}
+
+export interface MulliganState {
+  /** Mulligans taken so far; the same number of cards goes to the bottom on keep. */
+  taken: number;
+  kept: boolean;
+}
+
+/** True while at least one seated player has not kept an opening hand (games from before this field count as kept). */
+export function inMulligan(game: GameState): boolean {
+  return Object.values(game.mulligans ?? {}).some((m) => !m.kept);
+}
+
+/** Active player, tolerating games recorded before turn tracking existed. */
+export function activePlayer(game: GameState): PlayerId {
+  return game.activePlayerId ?? game.firstPlayerId;
 }

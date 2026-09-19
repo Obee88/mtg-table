@@ -6,7 +6,7 @@ type Run = (c: GameCommand) => Promise<void>;
 const btn = 'rounded px-1.5 py-1 text-[11px] text-text-muted hover:bg-white/10 hover:text-text disabled:opacity-40';
 
 /** The owner's actions; lives in the strip and is dimmed until the half is hovered. */
-export function Toolbar({ run, libraryCount, handCount, onToken, onHelp }: { run: Run; libraryCount: number; handCount: number; onToken: () => void; onHelp: () => void }) {
+export function Toolbar({ run, onToken, onHelp, myTurn = false }: { run: Run; onToken: () => void; onHelp: () => void; myTurn?: boolean }) {
   const [dice, setDice] = useState(false);
   const [expr, setExpr] = useState('2d6');
   const ref = useRef<HTMLSpanElement>(null);
@@ -25,9 +25,8 @@ export function Toolbar({ run, libraryCount, handCount, onToken, onHelp }: { run
 
   return (
     <span className="reveal-on-hover flex items-center gap-0.5">
-      <button type="button" className={btn} onClick={() => void run({ type: 'draw', count: 1 })} disabled={libraryCount === 0}>Draw <kbd>d</kbd></button>
-      <button type="button" className={btn} onClick={() => void run({ type: 'untapAll' })}>Untap <kbd>u</kbd></button>
-      <button type="button" className={btn} onClick={() => void run({ type: 'shuffleLibrary' })}>Shuffle <kbd>s</kbd></button>
+      {myTurn && <button type="button" className="rounded bg-accent px-2 py-1 text-[11px] font-semibold text-bg hover:bg-accent-hover" onClick={() => void run({ type: 'endTurn' })}>End turn <kbd>n</kbd></button>}
+      <button type="button" className={btn} onClick={() => void run({ type: 'untapAll' })}>Untap all <kbd>u</kbd></button>
       <button type="button" className={btn} onClick={onToken}>Token <kbd>t</kbd></button>
       <span ref={ref} className="relative">
         <button type="button" className={btn} onClick={() => setDice((d) => !d)}>Dice</button>
@@ -41,16 +40,6 @@ export function Toolbar({ run, libraryCount, handCount, onToken, onHelp }: { run
           </span>
         )}
       </span>
-      <button
-        type="button"
-        className={btn}
-        onClick={() => {
-          const count = Math.max(0, handCount - 1);
-          if (confirm(`Mulligan to ${count}?`)) void run({ type: 'mulligan', count });
-        }}
-      >
-        Mulligan
-      </button>
       <button type="button" className={btn} onClick={() => void run({ type: 'undo' })} title="Undo your last action if nobody acted since">Undo <kbd>⌃Z</kbd></button>
       <button type="button" className={btn} onClick={onHelp} title="Keyboard shortcuts">?</button>
     </span>

@@ -171,6 +171,8 @@ describe('undo', () => {
     await service.dispatch(room.id, bob, { type: 'setReady', ready: true });
     const started = await service.dispatch(room.id, alice, { type: 'start' });
     if (!started.ok) throw new Error(started.error);
+    await service.dispatch(room.id, alice, { type: 'keepHand', bottom: [] });
+    await service.dispatch(room.id, bob, { type: 'keepHand', bottom: [] });
     return { service, roomId: room.id };
   }
 
@@ -190,7 +192,7 @@ describe('undo', () => {
 
   it('refuses when someone else acted since, when nothing undoable, and twice in a row', async () => {
     const { service, roomId } = await startedRoom();
-    expect(await service.dispatch(roomId, alice, { type: 'undo' })).toEqual({ ok: false, error: 'That action cannot be undone' }); // last batch = gameStarted
+    expect(await service.dispatch(roomId, bob, { type: 'undo' })).toEqual({ ok: false, error: 'That action cannot be undone' }); // last batch = Bob keeping his hand
     await service.dispatch(roomId, alice, { type: 'draw', count: 1 });
     await service.dispatch(roomId, bob, { type: 'draw', count: 1 });
     expect(await service.dispatch(roomId, alice, { type: 'undo' })).toEqual({ ok: false, error: 'Someone else acted since your last action' });

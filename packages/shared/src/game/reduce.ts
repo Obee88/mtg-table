@@ -79,7 +79,12 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
       return {
         ...state,
         phase: 'playing',
-        game: { cards, players, teamLife, firstPlayerId: event.firstPlayerId, openingRoll: event.openingRoll, stack: [], startedAt: '' },
+        game: {
+          cards, players, teamLife, firstPlayerId: event.firstPlayerId, openingRoll: event.openingRoll, stack: [], startedAt: '',
+          mulligans: Object.fromEntries(Object.keys(event.players).map((id) => [id, { taken: 0, kept: false }])),
+          activePlayerId: event.firstPlayerId,
+          turn: 1,
+        },
       };
     }
 
@@ -254,6 +259,22 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
     case 'actionUndone':
       // Full restore; the caller sets `seq` from the envelope.
       return { ...event.state, id: state.id };
+
+    case 'mulliganTaken': {
+      if (!state.game) return state;
+      const m = state.game.mulligans?.[event.playerId] ?? { taken: 0, kept: false };
+      return { ...state, game: { ...state.game, mulligans: { ...(state.game.mulligans ?? {}), [event.playerId]: { ...m, taken: event.taken } } } };
+    }
+
+    case 'handKept': {
+      if (!state.game) return state;
+      const m = state.game.mulligans?.[event.playerId] ?? { taken: 0, kept: false };
+      return { ...state, game: { ...state.game, mulligans: { ...(state.game.mulligans ?? {}), [event.playerId]: { ...m, kept: true } } } };
+    }
+
+    case 'turnEnded':
+      if (!state.game) return state;
+      return { ...state, game: { ...state.game, activePlayerId: event.nextPlayerId, turn: event.turn } };
 
     case 'roomClosed':
       return { ...state, phase: 'ended' };

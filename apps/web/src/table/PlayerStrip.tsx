@@ -1,4 +1,5 @@
 import type { GameCommand, PlayerGameState, RoomPlayer, RoomState } from '@mtg/shared';
+import { activePlayer } from '@mtg/shared';
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Chip, ChipButton } from '../components/Chip';
 
@@ -24,12 +25,14 @@ export function PlayerStrip({ state, player, pgs, mine, connected, run, toolbar 
   const life = shared ? (state.game!.teamLife![player.team] ?? pgs.life) : pgs.life;
   const opponents = Object.values(state.players).filter((p) => p.id !== player.id);
   const first = state.game?.firstPlayerId === player.id;
+  const myTurn = !!state.game && activePlayer(state.game) === player.id;
 
   return (
     <div className="flex h-9 min-w-0 items-center gap-2 px-2 text-[13px] leading-none">
       <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: connected ? seatColor(player.seat) : 'var(--color-border)' }} title={connected ? 'online' : 'offline'} />
       <span className="truncate font-semibold" style={{ color: seatColor(player.seat) }}>{player.displayName}</span>
-      {first && <Chip type="primary" title="goes first">1st</Chip>}
+      {first && !myTurn && <Chip type="neutral" title="rolled highest">1st</Chip>}
+      {myTurn && <Chip type="primary" title={`turn ${state.game?.turn ?? 1}`}>{mine ? 'Your turn' : `${player.displayName}'s turn`} · {state.game?.turn ?? 1}</Chip>}
 
       <Stat label={shared ? `team ${player.team + 1}` : 'life'} value={life} big mine={mine} onDelta={(d) => void run({ type: 'adjustLife', delta: d })} quick={[-5, -3, 3, 5]} />
       {(pgs.poison > 0 || mine) && <Stat label="poison" value={pgs.poison} mine={mine} onDelta={(d) => void run({ type: 'adjustPoison', delta: d })} dim={pgs.poison === 0} />}
@@ -58,7 +61,6 @@ export function PlayerStrip({ state, player, pgs, mine, connected, run, toolbar 
         </ChipButton>
       )}
 
-      <span className="ml-1 truncate text-text-muted">hand {pgs.zones.hand.length} · library {pgs.zones.library.length}</span>
       {toolbar && <span className="ml-auto flex shrink-0 items-center gap-1">{toolbar}</span>}
     </div>
   );

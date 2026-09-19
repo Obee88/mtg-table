@@ -37,7 +37,14 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('draw'), count: z.number().int().min(1).max(20) }),
   z.object({ type: z.literal('untapAll') }),
   z.object({ type: z.literal('shuffleLibrary') }),
-  z.object({ type: z.literal('mulligan'), count: z.number().int().min(0).max(7).default(7) }),
+  /** Opening-hand mulligan (London): hand back, shuffle, draw seven again. */
+  z.object({ type: z.literal('mulligan') }),
+  /** Keep the opening hand, putting exactly one card per mulligan taken on the bottom. */
+  z.object({ type: z.literal('keepHand'), bottom: z.array(z.string()).max(7) }),
+  /** Owner re-deals the game (new libraries, hands, roll for first). */
+  z.object({ type: z.literal('restart') }),
+  /** The active player passes the turn to the next seat. */
+  z.object({ type: z.literal('endTurn') }),
   z.object({ type: z.literal('transformCard'), instanceId: z.string(), transformed: z.boolean() }),
   z.object({ type: z.literal('flipCard'), instanceId: z.string(), flipped: z.boolean() }),
   z.object({ type: z.literal('setFaceDown'), instanceId: z.string(), faceDown: z.boolean() }),

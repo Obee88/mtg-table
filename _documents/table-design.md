@@ -165,3 +165,18 @@ Dark label mapping exactly as the reference: deep fill (`*-darker`, `n800`), whi
 primary/success/error**, yellow border on warning, white border on neutral; hover lightens the fill one
 step, no shadow; icons take the saturated step. Radius 3px, 20/24px tall, 11/12px at 600. The
 solid/badge look is no longer used anywhere; its tokens alias the label look.
+
+## Revision 2026-09-19 (f) — opening hands, library actions
+
+- **Mulligan phase**: after dealing, an overlay blocks the table until everyone has kept. Mulligan
+  = hand back, shuffle, draw seven; keeping after *n* mulligans requires choosing *n* cards for the
+  bottom. Other players' status shows as chips. Engine-enforced (`game.mulligans`).
+- **Restart** (owner, in the log header) re-deals for everyone and re-enters the mulligan phase.
+- Toolbar: Untap all · Token · Dice · Undo · ?. Draw = click the library (or `d`); shuffle and the
+  mid-game mulligan live in the library menu / `s`. The strip no longer repeats hand/library counts
+  (the pile labels carry them).
+- Library label is a button: click or right-click opens the library menu, which gains **Draw by
+  name…** (search your library, pick a card to hand, shuffle afterwards by default).
+- **Turns**: `game.activePlayerId` / `game.turn`, starting with the roll winner. The active player
+  ends the turn (toolbar "End turn", `n`); it passes to the next seat. The active player's strip
+  shows a primary "Your turn · N" / "Bob's turn · N" chip and their half has a thin accent outline.

@@ -1,9 +1,10 @@
 import { Dialog } from '../components';
 
 export const SHORTCUTS: [string, string][] = [
-  ['d', 'Draw a card'],
+  ['d / click library', 'Draw a card'],
+  ['n', 'End your turn'],
   ['u', 'Untap all your permanents'],
-  ['s', 'Shuffle your library'],
+  ['s', 'Shuffle your library (also in the library menu)'],
   ['t', 'Create a token'],
   ['Ctrl+Z', 'Undo your last action (if nobody acted since)'],
   ['Shift/Ctrl + click', 'Add a card to the selection'],
@@ -16,7 +17,7 @@ export const SHORTCUTS: [string, string][] = [
   ['h', 'Selection → hand'],
   ['b', 'Selection → bottom of library'],
   ['Esc', 'Clear selection / cancel'],
-  ['Right-click', 'Card, selection or library menu'],
+  ['Right-click / library label', 'Card, selection or library menu'],
   ['?', 'This list'],
 ];
 

@@ -2,7 +2,7 @@ import type { GameCommand } from './commands.js';
 import type { GameEvent } from './events.js';
 import type { DeckContents } from '../decks.js';
 import { defaultVisibility } from './reduce.js';
-import { shuffled, teamForSeat, type CardInstance, type PlayerGameState, type RoomState } from './types.js';
+import { activePlayer, inMulligan, seatedPlayers, shuffled, teamForSeat, type CardInstance, type PlayerGameState, type RoomState } from './types.js';
 
 const HAND_SIZE = 7;
 const MAX_TIE_BREAK_ROUNDS = 20;
@@ -77,19 +77,13 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       if (players.length !== state.settings.playerCount) return reject(`Waiting for ${state.settings.playerCount - players.length} more player(s)`);
       const notReady = players.filter((p) => !p.ready);
       if (notReady.length > 0) return reject(`Not ready: ${notReady.map((p) => p.displayName).join(', ')}`);
-      if (!ctx.decks || !ctx.random || !ctx.newId) return reject('Decks unavailable');
-      const layouts: Record<string, { library: StartedCard[]; hand: StartedCard[]; command: StartedCard[]; sideboard: StartedCard[] }> = {};
-      for (const p of players) {
-        const deck = ctx.decks[p.id];
-        if (!deck || deck.main.length === 0) return reject(`${p.displayName} has no usable deck`);
-        const expand = (cards: { printingId: string; quantity: number }[]) =>
-          cards.flatMap((c) => Array.from({ length: c.quantity }, () => ({ id: ctx.newId!(), printingId: c.printingId })));
-        const library = shuffled(expand(deck.main), ctx.random);
-        const hand = library.splice(0, HAND_SIZE);
-        layouts[p.id] = { library, hand, command: expand(deck.commander), sideboard: expand(deck.sideboard) };
-      }
-      const openingRoll = rollForFirst(players.map((p) => p.id), ctx.random);
-      return accept({ type: 'gameStarted', firstPlayerId: openingRoll.winner, openingRoll: openingRoll.rolls, players: layouts });
+      return deal(state, ctx);
+    }
+
+    case 'restart': {
+      if (!isOwner) return reject('Only the owner can restart the game');
+      if (state.phase !== 'playing') return reject('Game not running');
+      return deal(state, ctx);
     }
 
     case 'moveCard': {
@@ -123,9 +117,8 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
     }
 
     case 'draw': {
-      if (state.phase !== 'playing' || !state.game) return reject('Game not running');
-      const pgs = state.game.players[ctx.actorId];
-      if (!pgs) return reject('Not in the game');
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
       const top = pgs.zones.library.slice(0, command.count);
       if (top.length === 0) return reject('Library is empty');
       return accept(...top.map((instanceId): GameEvent => ({ type: 'cardMoved', instanceId, from: 'library', to: 'hand', position: null, libraryPosition: null })));
@@ -146,15 +139,31 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
     }
 
     case 'mulligan': {
-      const pgs = ownGame(state, ctx.actorId);
+      const pgs = ownGame(state, ctx.actorId, { duringMulligan: true });
       if ('error' in pgs) return reject(pgs.error);
+      const m = state.game!.mulligans?.[ctx.actorId];
+      if (!m || m.kept) return reject('You have already kept your hand');
       if (!ctx.random || !ctx.newId) return reject('Randomness unavailable');
       const events: GameEvent[] = pgs.zones.hand.map((instanceId) => ({ type: 'cardMoved', instanceId, from: 'hand', to: 'library', position: null, libraryPosition: 'top' }));
       const shuffle = shuffleEvent(state, ctx.actorId, [...pgs.zones.hand, ...pgs.zones.library], ctx.random, ctx.newId);
       events.push(shuffle);
-      for (const c of shuffle.cards.slice(0, command.count)) {
+      for (const c of shuffle.cards.slice(0, HAND_SIZE)) {
         events.push({ type: 'cardMoved', instanceId: c.id, from: 'library', to: 'hand', position: null, libraryPosition: null });
       }
+      events.push({ type: 'mulliganTaken', playerId: ctx.actorId, taken: m.taken + 1 });
+      return accept(...events);
+    }
+
+    case 'keepHand': {
+      const pgs = ownGame(state, ctx.actorId, { duringMulligan: true });
+      if ('error' in pgs) return reject(pgs.error);
+      const m = state.game!.mulligans?.[ctx.actorId];
+      if (!m || m.kept) return reject('You have already kept your hand');
+      const bottom = [...new Set(command.bottom)];
+      if (bottom.length !== m.taken) return reject(`Choose ${m.taken} card${m.taken === 1 ? '' : 's'} to put on the bottom`);
+      if (bottom.some((id) => !pgs.zones.hand.includes(id))) return reject('Those cards are not in your hand');
+      const events: GameEvent[] = bottom.map((instanceId) => ({ type: 'cardMoved', instanceId, from: 'hand', to: 'library', position: null, libraryPosition: 'bottom' }));
+      events.push({ type: 'handKept', playerId: ctx.actorId, bottomed: bottom.length });
       return accept(...events);
     }
 
@@ -382,6 +391,17 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       return accept(...events);
     }
 
+    case 'endTurn': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      const game = state.game!;
+      if (activePlayer(game) !== ctx.actorId) return reject("It is not your turn");
+      const order = seatedPlayers(state).map((p) => p.id);
+      const idx = order.indexOf(ctx.actorId);
+      const next = order[(idx + 1) % order.length]!;
+      return accept({ type: 'turnEnded', playerId: ctx.actorId, nextPlayerId: next, turn: (game.turn ?? 1) + 1 });
+    }
+
     case 'closeRoom':
       if (!isOwner) return reject('Only the owner can close the room');
       return accept({ type: 'roomClosed' });
@@ -403,17 +423,39 @@ function rollForFirst(playerIds: string[], random: () => number): { winner: stri
 }
 
 /** A card the actor controls, in a running game. */
+/** Deals a fresh game for every seated player: shuffled libraries, seven-card hands, roll for first. */
+function deal(state: RoomState, ctx: CommandContext): Decision {
+  const players = Object.values(state.players);
+  if (!ctx.decks || !ctx.random || !ctx.newId) return reject('Decks unavailable');
+  const layouts: Record<string, { library: StartedCard[]; hand: StartedCard[]; command: StartedCard[]; sideboard: StartedCard[] }> = {};
+  for (const p of players) {
+    const deck = ctx.decks[p.id];
+    if (!deck || deck.main.length === 0) return reject(`${p.displayName} has no usable deck`);
+    const expand = (cards: { printingId: string; quantity: number }[]) =>
+      cards.flatMap((c) => Array.from({ length: c.quantity }, () => ({ id: ctx.newId!(), printingId: c.printingId })));
+    const library = shuffled(expand(deck.main), ctx.random);
+    const hand = library.splice(0, HAND_SIZE);
+    layouts[p.id] = { library, hand, command: expand(deck.commander), sideboard: expand(deck.sideboard) };
+  }
+  const openingRoll = rollForFirst(players.map((p) => p.id), ctx.random);
+  return accept({ type: 'gameStarted', firstPlayerId: openingRoll.winner, openingRoll: openingRoll.rolls, players: layouts });
+}
+
+const MULLIGAN_WAIT = 'Waiting for everyone to keep their opening hand';
+
 function ownCard(state: RoomState, actorId: string, instanceId: string): { card: CardInstance } | { error: string } {
   if (state.phase !== 'playing' || !state.game) return { error: 'Game not running' };
+  if (inMulligan(state.game)) return { error: MULLIGAN_WAIT };
   const card = state.game.cards[instanceId];
   if (!card) return { error: 'No such card' };
   if (card.controllerId !== actorId) return { error: 'Not your card' };
   return { card };
 }
 
-/** The actor's own game-side state, in a running game. */
-function ownGame(state: RoomState, actorId: string): PlayerGameState | { error: string } {
+/** The actor's own game-side state, in a running game (blocked during the mulligan phase unless allowed). */
+function ownGame(state: RoomState, actorId: string, opts: { duringMulligan?: boolean } = {}): PlayerGameState | { error: string } {
   if (state.phase !== 'playing' || !state.game) return { error: 'Game not running' };
+  if (!opts.duringMulligan && inMulligan(state.game)) return { error: MULLIGAN_WAIT };
   const pgs = state.game.players[actorId];
   if (!pgs) return { error: 'Not in the game' };
   return pgs;
