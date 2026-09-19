@@ -2,13 +2,12 @@ import type { CardInstance, CardPrinting } from '@mtg/shared';
 import type { DragEvent, MouseEvent } from 'react';
 import { imageFor } from '../cards/CardImage';
 import { useCardPreview } from '../cards/CardPreview';
-
-export const CARD_W = 80;
-export const CARD_H = Math.round(CARD_W * 7 / 5);
+import { useCardSize } from './cardSize';
 
 export function CardBack({ className = '' }: { className?: string }) {
+  const { w, h } = useCardSize();
   return (
-    <div className={`rounded-[4.5%] border border-border bg-[radial-gradient(circle_at_30%_30%,#3a2f6b,#1a1533_70%)] ${className}`} style={{ width: CARD_W, height: CARD_H }}>
+    <div className={`rounded-[4.5%] border border-border bg-[radial-gradient(circle_at_30%_30%,#3a2f6b,#1a1533_70%)] ${className}`} style={{ width: w, height: h }}>
       <div className="m-[10%] h-[80%] rounded-[6%] border border-white/10" />
     </div>
   );
@@ -32,7 +31,9 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
   /** Override the drag payload (multi-select drags). */
   onDragStart?: ((e: DragEvent) => void) | undefined;
 }) {
-  const src = faceImage(card, printing, 'small');
+  const { w, h } = useCardSize();
+  // Larger cards deserve the sharper image.
+  const src = faceImage(card, printing, w > 120 ? 'normal' : 'small');
   const hidden = card.printingId === null || card.faceDown;
   const preview = useCardPreview(printing && !hidden ? faceImage(card, printing, 'normal') : mine && printing ? faceImage(card, printing, 'normal') : null);
 
@@ -45,6 +46,7 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
   const counters = Object.entries(card.counters);
   const label = card.customName ?? (hidden ? null : printing?.name);
   const revealed = revealedToOthers(card);
+  const badge = w > 120 ? 'text-xs' : 'text-[10px]';
 
   return (
     <div
@@ -55,32 +57,32 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
       {...preview}
       data-instance-id={card.id}
       className={`card-enter relative select-none transition-transform duration-150 ${mine ? 'cursor-grab active:cursor-grabbing' : ''} ${card.tapped ? 'rotate-90' : ''} ${card.flipped ? 'rotate-180' : ''} ${selected ? 'rounded-[4.5%] ring-2 ring-accent ring-offset-1 ring-offset-bg' : ''}`}
-      style={{ width: CARD_W, height: CARD_H }}
+      style={{ width: w, height: h }}
       title={label ?? undefined}
     >
       {hidden || !src ? (
         <div className="relative">
           <CardBack />
           {card.customName && (
-            <span className="absolute inset-x-1 bottom-1 truncate rounded bg-black/70 px-1 text-center text-[10px] text-text">{card.customName}</span>
+            <span className={`absolute inset-x-1 bottom-1 truncate rounded bg-black/70 px-1 text-center text-text ${badge}`}>{card.customName}</span>
           )}
           {card.faceDown && mine && printing && (
-            <span className="absolute left-1 top-1 rounded bg-black/70 px-1 text-[9px] text-text-muted">{printing.name}</span>
+            <span className={`absolute left-1 top-1 rounded bg-black/70 px-1 text-text-muted ${badge}`}>{printing.name}</span>
           )}
         </div>
       ) : (
         <img key={card.zone} src={src} alt={label ?? ''} draggable={false} className={`h-full w-full rounded-[4.5%] object-cover shadow-md ${revealed ? 'card-revealed' : ''}`} />
       )}
-      {card.isToken && <span className="absolute right-0.5 top-0.5 rounded bg-accent px-1 text-[9px] font-semibold text-bg">T</span>}
-      {revealed && <span className="absolute right-0.5 bottom-5 rounded bg-success px-1 text-[9px] font-semibold text-bg" title="revealed">👁</span>}
+      {card.isToken && <span className={`absolute right-0.5 top-0.5 rounded bg-accent px-1 font-semibold text-bg ${badge}`}>T</span>}
+      {revealed && <span className={`absolute right-0.5 bottom-5 rounded bg-success px-1 font-semibold text-bg ${badge}`} title="revealed">👁</span>}
       {counters.length > 0 && (
         <div className="absolute left-0.5 top-0.5 flex flex-col gap-0.5">
           {counters.map(([kind, value]) => (
-            <span key={kind} className="rounded bg-black/80 px-1 text-[10px] font-semibold text-text shadow">{value} {kind}</span>
+            <span key={kind} className={`rounded bg-black/80 px-1 font-semibold text-text shadow ${badge}`}>{value} {kind}</span>
           ))}
         </div>
       )}
-      {card.note && <span className="absolute inset-x-0.5 bottom-0.5 truncate rounded bg-accent/90 px-1 text-center text-[9px] text-bg">{card.note}</span>}
+      {card.note && <span className={`absolute inset-x-0.5 bottom-0.5 truncate rounded bg-accent/90 px-1 text-center text-bg ${badge}`}>{card.note}</span>}
     </div>
   );
 }

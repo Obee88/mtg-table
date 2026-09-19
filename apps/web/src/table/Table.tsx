@@ -1,13 +1,15 @@
 import type { CardInstance, CardPrinting, GameCommand, PlayerGameState, RoomEvent, RoomPlayer, RoomState, ZoneName } from '@mtg/shared';
 import { seatedPlayers } from '@mtg/shared';
-import { useCallback, useEffect, useState, type DragEvent, type MouseEvent, type ReactNode } from 'react';
-import { Button, ErrorText } from '../components';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type DragEvent, type MouseEvent, type ReactNode } from 'react';
+import { Button } from '../components';
 import type { CommandResult } from '../rooms/connection';
+import { CardSizeProvider, cardSizeFor, DEFAULT_CARD_SIZE, useCardSize, type CardSize } from './cardSize';
 import { ContextMenu, type MenuItem } from './ContextMenu';
+import { Hand } from './Hand';
 import { LibraryDialog } from './LibraryDialog';
 import { PlayerBar } from './PlayerBar';
 import { ShortcutsDialog } from './ShortcutsDialog';
-import { CARD_H, CARD_W, CardBack, TableCard } from './TableCard';
+import { CardBack, TableCard } from './TableCard';
 import { TokenDialog } from './TokenDialog';
 import { useCards } from './useCards';
 import { useHighlights } from './useHighlights';
@@ -18,9 +20,11 @@ type Run = (c: GameCommand) => Promise<void>;
 type Menu = { x: number; y: number; card: CardInstance };
 
 const DRAG_MIME = 'text/instance-ids';
-/** Attachments render slightly offset behind their host. */
-const ATTACH_OFFSET = 14;
 
+/**
+ * The whole game view. Fills its container (no page scroll): one row per
+ * player, card size derived from the space each row gets.
+ */
 export function Table({ state, meId, send, live = [] }: { state: RoomState; meId: string; send: Send; live?: RoomEvent[] }) {
   const game = state.game!;
   const players = seatedPlayers(state);
@@ -39,6 +43,20 @@ export function Table({ state, meId, send, live = [] }: { state: RoomState; meId
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const cardOwner = useCallback((id: string) => game.cards[id]?.ownerId, [game.cards]);
   const highlighted = useHighlights(live, cardOwner, meId);
+
+  // Size cards from the space one player row gets.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [cardSize, setCardSize] = useState<CardSize>(DEFAULT_CARD_SIZE);
+  const rows = opponents.length + (me ? 1 : 0);
+  useLayoutEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const measure = () => setCardSize(cardSizeFor(el.clientWidth, el.clientHeight / Math.max(1, rows)));
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    measure();
+    return () => ro.disconnect();
+  }, [rows]);
 
   // Drop selections of cards that no longer exist or are no longer mine.
   const liveSelected = new Set([...selected].filter((id) => game.cards[id]?.controllerId === meId));
@@ -256,29 +274,31 @@ export function Table({ state, meId, send, live = [] }: { state: RoomState; meId
   const shared = { cards: game.cards, printings, run, onCardClick, attaching: attaching !== null, highlighted };
 
   return (
-    <div className="flex flex-col gap-3">
-      {attaching && <p className="rounded-md bg-accent/20 px-3 py-1 text-sm text-accent">Click the permanent to attach to (Esc to cancel).</p>}
-      {opponents.map((p) => (
-        <PlayerArea key={p.id} {...shared} state={state} player={p} pgs={game.players[p.id]!} mine={false} flipped onCardMenu={openMenu} isSelected={() => false} />
-      ))}
-      {me && (
-        <PlayerArea
-          {...shared}
-          state={state}
-          player={me}
-          pgs={game.players[me.id]!}
-          mine
-          onCardMenu={openMenu}
-          onCardDragStart={onCardDragStart}
-          onLibraryMenu={(e) => { e.preventDefault(); setPileMenu({ x: e.clientX, y: e.clientY }); }}
-          onToken={() => setTokenDialog(true)}
-          onHelp={() => setHelpDialog(true)}
-          isSelected={isSelected}
-          onMarquee={onMarquee}
-          selectedCount={liveSelected.size}
-        />
-      )}
-      <ErrorText error={error} />
+    <CardSizeProvider size={cardSize}>
+      <div ref={rootRef} className="grid h-full min-h-0 w-full gap-1" style={{ gridTemplateRows: `repeat(${Math.max(1, rows)}, minmax(0, 1fr))` }}>
+        {opponents.map((p) => (
+          <PlayerArea key={p.id} {...shared} state={state} player={p} pgs={game.players[p.id]!} mine={false} flipped onCardMenu={openMenu} isSelected={() => false} />
+        ))}
+        {me && (
+          <PlayerArea
+            {...shared}
+            state={state}
+            player={me}
+            pgs={game.players[me.id]!}
+            mine
+            onCardMenu={openMenu}
+            onCardDragStart={onCardDragStart}
+            onLibraryMenu={(e) => { e.preventDefault(); setPileMenu({ x: e.clientX, y: e.clientY }); }}
+            onToken={() => setTokenDialog(true)}
+            onHelp={() => setHelpDialog(true)}
+            isSelected={isSelected}
+            onMarquee={onMarquee}
+            selectedCount={liveSelected.size}
+            banner={attaching ? 'Click the permanent to attach to (Esc to cancel).' : error}
+            bannerKind={attaching ? 'info' : 'error'}
+          />
+        )}
+      </div>
       {menu && (
         <ContextMenu
           x={menu.x}
@@ -289,24 +309,26 @@ export function Table({ state, meId, send, live = [] }: { state: RoomState; meId
         />
       )}
       {pileMenu && <ContextMenu x={pileMenu.x} y={pileMenu.y} items={libraryItems()} onClose={() => setPileMenu(null)} header="Library" />}
-      {libraryDialog && me && (
-        <LibraryDialog library={game.players[me.id]!.zones.library} cards={game.cards} printings={printings} run={run} onClose={() => setLibraryDialog(false)} />
-      )}
-      {tokenDialog && (
-        <TokenDialog
-          onClose={() => setTokenDialog(false)}
-          onCreate={(t) => {
-            setTokenDialog(false);
-            void run({ type: 'createToken', ...t, position: { x: 40, y: 40 } });
-          }}
-        />
-      )}
-      {helpDialog && <ShortcutsDialog onClose={() => setHelpDialog(false)} />}
-    </div>
+      <CardSizeProvider size={DEFAULT_CARD_SIZE}>
+        {libraryDialog && me && (
+          <LibraryDialog library={game.players[me.id]!.zones.library} cards={game.cards} printings={printings} run={run} onClose={() => setLibraryDialog(false)} />
+        )}
+        {tokenDialog && (
+          <TokenDialog
+            onClose={() => setTokenDialog(false)}
+            onCreate={(t) => {
+              setTokenDialog(false);
+              void run({ type: 'createToken', ...t, position: { x: 40, y: 40 } });
+            }}
+          />
+        )}
+        {helpDialog && <ShortcutsDialog onClose={() => setHelpDialog(false)} />}
+      </CardSizeProvider>
+    </CardSizeProvider>
   );
 }
 
-function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped = false, onCardClick, onCardMenu, onCardDragStart, onToken, onHelp, onLibraryMenu, attaching, isSelected, highlighted, onMarquee, selectedCount = 0 }: {
+function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped = false, onCardClick, onCardMenu, onCardDragStart, onToken, onHelp, onLibraryMenu, attaching, isSelected, highlighted, onMarquee, selectedCount = 0, banner, bannerKind = 'error' }: {
   state: RoomState;
   player: RoomPlayer;
   pgs: PlayerGameState;
@@ -326,7 +348,11 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped =
   highlighted: ReadonlySet<string>;
   onMarquee?: ((ids: string[], additive: boolean) => void) | undefined;
   selectedCount?: number;
+  banner?: string | null | undefined;
+  bannerKind?: 'info' | 'error';
 }) {
+  const { w, h } = useCardSize();
+  const attachOffset = Math.round(w * 0.18);
   const marquee = useMarquee(onMarquee ?? (() => undefined));
   const zoneCards = (zone: ZoneName) => pgs.zones[zone].map((id) => cards[id]).filter((c): c is CardInstance => !!c);
 
@@ -344,8 +370,8 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped =
     const command: GameCommand = { type: 'moveCards', instanceIds: ids, to: zone };
     if (zone === 'battlefield') {
       const rect = e.currentTarget.getBoundingClientRect();
-      const x = Math.max(0, Math.min(100, ((e.clientX - rect.left - CARD_W / 2) / rect.width) * 100));
-      const y = Math.max(0, Math.min(100, ((e.clientY - rect.top - CARD_H / 2) / rect.height) * 100));
+      const x = Math.max(0, Math.min(100, ((e.clientX - rect.left - w / 2) / rect.width) * 100));
+      const y = Math.max(0, Math.min(100, ((e.clientY - rect.top - h / 2) / rect.height) * 100));
       const dragged = cards[draggedId];
       const origin = dragged?.zone === 'battlefield' && dragged.position ? dragged.position : null;
       const positions: Record<string, { x: number; y: number }> = {};
@@ -373,7 +399,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped =
     const siblings = anchor ? battlefieldCards.filter((o) => o.attachedTo === anchor.id) : [];
     const index = anchor ? siblings.findIndex((o) => o.id === c.id) : 0;
     const base = anchor?.position ?? c.position ?? { x: 50, y: 50 };
-    return { card: c, x: base.x, y: base.y, dx: anchor ? (index + 1) * ATTACH_OFFSET : 0, z: anchor ? 10 - depth : 20 };
+    return { card: c, x: base.x, y: base.y, dx: anchor ? (index + 1) * attachOffset : 0, z: anchor ? 10 - depth : 20 };
   });
 
   const cardEl = (c: CardInstance, extra: { onClick?: boolean } = {}) => (
@@ -390,7 +416,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped =
 
   const battlefield = (
     <div
-      className={`relative min-h-[240px] flex-1 touch-none rounded-lg border bg-surface/60 ${attaching && mine ? 'border-accent' : 'border-border'}`}
+      className={`relative min-h-0 touch-none rounded-lg border bg-surface/60 ${attaching && mine ? 'border-accent' : 'border-border'}`}
       onDragOver={allowDrop}
       onDrop={dropTo('battlefield')}
       {...(mine ? marquee.handlers : {})}
@@ -407,75 +433,83 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, run, flipped =
     </div>
   );
 
-  const hand = (
-    <div className="flex min-h-[calc(112px+1rem)] flex-wrap items-center gap-2 rounded-lg border border-border bg-surface/60 p-2" onDragOver={allowDrop} onDrop={dropTo('hand')}>
-      {zoneCards('hand').map((c) => <span key={c.id}>{cardEl(c)}</span>)}
-      {pgs.zones.hand.length === 0 && <span className="px-2 text-xs text-text-muted">empty hand</span>}
+  const handCards = zoneCards('hand');
+  const bottomRow = (
+    <div className="flex min-w-0 items-center gap-2">
+      <div className="flex shrink-0 gap-2">
+        <Pile label={pgs.topRevealed ? 'Library ●' : 'Library'} count={pgs.zones.library.length} onDragOver={allowDrop} onDrop={dropTo('library')} onContextMenu={mine ? onLibraryMenu : undefined}>
+          {pgs.zones.library.length > 0 && (cards[pgs.zones.library[0]!]?.printingId ? topCard(zoneCards('library').slice(0, 1), printings) : <CardBack />)}
+        </Pile>
+        <Pile label="Graveyard" count={pgs.zones.graveyard.length} onDragOver={allowDrop} onDrop={dropTo('graveyard')}>
+          {topCard(zoneCards('graveyard'), printings, mine ? onCardMenu : undefined)}
+        </Pile>
+        <Pile label="Exile" count={pgs.zones.exile.length} onDragOver={allowDrop} onDrop={dropTo('exile')}>
+          {topCard(zoneCards('exile'), printings, mine ? onCardMenu : undefined)}
+        </Pile>
+        {pgs.zones.command.length > 0 && (
+          <Pile label="Command" count={pgs.zones.command.length} onDragOver={allowDrop} onDrop={dropTo('command')}>
+            {topCard(zoneCards('command'), printings, mine ? onCardMenu : undefined)}
+          </Pile>
+        )}
+      </div>
+      <Hand count={handCards.length} className="rounded-lg border border-border bg-surface/60" onDragOver={allowDrop} onDrop={dropTo('hand')}>
+        {handCards.map((c) => <span key={c.id}>{cardEl(c)}</span>)}
+        {handCards.length === 0 && <span className="px-2 text-xs text-text-muted">empty hand</span>}
+      </Hand>
     </div>
   );
 
-  const piles = (
-    <div className="flex shrink-0 gap-2">
-      <Pile label={pgs.topRevealed ? 'Library (top revealed)' : 'Library'} count={pgs.zones.library.length} onDragOver={allowDrop} onDrop={dropTo('library')} onContextMenu={mine ? onLibraryMenu : undefined}>
-        {pgs.zones.library.length > 0 && (cards[pgs.zones.library[0]!]?.printingId ? topCard(zoneCards('library').slice(0, 1), printings) : <CardBack />)}
-      </Pile>
-      <Pile label="Graveyard" count={pgs.zones.graveyard.length} onDragOver={allowDrop} onDrop={dropTo('graveyard')}>
-        {topCard(zoneCards('graveyard'), printings, mine ? onCardMenu : undefined)}
-      </Pile>
-      <Pile label="Exile" count={pgs.zones.exile.length} onDragOver={allowDrop} onDrop={dropTo('exile')}>
-        {topCard(zoneCards('exile'), printings, mine ? onCardMenu : undefined)}
-      </Pile>
-      {pgs.zones.command.length > 0 && (
-        <Pile label="Command" count={pgs.zones.command.length} onDragOver={allowDrop} onDrop={dropTo('command')}>
-          {topCard(zoneCards('command'), printings, mine ? onCardMenu : undefined)}
-        </Pile>
+  const header = (
+    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm leading-tight">
+      <span className="font-medium">{player.displayName}{mine && ' (you)'}</span>
+      <span className="text-text-muted">hand {pgs.zones.hand.length} · library {pgs.zones.library.length}{selectedCount > 0 && ` · ${selectedCount} selected`}</span>
+      {banner && <span className={`truncate ${bannerKind === 'info' ? 'text-accent' : 'text-danger'}`}>{banner}</span>}
+      {mine && (
+        <span className="ml-auto flex flex-wrap gap-1">
+          <Button variant="ghost" className="!px-2 !py-0.5 text-xs" onClick={() => void run({ type: 'draw', count: 1 })} disabled={pgs.zones.library.length === 0}>Draw (d)</Button>
+          <Button variant="ghost" className="!px-2 !py-0.5 text-xs" onClick={() => void run({ type: 'untapAll' })}>Untap all (u)</Button>
+          <Button variant="ghost" className="!px-2 !py-0.5 text-xs" onClick={() => void run({ type: 'shuffleLibrary' })}>Shuffle (s)</Button>
+          <Button variant="ghost" className="!px-2 !py-0.5 text-xs" onClick={onToken}>Token (t)</Button>
+          <Button variant="ghost" className="!px-2 !py-0.5 text-xs" onClick={() => void run({ type: 'undo' })} title="Undo your last action if nobody acted since">Undo (Ctrl+Z)</Button>
+          <Button
+            variant="ghost"
+            className="!px-2 !py-0.5 text-xs"
+            onClick={() => {
+              const count = Math.max(0, pgs.zones.hand.length - 1);
+              if (confirm(`Mulligan to ${count}?`)) void run({ type: 'mulligan', count });
+            }}
+          >
+            Mulligan
+          </Button>
+          <Button variant="ghost" className="!px-2 !py-0.5 text-xs" onClick={onHelp} title="Keyboard shortcuts">?</Button>
+        </span>
       )}
     </div>
   );
+  const bar = <PlayerBar state={state} player={player} pgs={pgs} mine={mine} run={run} />;
+
+  // Opponents: their hand at the far edge, battlefield towards the middle. Me: mirrored.
+  const order = flipped ? [header, bar, bottomRow, battlefield] : [battlefield, bottomRow, bar, header];
+  const rowsTemplate = flipped ? 'auto auto auto minmax(0, 1fr)' : 'minmax(0, 1fr) auto auto auto';
 
   return (
-    <section className={`flex flex-col gap-2 rounded-lg transition-shadow duration-300 ${flipped ? 'flex-col-reverse' : ''} ${highlighted.has(player.id) ? 'shadow-[0_0_0_2px_var(--color-accent)]' : ''}`}>
-      <div className="flex flex-wrap items-center gap-3 text-sm">
-        <span className="font-medium">{player.displayName}{mine && ' (you)'}</span>
-        <span className="text-text-muted">hand {pgs.zones.hand.length} · library {pgs.zones.library.length}{selectedCount > 0 && ` · ${selectedCount} selected`}</span>
-        {mine && (
-          <span className="ml-auto flex flex-wrap gap-2">
-            <Button variant="ghost" className="!py-1" onClick={() => void run({ type: 'draw', count: 1 })} disabled={pgs.zones.library.length === 0}>Draw (d)</Button>
-            <Button variant="ghost" className="!py-1" onClick={() => void run({ type: 'untapAll' })}>Untap all (u)</Button>
-            <Button variant="ghost" className="!py-1" onClick={() => void run({ type: 'shuffleLibrary' })}>Shuffle (s)</Button>
-            <Button variant="ghost" className="!py-1" onClick={onToken}>Token (t)</Button>
-            <Button variant="ghost" className="!py-1" onClick={() => void run({ type: 'undo' })} title="Undo your last action if nobody acted since">Undo (Ctrl+Z)</Button>
-            <Button
-              variant="ghost"
-              className="!py-1"
-              onClick={() => {
-                const count = Math.max(0, pgs.zones.hand.length - 1);
-                if (confirm(`Mulligan to ${count}?`)) void run({ type: 'mulligan', count });
-              }}
-            >
-              Mulligan
-            </Button>
-            <Button variant="ghost" className="!py-1" onClick={onHelp} title="Keyboard shortcuts">?</Button>
-          </span>
-        )}
-      </div>
-      <PlayerBar state={state} player={player} pgs={pgs} mine={mine} run={run} />
-      <div className="flex gap-3">
-        {piles}
-        {battlefield}
-      </div>
-      {hand}
+    <section
+      className={`grid min-h-0 gap-1 rounded-lg p-1 transition-shadow duration-300 ${highlighted.has(player.id) ? 'shadow-[0_0_0_2px_var(--color-accent)]' : ''}`}
+      style={{ gridTemplateRows: rowsTemplate }}
+    >
+      {order.map((el, i) => <div key={i} className="min-h-0 min-w-0">{el}</div>)}
     </section>
   );
 }
 
 function Pile({ label, count, children, ...drop }: { label: string; count: number; children?: ReactNode; onDragOver?: ((e: DragEvent) => void) | undefined; onDrop?: ((e: DragEvent<HTMLDivElement>) => void) | undefined; onContextMenu?: ((e: MouseEvent) => void) | undefined }) {
+  const { w, h } = useCardSize();
   return (
-    <div className="flex flex-col items-center gap-1 text-xs text-text-muted" {...drop}>
-      <div className="flex items-center justify-center rounded-[4.5%] border border-dashed border-border" style={{ width: CARD_W, height: CARD_H }}>
+    <div className="relative flex flex-col items-center text-xs text-text-muted" {...drop}>
+      <div className="flex items-center justify-center rounded-[4.5%] border border-dashed border-border" style={{ width: w, height: h }}>
         {children}
       </div>
-      <span>{label} · {count}</span>
+      <span className="pointer-events-none absolute bottom-1 rounded bg-black/70 px-1 text-[10px]">{label} · {count}</span>
     </div>
   );
 }

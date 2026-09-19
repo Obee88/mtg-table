@@ -14,9 +14,13 @@ interface PreviewApi {
 
 const PreviewContext = createContext<PreviewApi | null>(null);
 
-const PREVIEW_W = 300;
-const PREVIEW_H = 418;
 const OFFSET = 16;
+
+/** Preview as large as the viewport comfortably allows (about 60% of its height). */
+function previewSize(): { w: number; h: number } {
+  const h = Math.max(300, Math.min(window.innerHeight * 0.6, 720));
+  return { w: Math.round(h * (5 / 7)), h: Math.round(h) };
+}
 
 /**
  * One floating full-size card image for the whole app. Any element can opt in
@@ -30,25 +34,19 @@ export function CardPreviewProvider({ children }: { children: ReactNode }) {
   const hide = useCallback(() => setState(null), []);
   const api = useMemo(() => ({ show, move, hide }), [show, move, hide]);
 
-  let style: { left: number; top: number } | undefined;
+  let style: { left: number; top: number; width: number; height: number } | undefined;
   if (state) {
-    const right = state.x + OFFSET + PREVIEW_W > window.innerWidth;
-    const left = right ? state.x - OFFSET - PREVIEW_W : state.x + OFFSET;
-    const top = Math.min(state.y - PREVIEW_H / 2, window.innerHeight - PREVIEW_H - OFFSET);
-    style = { left, top: Math.max(OFFSET, top) };
+    const { w, h } = previewSize();
+    const right = state.x + OFFSET + w > window.innerWidth;
+    const left = right ? state.x - OFFSET - w : state.x + OFFSET;
+    const top = Math.min(state.y - h / 2, window.innerHeight - h - OFFSET);
+    style = { left, top: Math.max(OFFSET, top), width: w, height: h };
   }
 
   return (
     <PreviewContext.Provider value={api}>
       {children}
-      {state && (
-        <img
-          src={state.src}
-          alt=""
-          className="pointer-events-none fixed z-50 rounded-[4.5%] shadow-2xl"
-          style={{ ...style, width: PREVIEW_W, height: PREVIEW_H }}
-        />
-      )}
+      {state && <img src={state.src} alt="" className="pointer-events-none fixed z-50 rounded-[4.5%] shadow-2xl" style={style} />}
     </PreviewContext.Provider>
   );
 }

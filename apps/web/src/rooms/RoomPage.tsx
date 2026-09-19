@@ -1,4 +1,4 @@
-import type { DeckSummary, RoomEvent, RoomState } from '@mtg/shared';
+import type { DeckSummary, RoomState } from '@mtg/shared';
 import { seatedPlayers } from '@mtg/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -19,17 +19,35 @@ export function RoomPage() {
   if (room.status === 'closed' && !room.state) return <main className="p-6"><ErrorText error={room.lastError ?? 'Room unavailable'} /></main>;
   if (!room.state || !me.data) return <main className="p-6 text-text-muted">Connecting…</main>;
 
+  if (room.state.phase === 'playing') {
+    // The game owns the whole viewport: no page scroll, everything sized to fit.
+    return (
+      <main className="flex h-dvh w-screen flex-col overflow-hidden">
+        <header className="flex h-8 shrink-0 items-center gap-3 border-b border-border px-2 text-xs text-text-muted">
+          <span className="font-medium text-text">MTG Table</span>
+          <span>{describeSettings(room.state.settings)}</span>
+          <span className={room.status === 'open' ? 'text-success' : 'text-accent'}>{room.status === 'open' ? 'connected' : 'reconnecting…'}</span>
+          <Started state={room.state} meId={me.data.id} />
+          <Link to="/rooms" className="ml-auto text-accent hover:underline">Leave to rooms</Link>
+        </header>
+        <div className="flex min-h-0 flex-1 gap-1 p-1">
+          <div className="min-h-0 min-w-0 flex-1"><Table state={room.state} meId={me.data.id} send={room.send} live={room.events} /></div>
+          <LogPanel roomId={room.state.id} state={room.state} live={room.events} />
+        </div>
+      </main>
+    );
+  }
+
   return (
-    <main className={`mx-auto flex flex-col gap-6 p-6 ${room.state.phase === 'playing' ? 'max-w-6xl' : 'max-w-3xl'}`}>
+    <main className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
       <header className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">{room.state.phase === 'lobby' ? 'Lobby' : room.state.phase === 'playing' ? 'Game' : 'Closed'}</h1>
+          <h1 className="text-2xl font-semibold">{room.state.phase === 'lobby' ? 'Lobby' : 'Closed'}</h1>
           <p className="text-sm text-text-muted">{describeSettings(room.state.settings)} · {room.status === 'open' ? 'connected' : 'reconnecting…'}</p>
         </div>
         <Link to="/rooms" className="text-sm text-accent hover:underline">Rooms</Link>
       </header>
       {room.state.phase === 'lobby' && <Lobby state={room.state} meId={me.data.id} connected={room.connected} send={room.send} />}
-      {room.state.phase === 'playing' && <Started state={room.state} meId={me.data.id} send={room.send} live={room.events} />}
       {room.state.phase === 'ended' && <p className="text-text-muted">This room has been closed.</p>}
     </main>
   );
@@ -111,18 +129,13 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
   );
 }
 
-function Started({ state, meId, send, live }: { state: RoomState; meId: string; send: ReturnType<typeof useRoom>['send']; live: RoomEvent[] }) {
+/** One-line game summary for the top bar. */
+function Started({ state, meId }: { state: RoomState; meId: string }) {
   const g = state.game!;
-  const players = seatedPlayers(state);
+  const first = seatedPlayers(state).find((p) => p.id === g.firstPlayerId);
   return (
-    <>
-      <p className="text-sm text-text-muted">
-        {players.find((p) => p.id === g.firstPlayerId)?.displayName} goes first (rolled {g.openingRoll[g.firstPlayerId]}).
-      </p>
-      <div className="flex gap-4">
-        <div className="min-w-0 flex-1"><Table state={state} meId={meId} send={send} live={live} /></div>
-        <LogPanel roomId={state.id} state={state} live={live} />
-      </div>
-    </>
+    <span>
+      {first?.id === meId ? 'You go' : `${first?.displayName} goes`} first (rolled {g.openingRoll[g.firstPlayerId]})
+    </span>
   );
 }
