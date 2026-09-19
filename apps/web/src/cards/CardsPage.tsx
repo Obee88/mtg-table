@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { Card, ErrorText, Input } from '../components';
+import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
 import { useDebounce } from '../lib/useDebounce';
 import { CardImage, imageFor } from './CardImage';
@@ -86,8 +87,8 @@ function Printings({ oracleId }: { oracleId: string }) {
           <CardImage card={p} />
           <span className="truncate">
             <span className="uppercase text-text-muted">{p.setCode}</span> #{p.collectorNumber}
-            {p.isPromo && <span className="ml-1 text-accent">promo</span>}
-            {p.isDigital && <span className="ml-1 text-accent">digital</span>}
+            {p.isPromo && <Chip type="warning" className="ml-1">promo</Chip>}
+            {p.isDigital && <Chip type="neutral" className="ml-1">digital</Chip>}
           </span>
           <span className="truncate text-text-muted">{p.releasedAt.slice(0, 4)} · {p.lang}</span>
         </li>

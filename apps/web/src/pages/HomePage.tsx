@@ -2,6 +2,7 @@ import type { Invite, User } from '@mtg/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { Button, Card, ErrorText } from '../components';
+import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
 import { useLogout } from '../lib/auth';
 
@@ -56,7 +57,7 @@ function InvitesPanel() {
             <li key={inv.code} className="flex items-center justify-between gap-3 rounded-md bg-surface-raised px-3 py-2">
               <code className={inv.usedBy ? 'text-text-muted line-through' : ''}>{link(inv.code)}</code>
               {inv.usedBy ? (
-                <span className="text-text-muted">used</span>
+                <Chip type="neutral">used</Chip>
               ) : (
                 <Button variant="ghost" onClick={() => navigator.clipboard.writeText(link(inv.code))}>
                   Copy

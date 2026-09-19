@@ -1,5 +1,5 @@
 import type { CardInstance } from '@mtg/shared';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, type CSSProperties, type ReactNode } from 'react';
 import { useCardSize } from './cardSize';
 
 /**
@@ -48,7 +48,8 @@ export function ZoneBrowser({ cards, towards, renderCard, onClose }: {
       <button
         type="button"
         onClick={onClose}
-        className={`absolute left-1/2 z-[110] -translate-x-1/2 rounded-full border border-white/20 bg-black/80 px-2 text-[10px] leading-4 text-white/80 hover:bg-black ${up ? '-top-2' : '-bottom-2'}`}
+        className={`absolute left-1/2 z-[110] -translate-x-1/2 chip chip--pill chip--clickable ${up ? '-top-2' : '-bottom-2'}`}
+        style={{ '--chip-bg': 'var(--chip-solid-neutral-bg)', '--chip-fg': 'var(--chip-solid-neutral-fg)', '--chip-bd': 'var(--chip-solid-neutral-bd)', '--chip-hover': 'var(--chip-solid-neutral-hover)' } as CSSProperties}
         title="Collapse"
       >
         {up ? '▼' : '▲'}

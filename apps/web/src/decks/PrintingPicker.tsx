@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { CardImage } from '../cards/CardImage';
 import { Dialog, ErrorText } from '../components';
+import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
 
 export function PrintingPicker({ card, onPick, onClose }: { card: CardPrinting; onPick: (p: CardPrinting) => void; onClose: () => void }) {
@@ -33,7 +34,7 @@ export function PrintingPicker({ card, onPick, onClose }: { card: CardPrinting; 
               <CardImage card={p} className="w-full" />
               <span className="truncate">
                 <span className="uppercase text-text-muted">{p.setCode}</span> #{p.collectorNumber}
-                {p.isPromo && <span className="ml-1 text-accent">promo</span>}
+                {p.isPromo && <Chip type="warning" className="ml-1">promo</Chip>}
               </span>
               <span className="truncate text-text-muted">{p.setName}</span>
             </button>

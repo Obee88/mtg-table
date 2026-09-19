@@ -1,4 +1,5 @@
-import type { MouseEvent, ReactNode } from 'react';
+import type { CSSProperties, MouseEvent, ReactNode } from 'react';
+import { Chip, type ChipType } from '../components/Chip';
 import { signed } from './counters';
 
 /** Hold-c interaction shared by every counter badge: click +1, right-click −1. */
@@ -25,51 +26,39 @@ function adjustHandlers(adjust: Adjust | undefined) {
   };
 }
 
-const ACTIVE_BOX = 'pointer-events-auto cursor-pointer ring-2 ring-accent scale-110 brightness-125';
+const activeStyle = (active: boolean): CSSProperties =>
+  active ? { pointerEvents: 'auto', cursor: 'pointer', boxShadow: '0 0 0 2px var(--color-accent), 0 0 8px var(--color-accent)', transform: 'scale(1.1)' } : { pointerEvents: 'none' };
 
-/** A small dark tag with a hairline ring, used for notes, custom token names and legacy named counters. */
-export function Tag({ children, cardW, tone = 'neutral', className = '', adjust }: { children: ReactNode; cardW: number; tone?: 'neutral' | 'accent'; className?: string; adjust?: Adjust | undefined }) {
-  const size = Math.max(9, Math.round(cardW * 0.1));
+const sizeFor = (cardW: number) => (cardW > 120 ? 'medium' : 'small');
+
+/** Soft rect chip on a card: notes (warning), custom token names and hints (neutral). */
+export function Tag({ children, cardW, type = 'neutral', className = '', adjust }: { children: ReactNode; cardW: number; type?: ChipType; className?: string; adjust?: Adjust | undefined }) {
   return (
-    <span
-      className={`inline-flex max-w-full items-center gap-1 truncate rounded-md px-1.5 font-medium leading-tight shadow-md ring-1 transition-transform ${tone === 'accent' ? 'bg-accent/95 text-bg ring-black/30' : 'bg-black/85 text-white/95 ring-white/20'} ${adjust?.active ? ACTIVE_BOX : 'pointer-events-none'} ${className}`}
-      style={{ fontSize: size, paddingTop: 1, paddingBottom: 1 }}
-      {...adjustHandlers(adjust)}
-    >
+    <Chip type={type} emphasis="soft" size={sizeFor(cardW)} className={`shadow-md transition-transform ${className}`} style={activeStyle(!!adjust?.active)} {...adjustHandlers(adjust)}>
       {children}
-    </span>
+    </Chip>
   );
 }
 
-/** The general counter: a round dark badge with the count, top-left. Big enough to hit. */
-export function CounterBadge({ value, cardW, adjust }: { value: number; cardW: number; adjust?: Adjust | undefined }) {
-  const d = Math.max(22, Math.round(cardW * 0.26));
+/** The general counter: a solid round badge with the count (min-width = height keeps it circular). */
+export function CounterBadge({ value, adjust }: { value: number; cardW?: number; adjust?: Adjust | undefined }) {
   return (
-    <span
-      className={`flex items-center justify-center rounded-full bg-zinc-900 font-bold tabular-nums text-white shadow-lg ring-1 ring-white/50 transition-transform ${adjust?.active ? ACTIVE_BOX : 'pointer-events-none'}`}
-      style={{ width: d, height: d, fontSize: Math.round(d * 0.55) }}
-      {...adjustHandlers(adjust)}
-    >
+    <Chip type="neutral" emphasis="solid" shape="pill" size="medium" className="shadow-lg transition-transform" style={{ ...activeStyle(!!adjust?.active), minWidth: 26, height: 26, fontSize: 13 }} {...adjustHandlers(adjust)}>
       {value}
-    </span>
+    </Chip>
   );
 }
 
-/** Net power/toughness modification: "+2/+2" green, "-1/-1" red, mixed neutral. Top-right, inset from the corner. */
+/** Net power/toughness modification as a solid pill: success when non-negative, error when non-positive, neutral when mixed. */
 export function PTBadge({ power, toughness, cardW, adjust }: { power: number; toughness: number; cardW: number; adjust?: Adjust | undefined }) {
   const positive = power >= 0 && toughness >= 0;
   const negative = power <= 0 && toughness <= 0;
-  const tone = positive ? 'bg-emerald-600 ring-emerald-200/60' : negative ? 'bg-red-700 ring-red-200/60' : 'bg-zinc-800 ring-white/40';
-  const size = Math.max(10, Math.round(cardW * 0.14));
+  const type: ChipType = positive ? 'success' : negative ? 'error' : 'neutral';
   const inset = Math.round(cardW * 0.06);
   return (
-    <span
-      className={`absolute rounded-md px-1.5 font-bold tabular-nums leading-tight text-white shadow-lg ring-1 transition-transform ${tone} ${adjust?.active ? ACTIVE_BOX : 'pointer-events-none'}`}
-      style={{ top: inset, right: inset, fontSize: size, paddingTop: 2, paddingBottom: 2 }}
-      {...adjustHandlers(adjust)}
-    >
+    <Chip type={type} emphasis="solid" shape="pill" size={sizeFor(cardW)} className="absolute shadow-lg transition-transform" style={{ top: inset, right: inset, ...activeStyle(!!adjust?.active) }} {...adjustHandlers(adjust)}>
       {signed(power)}/{signed(toughness)}
-    </span>
+    </Chip>
   );
 }
 

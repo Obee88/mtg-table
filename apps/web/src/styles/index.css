@@ -120,3 +120,61 @@ body {
 .half:focus-within .reveal-on-hover {
   opacity: 1;
 }
+
+/* ---- Chips: labels and badges (see _documents/table-design.md § chips) ----
+   One palette (six-step ramps + neutral scale), semantic tokens per type/emphasis/theme.
+   The app is dark-only today; a light mapping can be added under [data-theme="light"]. */
+:root {
+  --primary-darker: #004060; --primary-dark: #00628e; --primary: #00a1ed; --primary-light: #67c8f5; --primary-lighter: #ccecfb; --primary-lightest: #e5f5fd;
+  --green-darker: #144921; --green-dark: #1f6d30; --green: #33b650; --green-light: #86d396; --green-lighter: #d6f0dd; --green-lightest: #e7fded;
+  --red-darker: #591200; --red-dark: #851a00; --red: #de2c00; --red-light: #ec8067; --red-lighter: #f9d5cd; --red-lightest: #fceeee;
+  --yellow-darker: #664615; --yellow-dark: #9a6a22; --yellow: #ffaf38; --yellow-light: #ffcf88; --yellow-lighter: #ffefd7; --yellow-lightest: #fff7eb;
+  --purple-darker: #3d1f7a; --purple-dark: #6445a0; --purple: #9370db; --purple-light: #b093ec; --purple-lighter: #dcc8f9; --purple-lightest: #f1e7fe;
+  --n100: #fbfcfc; --n150: #f9fafa; --n200: #f6f7f8; --n300: #eef0f2; --n400: #dee0e4; --n500: #cdd1d7; --n550: #a7acb5;
+  --n600: #7a8394; --n700: #596479; --n800: #353c49; --n850: #28303e; --n900: #20252f; --n950: #171c25;
+
+  /* soft (label): deep fill, white text, saturated border; hover one step lighter */
+  --chip-soft-primary-bg: var(--primary-darker); --chip-soft-primary-fg: #fff; --chip-soft-primary-bd: var(--primary); --chip-soft-primary-hover: var(--primary-dark);
+  --chip-soft-success-bg: var(--green-darker);   --chip-soft-success-fg: #fff; --chip-soft-success-bd: var(--green);   --chip-soft-success-hover: var(--green-dark);
+  --chip-soft-error-bg: var(--red-darker);       --chip-soft-error-fg: #fff;   --chip-soft-error-bd: var(--red);       --chip-soft-error-hover: var(--red-dark);
+  --chip-soft-warning-bg: var(--yellow-darker);  --chip-soft-warning-fg: #fff; --chip-soft-warning-bd: var(--yellow);  --chip-soft-warning-hover: var(--yellow-dark);
+  --chip-soft-neutral-bg: var(--n800);           --chip-soft-neutral-fg: #fff; --chip-soft-neutral-bd: #fff;           --chip-soft-neutral-hover: var(--n700);
+
+  /* solid (badge): white fill, coloured text (contrast-fixed: the ramp's dark step); hover saturated fill */
+  --chip-solid-primary-bg: #fff; --chip-solid-primary-fg: var(--primary-dark);  --chip-solid-primary-bd: #fff; --chip-solid-primary-hover: var(--primary-lighter);
+  --chip-solid-success-bg: #fff; --chip-solid-success-fg: var(--green-dark);    --chip-solid-success-bd: #fff; --chip-solid-success-hover: var(--green-lighter);
+  --chip-solid-error-bg: #fff;   --chip-solid-error-fg: var(--red);             --chip-solid-error-bd: #fff;   --chip-solid-error-hover: var(--red-lighter);
+  --chip-solid-warning-bg: #fff; --chip-solid-warning-fg: var(--yellow-darker); --chip-solid-warning-bd: #fff; --chip-solid-warning-hover: var(--yellow-lighter);
+  --chip-solid-neutral-bg: #fff; --chip-solid-neutral-fg: var(--n700);          --chip-solid-neutral-bd: #fff; --chip-solid-neutral-hover: var(--n300);
+
+  --chip-shadow-hover: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 20px;
+  min-width: 20px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 2px 8px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: var(--chip-bg);
+  color: var(--chip-fg);
+  border-color: var(--chip-bd);
+  font-variant-numeric: tabular-nums;
+}
+.chip--pill { border-radius: 999px; padding: 0 6px; }
+.chip--medium { height: 24px; min-width: 24px; font-size: 12px; }
+.chip--medium.chip--pill { padding: 0 7px; }
+.chip--clickable { cursor: pointer; }
+.chip--clickable:hover { background: var(--chip-hover); box-shadow: var(--chip-shadow-hover); }
+.chip svg { fill: currentColor; }

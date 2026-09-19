@@ -2,6 +2,7 @@ import type { CardInstance, CardPrinting } from '@mtg/shared';
 import type { DragEvent, MouseEvent } from 'react';
 import { imageFor } from '../cards/CardImage';
 import { useCardPreview } from '../cards/CardPreview';
+import { Chip } from '../components/Chip';
 import { CounterBadge, LoyaltyBadge, PTBadge, Tag, type Adjust } from './badges';
 import { useCardSize } from './cardSize';
 import { counterView, GENERAL_COUNTER } from './counters';
@@ -60,7 +61,6 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
   const view = counterView(card.counters);
   const label = card.customName ?? (hidden ? null : printing?.name);
   const revealed = revealedToOthers(card);
-  const badge = w > 120 ? 'text-xs' : 'text-[10px]';
   const inset = Math.round(w * 0.06);
 
   return (
@@ -90,8 +90,8 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
       ) : (
         <img key={card.zone} src={src} alt={label ?? ''} draggable={false} className={`h-full w-full rounded-[4.5%] object-cover ${revealed ? 'card-revealed' : ''}`} />
       )}
-      {card.isToken && <span className={`absolute left-0.5 top-0.5 rounded bg-accent px-1 font-semibold text-bg ${badge}`} title="token">T</span>}
-      {revealed && <span className={`absolute left-0.5 bottom-5 rounded bg-success px-1 font-semibold text-bg ${badge}`} title="revealed">👁</span>}
+      {card.isToken && <Chip type="primary" emphasis="solid" shape="pill" className="absolute left-0.5 top-0.5 shadow" title="token">T</Chip>}
+      {revealed && <Chip type="success" emphasis="solid" shape="pill" className="absolute left-0.5 bottom-5 shadow" title="revealed">👁</Chip>}
       {view.pt && <PTBadge power={view.pt.power} toughness={view.pt.toughness} cardW={w} adjust={adjust(['+1/+1', 1], ['-1/-1', 1])} />}
       {view.loyalty !== null && <LoyaltyBadge value={view.loyalty} cardW={w} adjust={adjust(['loyalty', 1], ['loyalty', -1])} />}
       {view.other.length > 0 && (
@@ -110,7 +110,7 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
       )}
       {card.note && (
         <span className="absolute inset-x-1 flex justify-center" style={{ bottom: inset + 2 }}>
-          <Tag cardW={w} tone="accent">{card.note}</Tag>
+          <Tag cardW={w} type="warning">{card.note}</Tag>
         </span>
       )}
     </div>

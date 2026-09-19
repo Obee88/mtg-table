@@ -136,3 +136,23 @@ free placement**. This is the visual spec the table components follow. Iterate o
 - **Counter mode:** hold `c` and hover any counter badge on your own card — it highlights; click adds
   one, right-click removes one (P/T badge: click = +1/+1, right-click = −1/−1). Without `c` badges are
   inert so a plain click still taps the card.
+
+## Chips — labels and badges (2026-09-19)
+
+One `Chip` component (`apps/web/src/components/Chip.tsx`) with two axes instead of two
+components: `emphasis` (`soft` = label, `solid` = badge) and `shape` (`rect` | `pill`), sizes
+`small` (20px, 11px/600) and `medium` (24px, 12px/600). `min-width` = height so a lone digit is a
+circle; border always present but transparent by default; `ChipButton` for clickable ones
+(clickable is derived from being a button, never a prop).
+
+Palette: five six-step ramps (primary/blue, green, red, yellow, purple) and a 13-step neutral
+scale as CSS custom properties; semantic tokens per type × emphasis. The app is dark-only, so
+the **dark mapping** is wired: soft = deep fill + white text + saturated border; solid = white
+fill + the ramp's *dark* step as text (the contrast fixes: never the base step as text). Hover:
+no shadow, background shifts one step. A light mapping can be added under `[data-theme="light"]`.
+
+Where chips are used: P/T badge (solid pill: success/error/neutral), general counter (solid
+pill, circular), token mark (primary solid pill "T"), revealed eye (success solid pill), notes
+(warning soft), custom token names / face-down hints (neutral soft), pile labels, the stack
+header and "top" marker, selection/banner in the strip, "1st", player counters, lobby host /
+team / ready, room phase and "yours", promo/digital on printings, used invites.

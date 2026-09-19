@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { Button, Card, ErrorText } from '../components';
+import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
 import { useMe } from '../lib/auth';
 import { describeSettings } from './RoomListPage';
@@ -64,9 +65,9 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
                 {p ? (
                   <>
                     <span className={`h-2 w-2 rounded-full ${connected.includes(p.id) ? 'bg-success' : 'bg-border'}`} title={connected.includes(p.id) ? 'online' : 'offline'} />
-                    <span className="flex-1 truncate font-medium">{p.displayName}{p.id === state.ownerId && <span className="ml-1 text-xs text-accent">host</span>}</span>
-                    {state.settings.mode === '2v2' && <span className="text-xs text-text-muted">team {p.team + 1}</span>}
-                    <span className={p.ready ? 'text-success' : 'text-text-muted'}>{p.ready ? 'ready' : p.deckId ? 'not ready' : 'no deck'}</span>
+                    <span className="flex-1 truncate font-medium">{p.displayName}{p.id === state.ownerId && <Chip type="primary" className="ml-1">host</Chip>}</span>
+                    {state.settings.mode === '2v2' && <Chip type="neutral">team {p.team + 1}</Chip>}
+                    <Chip type={p.ready ? 'success' : 'neutral'} emphasis={p.ready ? 'solid' : 'soft'} shape="pill">{p.ready ? 'ready' : p.deckId ? 'not ready' : 'no deck'}</Chip>
                   </>
                 ) : (
                   <span className="flex-1 text-text-muted">empty</span>

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Button, Card, ErrorText } from '../components';
+import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
 import { useMe } from '../lib/auth';
 
@@ -59,8 +60,8 @@ export function RoomListPage() {
             <li key={r.id}>
               <Link to={`/rooms/${r.id}`} className="flex items-center justify-between gap-3 rounded-md px-2 py-2 text-sm hover:bg-surface-raised">
                 <span>
-                  <span className="block font-medium">{describeSettings(r.settings)}{r.ownerId === me.data?.id && <span className="ml-2 text-xs text-accent">yours</span>}</span>
-                  <span className="block text-text-muted">{r.playerCount}/{r.settings.playerCount} seated · {r.phase} · {new Date(r.createdAt).toLocaleString()}</span>
+                  <span className="block font-medium">{describeSettings(r.settings)}{r.ownerId === me.data?.id && <Chip type="primary" emphasis="solid" shape="pill" className="ml-2">yours</Chip>}</span>
+                  <span className="mt-0.5 flex items-center gap-2 text-text-muted"><Chip type={r.phase === 'lobby' ? 'success' : r.phase === 'playing' ? 'primary' : 'neutral'}>{r.phase}</Chip>{r.playerCount}/{r.settings.playerCount} seated · {new Date(r.createdAt).toLocaleString()}</span>
                 </span>
                 <span className="text-accent">Open</span>
               </Link>

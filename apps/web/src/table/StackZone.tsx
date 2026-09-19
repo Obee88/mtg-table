@@ -3,6 +3,7 @@ import type { DragEvent, MouseEvent } from 'react';
 import { PILE_DX, PILE_DY } from './Battlefield';
 import { useCardSize } from './cardSize';
 import { seatColor } from './PlayerStrip';
+import { Chip } from '../components/Chip';
 import { TableCard } from './TableCard';
 
 type Run = (c: GameCommand) => Promise<void>;
@@ -54,7 +55,7 @@ export function StackZone({ state, meId, printings, run, onCardMenu, onCardDragS
       onDrop={onDrop}
       title="The stack — drop a spell here while it is being cast"
     >
-      <span className="mb-1.5 w-full text-center text-[10px] uppercase tracking-wider text-white/45">stack{n > 0 && ` · ${n}`}</span>
+      <Chip type={n > 0 ? 'primary' : 'neutral'} className="mb-1.5 self-center uppercase tracking-wider">stack{n > 0 && ` · ${n}`}</Chip>
       {n === 0 ? (
         <span className="flex w-full flex-1 items-center justify-center px-1 text-center text-[10px] leading-snug text-white/25">drop a spell here</span>
       ) : (
@@ -66,7 +67,7 @@ export function StackZone({ state, meId, printings, run, onCardMenu, onCardDragS
             return (
               <div key={c.id} className="absolute rounded-[4.5%] transition-[top,left] duration-150" style={{ top: i * dy, left: i * dx, zIndex: i + 1, boxShadow: `0 0 0 2px ${seatColor(seat)}` }}>
                 <TableCard card={c} printing={c.printingId ? printings.get(c.printingId) : undefined} mine={mine} onContextMenu={mine ? onCardMenu(c) : undefined} onDragStart={mine ? onCardDragStart(c) : undefined} />
-                {top && <span className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 rounded bg-black/80 px-1 text-[9px] uppercase text-white/70">top</span>}
+                {top && <Chip type="primary" emphasis="solid" shape="pill" className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 uppercase">top</Chip>}
               </div>
             );
           })}

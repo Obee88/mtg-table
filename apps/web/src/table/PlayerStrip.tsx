@@ -1,5 +1,6 @@
 import type { GameCommand, PlayerGameState, RoomPlayer, RoomState } from '@mtg/shared';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Chip, ChipButton } from '../components/Chip';
 
 type Run = (c: GameCommand) => Promise<void>;
 
@@ -28,7 +29,7 @@ export function PlayerStrip({ state, player, pgs, mine, connected, run, toolbar 
     <div className="flex h-9 min-w-0 items-center gap-2 px-2 text-[13px] leading-none">
       <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: connected ? seatColor(player.seat) : 'var(--color-border)' }} title={connected ? 'online' : 'offline'} />
       <span className="truncate font-semibold" style={{ color: seatColor(player.seat) }}>{player.displayName}</span>
-      {first && <span className="rounded bg-white/10 px-1 py-0.5 text-[10px] text-text-muted">1st</span>}
+      {first && <Chip type="primary" title="goes first">1st</Chip>}
 
       <Stat label={shared ? `team ${player.team + 1}` : 'life'} value={life} big mine={mine} onDelta={(d) => void run({ type: 'adjustLife', delta: d })} quick={[-5, -3, 3, 5]} />
       {(pgs.poison > 0 || mine) && <Stat label="poison" value={pgs.poison} mine={mine} onDelta={(d) => void run({ type: 'adjustPoison', delta: d })} dim={pgs.poison === 0} />}
@@ -44,9 +45,9 @@ export function PlayerStrip({ state, player, pgs, mine, connected, run, toolbar 
         <Stat key={kind} label={kind} value={value} mine={mine} onDelta={(d) => void run({ type: 'adjustPlayerCounter', kind, delta: d })} />
       ))}
       {mine && (
-        <button
-          type="button"
-          className="reveal-on-hover rounded px-1 text-[11px] text-text-muted hover:text-text"
+        <ChipButton
+          type="neutral"
+          className="reveal-on-hover"
           title="Add a named counter (energy, experience…)"
           onClick={() => {
             const kind = prompt('Counter name (energy, experience, …):');
@@ -54,7 +55,7 @@ export function PlayerStrip({ state, player, pgs, mine, connected, run, toolbar 
           }}
         >
           + counter
-        </button>
+        </ChipButton>
       )}
 
       <span className="ml-1 truncate text-text-muted">hand {pgs.zones.hand.length} · library {pgs.zones.library.length}</span>
@@ -83,10 +84,10 @@ function Stat({ label, value, mine, onDelta, big = false, dim = false, quick = [
   }, [open]);
 
   return (
-    <span ref={ref} className={`relative inline-flex items-center gap-1 rounded px-1.5 py-0.5 ${dim ? 'opacity-50' : ''} ${mine ? 'hover:bg-white/5' : ''}`}>
+    <span ref={ref} className={`relative inline-flex items-center gap-1 ${big ? 'rounded px-1.5 py-0.5' : 'chip'} ${dim ? 'opacity-50' : ''} ${mine && big ? 'hover:bg-white/5' : ''}`} style={big ? undefined : ({ '--chip-bg': 'var(--chip-soft-neutral-bg)', '--chip-fg': 'var(--chip-soft-neutral-fg)', '--chip-bd': 'var(--chip-soft-neutral-bd)' } as CSSProperties)}>
       <button type="button" disabled={!mine} className="inline-flex items-baseline gap-1 disabled:cursor-default" onClick={() => setOpen((o) => !o)}>
         <span className={`tabular-nums ${big ? 'text-xl font-semibold text-text' : 'text-text'}`}>{value}</span>
-        <span className="text-[11px] text-text-muted">{label}</span>
+        <span className={big ? 'text-[11px] text-text-muted' : 'opacity-80'}>{label}</span>
       </button>
       {mine && (
         <span className="reveal-on-hover inline-flex">

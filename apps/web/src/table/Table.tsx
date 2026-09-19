@@ -1,6 +1,7 @@
 import type { CardInstance, CardPrinting, GameCommand, PlayerGameState, RoomEvent, RoomPlayer, RoomState, ZoneName } from '@mtg/shared';
 import { seatedPlayers } from '@mtg/shared';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type DragEvent, type MouseEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent, type ReactNode } from 'react';
+import { Chip } from '../components/Chip';
 
 import type { CommandResult } from '../rooms/connection';
 import { CardSizeProvider, cardSizeFor, DEFAULT_CARD_SIZE, useCardSize, type CardSize } from './cardSize';
@@ -453,8 +454,8 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
         run={run}
         toolbar={mine ? <Toolbar run={run} libraryCount={pgs.zones.library.length} handCount={pgs.zones.hand.length} onToken={onToken ?? (() => undefined)} onHelp={onHelp ?? (() => undefined)} /> : undefined}
       />
-      {mine && selectedCount > 0 && <span className="text-[11px] text-accent">{selectedCount} selected</span>}
-      {mine && banner && <span className={`truncate text-[11px] ${bannerKind === 'info' ? 'text-accent' : 'text-danger'}`}>{banner}</span>}
+      {mine && selectedCount > 0 && <Chip type="primary">{selectedCount} selected</Chip>}
+      {mine && banner && <Chip type={bannerKind === 'info' ? 'primary' : 'error'} className="!max-w-[40ch] truncate">{banner}</Chip>}
     </div>
   );
 
@@ -490,9 +491,7 @@ function Pile({ label, count, children, stack = false, hint, browse, ...drop }: 
       {stack && count > 2 && <div className="absolute inset-0 translate-x-[3px] translate-y-[3px] rounded-[4.5%] bg-[#1a1533] card-shadow" />}
       {stack && count > 1 && <div className="absolute inset-0 translate-x-[1.5px] translate-y-[1.5px] rounded-[4.5%] bg-[#221b45] card-shadow" />}
       <div className={`absolute inset-0 flex items-center justify-center rounded-[4.5%] ${empty ? 'border border-dashed border-white/15' : ''}`}>{children}</div>
-      <span className="pointer-events-none absolute inset-x-0 bottom-1 mx-auto w-max max-w-full truncate rounded bg-black/75 px-1.5 py-0.5 text-[10px] text-text-muted">
-        {label} · {count}{hint ? ` · ${hint}` : ''}
-      </span>
+      <Chip type="neutral" className="pointer-events-none absolute inset-x-0 bottom-1 mx-auto !bg-[var(--n900)]/90">{label} · {count}{hint ? ` · ${hint}` : ''}</Chip>
       {canBrowse && !browse.open && (
         <button
           type="button"
@@ -501,7 +500,8 @@ function Pile({ label, count, children, stack = false, hint, browse, ...drop }: 
             e.stopPropagation();
             browse.toggle();
           }}
-          className={`absolute left-1/2 z-10 -translate-x-1/2 rounded-full border border-white/20 bg-black/80 px-2 text-[10px] leading-4 text-white/80 hover:bg-black ${browse.towards === 'up' ? '-top-2' : '-bottom-2'}`}
+          className={`absolute left-1/2 z-10 -translate-x-1/2 chip chip--pill chip--clickable ${browse.towards === 'up' ? '-top-2' : '-bottom-2'}`}
+          style={{ '--chip-bg': 'var(--chip-solid-neutral-bg)', '--chip-fg': 'var(--chip-solid-neutral-fg)', '--chip-bd': 'var(--chip-solid-neutral-bd)', '--chip-hover': 'var(--chip-solid-neutral-hover)' } as CSSProperties}
           title={`Show all ${count} cards`}
           aria-expanded={browse.open}
         >
