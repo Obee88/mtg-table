@@ -2,7 +2,9 @@ import type { CardInstance, CardPrinting } from '@mtg/shared';
 import type { DragEvent, MouseEvent } from 'react';
 import { imageFor } from '../cards/CardImage';
 import { useCardPreview } from '../cards/CardPreview';
+import { LoyaltyBadge, PTBadge, Tag } from './badges';
 import { useCardSize } from './cardSize';
+import { counterView } from './counters';
 
 /** The official card back, served by Scryfall; the gradient shows until it loads. */
 const CARD_BACK = {
@@ -49,10 +51,11 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const counters = Object.entries(card.counters);
+  const view = counterView(card.counters);
   const label = card.customName ?? (hidden ? null : printing?.name);
   const revealed = revealedToOthers(card);
   const badge = w > 120 ? 'text-xs' : 'text-[10px]';
+  const inset = Math.round(w * 0.06);
 
   return (
     <div
@@ -70,25 +73,36 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
         <div className="relative">
           <CardBack />
           {card.customName && (
-            <span className={`absolute inset-x-1 bottom-1 truncate rounded bg-black/70 px-1 text-center text-text ${badge}`}>{card.customName}</span>
+            <span className="absolute inset-x-1 flex justify-center" style={{ bottom: inset + 2 }}>
+              <Tag cardW={w}>{card.customName}</Tag>
+            </span>
           )}
           {card.faceDown && mine && printing && (
-            <span className={`absolute left-1 top-1 rounded bg-black/70 px-1 text-text-muted ${badge}`}>{printing.name}</span>
+            <span className="absolute left-1 top-1"><Tag cardW={w}>{printing.name}</Tag></span>
           )}
         </div>
       ) : (
         <img key={card.zone} src={src} alt={label ?? ''} draggable={false} className={`h-full w-full rounded-[4.5%] object-cover ${revealed ? 'card-revealed' : ''}`} />
       )}
-      {card.isToken && <span className={`absolute right-0.5 top-0.5 rounded bg-accent px-1 font-semibold text-bg ${badge}`}>T</span>}
-      {revealed && <span className={`absolute right-0.5 bottom-5 rounded bg-success px-1 font-semibold text-bg ${badge}`} title="revealed">👁</span>}
-      {counters.length > 0 && (
-        <div className="absolute left-0.5 top-0.5 flex flex-col gap-0.5">
-          {counters.map(([kind, value]) => (
-            <span key={kind} className={`rounded bg-black/80 px-1 font-semibold text-text shadow ${badge}`}>{value} {kind}</span>
+      {card.isToken && <span className={`absolute left-0.5 top-0.5 rounded bg-accent px-1 font-semibold text-bg ${badge}`} title="token">T</span>}
+      {revealed && <span className={`absolute left-0.5 bottom-5 rounded bg-success px-1 font-semibold text-bg ${badge}`} title="revealed">👁</span>}
+      {view.pt && <PTBadge power={view.pt.power} toughness={view.pt.toughness} cardW={w} />}
+      {view.loyalty !== null && <LoyaltyBadge value={view.loyalty} cardW={w} />}
+      {view.other.length > 0 && (
+        <div className="absolute flex max-w-[80%] flex-col items-start gap-0.5" style={{ left: inset, top: inset + (card.isToken ? Math.round(w * 0.14) : 0) }}>
+          {view.other.map(([kind, value]) => (
+            <Tag key={kind} cardW={w}>
+              <span className="tabular-nums font-bold">{value}</span>
+              <span className="opacity-80">{kind}</span>
+            </Tag>
           ))}
         </div>
       )}
-      {card.note && <span className={`absolute inset-x-0.5 bottom-0.5 truncate rounded bg-accent/90 px-1 text-center text-bg ${badge}`}>{card.note}</span>}
+      {card.note && (
+        <span className="absolute inset-x-1 flex justify-center" style={{ bottom: inset + 2 }}>
+          <Tag cardW={w} tone="accent">{card.note}</Tag>
+        </span>
+      )}
     </div>
   );
 }

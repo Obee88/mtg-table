@@ -119,3 +119,13 @@ free placement**. This is the visual spec the table components follow. Iterate o
   it opens a **zone browser** anchored to the pile, growing towards the battlefield: all cards
   stacked with a vertical offset only, so every name line is readable; hover feeds the preview
   panel; Esc / click outside closes.
+
+## Revision 2026-09-19 (d) — counters
+
+- **P/T counters** (`+1/+1`, `-1/-1`, `+1/+0`, …) are netted into one badge top-right, inset 6%
+  from the corner: green when non-negative, red when non-positive, neutral when mixed; reads
+  `+2/+2`, never "2 +1/+1".
+- **Loyalty** is a planeswalker-style shield bottom-right with the number inside.
+- **Everything else** — custom counters (`3 charge`), notes, custom token names, the face-down
+  owner hint — uses one **Tag** style: dark pill, hairline ring, size relative to the card. Notes
+  use the accent tone. The token "T" mark moved to the top-left corner.
