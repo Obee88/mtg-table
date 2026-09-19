@@ -2,7 +2,7 @@ import type { CardInstance, CardPrinting } from '@mtg/shared';
 import type { DragEvent, MouseEvent } from 'react';
 import { imageFor } from '../cards/CardImage';
 import { useCardPreview } from '../cards/CardPreview';
-import { LoyaltyBadge, PTBadge, Tag, type Adjust } from './badges';
+import { CounterBadge, LoyaltyBadge, PTBadge, Tag, type Adjust } from './badges';
 import { useCardSize } from './cardSize';
 import { counterView, GENERAL_COUNTER } from './counters';
 import { useCounterKeyHeld } from './useModifier';
@@ -97,10 +97,14 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
       {view.other.length > 0 && (
         <div className="absolute flex max-w-[80%] flex-col items-start gap-0.5" style={{ left: inset, top: inset + (card.isToken ? Math.round(w * 0.14) : 0) }}>
           {view.other.map(([kind, value]) => (
-            <Tag key={kind} cardW={w} adjust={adjust([kind, 1], [kind, -1])}>
-              <span className="tabular-nums font-bold">{value}</span>
-              {kind !== GENERAL_COUNTER && <span className="opacity-80">{kind}</span>}
-            </Tag>
+            kind === GENERAL_COUNTER ? (
+              <CounterBadge key={kind} value={value} cardW={w} adjust={adjust([kind, 1], [kind, -1])} />
+            ) : (
+              <Tag key={kind} cardW={w} adjust={adjust([kind, 1], [kind, -1])}>
+                <span className="tabular-nums font-bold">{value}</span>
+                <span className="opacity-80">{kind}</span>
+              </Tag>
+            )
           ))}
         </div>
       )}

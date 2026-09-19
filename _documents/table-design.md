@@ -125,7 +125,9 @@ free placement**. This is the visual spec the table components follow. Iterate o
 - **P/T counters** (`+1/+1`, `-1/-1`, `+1/+0`, …) are netted into one badge top-right, inset 6%
   from the corner: green when non-negative, red when non-positive, neutral when mixed; reads
   `+2/+2`, never "2 +1/+1".
-- **Loyalty** is a planeswalker-style shield bottom-right with the number inside.
+- **Loyalty** is the printed planeswalker shield (Mana icon font glyph `loyalty-start`, SIL OFL 1.1)
+  bottom-right with the number inside; the counter-mode highlight follows the outline.
+- **General counter** is a round dark badge with the count, top-left, sized to be easy to hit.
 - Card counters are exactly four kinds: `+1/+1`, `-1/-1`, loyalty, and one **general counter**
   (shown as a bare number tag). Player-level counters (energy, experience…) stay named.
 - **Everything else** — the general counter, notes, custom token names, the face-down
