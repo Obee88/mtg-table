@@ -180,3 +180,17 @@ solid/badge look is no longer used anywhere; its tokens alias the label look.
 - **Turns**: `game.activePlayerId` / `game.turn`, starting with the roll winner. The active player
   ends the turn (toolbar "End turn", `n`); it passes to the next seat. The active player's strip
   shows a primary "Your turn · N" / "Bob's turn · N" chip and their half has a thin accent outline.
+
+## Four players (M3, 2026-09-19)
+
+- **Quadrants**: 2×2 grid, viewer bottom-left, then clockwise (next seat top-left, across top-right,
+  previous seat bottom-right). In 2v2 the seat across is the teammate, so partners share the
+  diagonal. The top row is flipped (hands at the far edge). Each quadrant is the same player area as
+  the 1v1 table (strip, tray, two battlefield rows, piles) with card size derived from a quarter of
+  the screen. Hairlines between quadrants.
+- **Focus**: click a player's name, or press 1–4 (seat number), to fill the screen with that board;
+  other opponents collapse to their strips along the top and **your own board stays as a compact
+  band at the bottom** so you keep playing. Esc, the name again, or the same key returns to the
+  quadrants. Focus on your own board gives it the whole screen with the opponents as strips.
+- The stack overlay and the mulligan overlay sit over whichever layout is active.
+- `/design?players=4` shows a four-player fixture.

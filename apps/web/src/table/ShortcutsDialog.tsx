@@ -16,7 +16,8 @@ export const SHORTCUTS: [string, string][] = [
   ['e', 'Selection → exile'],
   ['h', 'Selection → hand'],
   ['b', 'Selection → bottom of library'],
-  ['Esc', 'Clear selection / cancel'],
+  ['1–4', "Focus a player's board (4-player tables); Esc back"],
+  ['Esc', 'Clear selection / leave focus'],
   ['Right-click / library label', 'Card, selection or library menu'],
   ['?', 'This list'],
 ];

@@ -36,7 +36,10 @@ function card(owner: string, name: string | null, zone: ZoneName, extra: Partial
 }
 
 /** A mid-game 1v1 as the viewer `me` would see it (opponent hand/library identities hidden). */
-export function fixtureRoom(): RoomState {
+export const OPP2 = 'opp2';
+export const OPP3 = 'opp3';
+
+export function fixtureRoom(playerCount: 2 | 4 = 2): RoomState {
   n = 0;
   const cards: CardInstance[] = [];
   const add = (c: CardInstance) => (cards.push(c), c);
@@ -75,7 +78,17 @@ export function fixtureRoom(): RoomState {
   add(card(OPP, 'Counterspell', 'stack'));
   add(card(OPP, 'Wrath of God', 'graveyard'));
 
-  const players: Record<string, PlayerGameState> = { [ME]: emptyPlayerGameState(20), [OPP]: emptyPlayerGameState(20) };
+  if (playerCount === 4) {
+    for (const [owner, land, creature] of [[OPP2, 'Mountain', 'Grizzly Bears'], [OPP3, 'Forest', 'Llanowar Elves']] as const) {
+      for (let i = 0; i < 3; i++) add(card(owner, land, 'battlefield', { position: { row: 1, col: i }, tapped: i === 0 }));
+      add(card(owner, creature, 'battlefield', { position: { row: 0, col: 0 } }));
+      for (let i = 0; i < 4; i++) add(card(owner, null, 'hand'));
+      for (let i = 0; i < 30; i++) add(card(owner, null, 'library'));
+      add(card(owner, 'Lightning Bolt', 'graveyard'));
+    }
+  }
+  const ids = playerCount === 4 ? [ME, OPP, OPP2, OPP3] : [ME, OPP];
+  const players: Record<string, PlayerGameState> = Object.fromEntries(ids.map((id) => [id, emptyPlayerGameState(20)]));
   players[ME]!.life = 17;
   players[ME]!.poison = 2;
   players[ME]!.counters = { energy: 3 };
@@ -85,18 +98,24 @@ export function fixtureRoom(): RoomState {
   return {
     id: 'design',
     ownerId: ME,
-    settings: { playerCount: 2, mode: '1v1', startingLife: 20, commander: false },
+    settings: { playerCount, mode: playerCount === 4 ? '2v2' : '1v1', startingLife: 20, commander: false },
     phase: 'playing',
     players: {
       [ME]: { id: ME, displayName: 'You', seat: 0, team: 0, deckId: 'd', ready: true },
       [OPP]: { id: OPP, displayName: 'Bob', seat: 1, team: 1, deckId: 'd', ready: true },
+      ...(playerCount === 4
+        ? {
+            [OPP2]: { id: OPP2, displayName: 'Cy', seat: 2, team: 0, deckId: 'd', ready: true },
+            [OPP3]: { id: OPP3, displayName: 'Dee', seat: 3, team: 1, deckId: 'd', ready: true },
+          }
+        : {}),
     },
     game: {
       cards: Object.fromEntries(cards.map((c) => [c.id, c])),
       players,
-      teamLife: null,
       firstPlayerId: OPP,
-      mulligans: { [ME]: { taken: 0, kept: true }, [OPP]: { taken: 0, kept: true } },
+      mulligans: Object.fromEntries(ids.map((id) => [id, { taken: 0, kept: true }])),
+      teamLife: playerCount === 4 ? { 0: 24, 1: 19 } : null,
       activePlayerId: ME,
       turn: 3,
       stack: cards.filter((c) => c.zone === 'stack').map((c) => c.id),

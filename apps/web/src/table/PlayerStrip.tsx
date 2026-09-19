@@ -12,7 +12,10 @@ export const seatColor = (seat: number) => `var(--color-seat-${seat % 4})`;
  * counters, commander tracking, zone counts. The owner's numbers are
  * adjustable via hover/click; the owner's strip also carries the toolbar.
  */
-export function PlayerStrip({ state, player, pgs, mine, connected, run, toolbar }: {
+export function PlayerStrip({ state, player, pgs, mine, connected, run, toolbar, onFocus, focused = false }: {
+  /** Click the name to focus/unfocus this board (3+ players). */
+  onFocus?: (() => void) | undefined;
+  focused?: boolean;
   state: RoomState;
   player: RoomPlayer;
   pgs: PlayerGameState;
@@ -30,7 +33,13 @@ export function PlayerStrip({ state, player, pgs, mine, connected, run, toolbar 
   return (
     <div className="flex h-9 min-w-0 items-center gap-2 px-2 text-[13px] leading-none">
       <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: connected ? seatColor(player.seat) : 'var(--color-border)' }} title={connected ? 'online' : 'offline'} />
-      <span className="truncate font-semibold" style={{ color: seatColor(player.seat) }}>{player.displayName}</span>
+      {onFocus ? (
+        <button type="button" onClick={onFocus} className={`truncate font-semibold hover:underline ${focused ? 'underline' : ''}`} style={{ color: seatColor(player.seat) }} title={focused ? 'Back to all boards (Esc)' : `Focus this board (${player.seat + 1})`}>
+          {player.displayName}{focused ? ' ⤢' : ''}
+        </button>
+      ) : (
+        <span className="truncate font-semibold" style={{ color: seatColor(player.seat) }}>{player.displayName}</span>
+      )}
       {first && !myTurn && <Chip type="neutral" title="rolled highest">1st</Chip>}
       {myTurn && <Chip type="primary" title={`turn ${state.game?.turn ?? 1}`}>{mine ? 'Your turn' : `${player.displayName}'s turn`} · {state.game?.turn ?? 1}</Chip>}
 

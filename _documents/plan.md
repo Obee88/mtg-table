@@ -141,10 +141,10 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] Optimistic updates with reconciliation on the client
 - [x] Table UI polish: context menu, hover preview, keyboard shortcuts, multi-select
 - [x] Log panel, change highlights, move/tap/reveal animations
-- [ ] Playtest round with the group; fix list
+- [x] Playtest round with the group; fix list (2026-09-19: design session + fixes shipped live)
 
 **M3 — 4 players**
-- [ ] 4-player FFA rooms, quadrant layout, focus mode (1–4, Esc), own board as strip when zoomed
+- [x] 4-player FFA rooms, quadrant layout, focus mode (1–4, Esc), own board as strip when zoomed
 - [ ] 2v2 shared life, teammate hand visibility, diagonal seating
 - [ ] Commander zone, tax, commander damage; format presets (20 / 30 / 40 / custom)
 - [ ] Battlefield rows (lands / creatures / other) and grouping of identical tokens

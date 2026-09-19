@@ -20,6 +20,7 @@ import { CardBack, TableCard } from './TableCard';
 import { TokenDialog } from './TokenDialog';
 import { useCards } from './useCards';
 import { useHighlights } from './useHighlights';
+import { playerAtSeat, quadrants } from './seating';
 import { useMarquee } from './useMarquee';
 import { ZoneBrowser } from './ZoneBrowser';
 
@@ -51,19 +52,19 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
   const cardOwner = useCallback((id: string) => game.cards[id]?.ownerId, [game.cards]);
   const highlighted = useHighlights(live, cardOwner, meId);
 
-  // Size cards from the space one player row gets.
+  // Card sizes derive from the measured table; each layout hands every area its own share.
   const rootRef = useRef<HTMLDivElement>(null);
-  const [cardSize, setCardSize] = useState<CardSize>(DEFAULT_CARD_SIZE);
-  const rows = opponents.length + (me ? 1 : 0);
+  const [rootSize, setRootSize] = useState({ w: 1200, h: 800 });
+  const [focused, setFocused] = useState<string | null>(null);
   useLayoutEffect(() => {
     const el = rootRef.current;
     if (!el) return;
-    const measure = () => setCardSize(cardSizeFor(el.clientWidth, el.clientHeight / Math.max(1, rows)));
+    const measure = () => setRootSize({ w: el.clientWidth, h: el.clientHeight });
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     measure();
     return () => ro.disconnect();
-  }, [rows]);
+  }, []);
 
   // Drop selections of cards that no longer exist or are no longer mine.
   const liveSelected = new Set([...selected].filter((id) => game.cards[id]?.controllerId === meId));
@@ -97,8 +98,13 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
       if (!me) return;
       if (e.key === '?') return setHelpDialog(true);
       if (e.key === 'Escape') {
-
+        setFocused(null);
         setSelected(new Set());
+        return;
+      }
+      if (players.length > 2 && /^[1-4]$/.test(e.key)) {
+        const target = playerAtSeat(state, Number(e.key));
+        if (target) setFocused((f) => (f === target.id ? null : target.id));
         return;
       }
       if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
@@ -271,34 +277,77 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
 
   const shared = { cards: game.cards, printings, run, onCardClick, highlighted };
   const connectedSet = new Set(connected);
+  const sizeFor = (fw: number, fh: number) => cardSizeFor(rootSize.w * fw, rootSize.h * fh);
+
+  const area = (p: RoomPlayer, opts: { flipped?: boolean; collapsed?: boolean; size: CardSize }) => {
+    const isMe = p.id === meId;
+    return (
+      <CardSizeProvider key={p.id} size={opts.size}>
+        <PlayerArea
+          {...shared}
+          state={state}
+          player={p}
+          pgs={game.players[p.id]!}
+          mine={isMe}
+          flipped={opts.flipped ?? false}
+          collapsed={opts.collapsed ?? false}
+          connected={connectedSet.has(p.id)}
+          onCardMenu={openMenu}
+          onCardDragStart={isMe ? onCardDragStart : undefined}
+          onLibraryMenu={isMe ? (e) => { e.preventDefault(); setPileMenu({ x: e.clientX, y: e.clientY }); } : undefined}
+          onToken={isMe ? () => setTokenDialog(true) : undefined}
+          onHelp={isMe ? () => setHelpDialog(true) : undefined}
+          isSelected={isMe ? isSelected : () => false}
+          onMarquee={isMe ? onMarquee : undefined}
+          selectedCount={isMe ? liveSelected.size : 0}
+          banner={isMe ? error : undefined}
+          onFocus={players.length > 2 ? () => setFocused((f) => (f === p.id ? null : p.id)) : undefined}
+          focused={focused === p.id}
+        />
+      </CardSizeProvider>
+    );
+  };
+
+  let layout: ReactNode;
+  if (players.length <= 2) {
+    // Two rows, equal halves (the 1v1 table).
+    layout = (
+      <div className="grid h-full min-h-0 w-full" style={{ gridTemplateRows: `repeat(${Math.max(1, players.length)}, minmax(0, 1fr))` }}>
+        {opponents.map((p) => area(p, { flipped: true, size: sizeFor(1, 1 / Math.max(1, players.length)) }))}
+        {me && area(me, { size: sizeFor(1, 1 / Math.max(1, players.length)) })}
+      </div>
+    );
+  } else if (focused) {
+    // Focus mode: the chosen board fills the screen; others collapse to their strips;
+    // my own board stays as a compact band at the bottom so I can keep playing.
+    const target = players.find((p) => p.id === focused)!;
+    const others = players.filter((p) => p.id !== focused && p.id !== meId);
+    const showMine = me && focused !== meId;
+    layout = (
+      <div className="grid h-full min-h-0 w-full" style={{ gridTemplateRows: `${others.length ? 'auto ' : ''}minmax(0, ${showMine ? 1.7 : 1}fr)${showMine ? ' minmax(0, 1fr)' : ''}` }}>
+        {others.length > 0 && <div className="flex min-w-0 divide-x divide-white/10 border-b border-white/10">{others.map((p) => <div key={p.id} className="min-w-0 flex-1">{area(p, { collapsed: true, size: DEFAULT_CARD_SIZE })}</div>)}</div>}
+        {area(target, { flipped: target.id !== meId, size: sizeFor(1, showMine ? 0.62 : 0.95) })}
+        {showMine && area(me, { size: sizeFor(1, 0.36) })}
+      </div>
+    );
+  } else {
+    // Quadrants: me bottom-left, then clockwise. Top row is flipped (hands at the far edge).
+    const q = quadrants(state, meId);
+    const cell = (p: RoomPlayer | null, flipped: boolean) => (p ? area(p, { flipped, size: sizeFor(0.5, 0.5) }) : <div className="min-h-0" />);
+    layout = (
+      <div className="grid h-full min-h-0 w-full grid-cols-2 grid-rows-2 [&>*]:border-white/10 [&>*:nth-child(odd)]:border-r [&>*:nth-child(-n+2)]:border-b">
+        {cell(q.topLeft, true)}
+        {cell(q.topRight, true)}
+        {cell(q.bottomLeft, false)}
+        {cell(q.bottomRight, false)}
+      </div>
+    );
+  }
 
   return (
-    <CardSizeProvider size={cardSize}>
-      <div className="relative h-full min-h-0 w-full">
-      <div ref={rootRef} className="grid h-full min-h-0 w-full" style={{ gridTemplateRows: `repeat(${Math.max(1, rows)}, minmax(0, 1fr))` }}>
-        {opponents.map((p) => (
-          <PlayerArea key={p.id} {...shared} state={state} player={p} pgs={game.players[p.id]!} mine={false} flipped connected={connectedSet.has(p.id)} onCardMenu={openMenu} isSelected={() => false} />
-        ))}
-        {me && (
-          <PlayerArea
-            {...shared}
-            state={state}
-            player={me}
-            pgs={game.players[me.id]!}
-            mine
-            connected={connectedSet.has(me.id)}
-            onCardMenu={openMenu}
-            onCardDragStart={onCardDragStart}
-            onLibraryMenu={(e) => { e.preventDefault(); setPileMenu({ x: e.clientX, y: e.clientY }); }}
-            onToken={() => setTokenDialog(true)}
-            onHelp={() => setHelpDialog(true)}
-            isSelected={isSelected}
-            onMarquee={onMarquee}
-            selectedCount={liveSelected.size}
-            banner={error}
-          />
-        )}
-      </div>
+    <CardSizeProvider size={sizeFor(1, 0.5)}>
+      <div ref={rootRef} className="relative h-full min-h-0 w-full">
+      {layout}
       <StackZone state={state} meId={meId} printings={printings} run={run} onCardMenu={openMenu} onCardDragStart={onCardDragStart} />
       {inMulligan(game) && <MulliganOverlay state={state} meId={meId} printings={printings} run={run} />}
       </div>
@@ -334,7 +383,12 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
   );
 }
 
-function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run, flipped = false, onCardClick, onCardMenu, onCardDragStart, onToken, onHelp, onLibraryMenu, isSelected, highlighted, onMarquee, selectedCount = 0, banner, bannerKind = 'error' }: {
+function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run, flipped = false, collapsed = false, onCardClick, onCardMenu, onCardDragStart, onToken, onHelp, onLibraryMenu, isSelected, highlighted, onMarquee, selectedCount = 0, banner, bannerKind = 'error', onFocus, focused = false }: {
+  /** Strip only (other opponents while focused on one board). */
+  collapsed?: boolean;
+  /** Toggle focus on this board (name click); present on 3+ player tables. */
+  onFocus?: (() => void) | undefined;
+  focused?: boolean;
   state: RoomState;
   player: RoomPlayer;
   pgs: PlayerGameState;
@@ -485,6 +539,8 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
         connected={connected}
         run={run}
         toolbar={mine ? <Toolbar run={run} onToken={onToken ?? (() => undefined)} onHelp={onHelp ?? (() => undefined)} myTurn={activePlayer(state.game!) === player.id} /> : undefined}
+        onFocus={onFocus}
+        focused={focused}
       />
       {mine && selectedCount > 0 && <Chip type="primary">{selectedCount} selected</Chip>}
       {mine && banner && <Chip type={bannerKind === 'info' ? 'primary' : 'error'} className="!max-w-[40ch] truncate">{banner}</Chip>}
@@ -492,6 +548,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
   );
 
   // Opponents: strip at the top edge, hand next, battlefield towards the middle. Me: mirrored.
+  if (collapsed) return <div className="min-w-0 px-1">{strip}</div>;
   const order = flipped ? [strip, tray, battlefield] : [battlefield, tray, strip];
   const rowsTemplate = flipped ? 'auto auto minmax(0, 1fr)' : 'minmax(0, 1fr) auto auto';
 

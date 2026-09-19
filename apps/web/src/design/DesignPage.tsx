@@ -13,7 +13,8 @@ import { FIXTURE_CARDS } from './fixtureCards';
  */
 export function DesignPage() {
   seedCards(FIXTURE_CARDS);
-  const [state, setState] = useState<RoomState>(() => fixtureRoom());
+  const playerCount = new URLSearchParams(window.location.search).get('players') === '4' ? 4 : 2;
+  const [state, setState] = useState<RoomState>(() => fixtureRoom(playerCount));
   const [events, setEvents] = useState<RoomEvent[]>([]);
   const send = useCallback(
     async (command: GameCommand) => {
@@ -27,7 +28,7 @@ export function DesignPage() {
     },
     [state],
   );
-  const room = useMemo(() => ({ state, events, status: 'open' as const, connected: [ME, 'opp'], send }), [state, events, send]);
+  const room = useMemo(() => ({ state, events, status: 'open' as const, connected: Object.keys(state.players), send }), [state, events, send]);
 
   return (
     <CardPreviewProvider>
