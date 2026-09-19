@@ -95,6 +95,7 @@ free placement**. This is the visual spec the table components follow. Iterate o
   of a card joins its **pile** (cards stack upward with a 22px step); dropping at a card's edge
   inserts beside it. Attachments render tucked behind their host's pile. Rows overlap cards when
   fuller than the width. Model: `position = { row, col }`, `col` is an order key (fractions allowed).
-- **The stack is an overlay** centred on the hairline, not a column: a dashed pill when empty, a
-  translucent panel with cards left→right (rightmost = top) when spells are on it.
+- **The stack is an overlay** at the right edge of the battlefield beside the log, centred on the
+  hairline: one card wide, cards stacked vertically (top of stack on top), overlapping as it grows;
+  a dashed placeholder when empty.
 - Card size formula accounts for two rows + tray (`/3.35`).
