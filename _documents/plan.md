@@ -180,4 +180,4 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 
 - ~~Production domains~~ — decided: `mtg.codes.hr` (web, DNS already set) + `api.mtg.codes.hr` (API, DNS to be added).
 - Pick timer in drafts? (Assumed no for a private group; easy to add as a phase setting.)
-- Default printing rule for decklist imports when none is specified (assumed: latest non-promo printing).
+- ~~Default printing rule for decklist imports~~ — decided 2026-09-19: oldest English paper non-promo printing.

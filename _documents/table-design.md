@@ -55,7 +55,7 @@ free placement**. This is the visual spec the table components follow. Iterate o
 
 - 5:7, radius 4.5%, shadow `0 2px 6px rgb(0 0 0 / .5)`. Hover lifts 2px and deepens the shadow.
 - Tapped: rotate 90° around the centre, 150ms. Flipped: 180°. Transformed: back face image.
-- Face-down: card back (deep purple radial with an inner frame); owner sees the name as a small tag.
+- Face-down / hidden: the official card back (Scryfall-hosted); owner sees the name as a small tag.
 - Token: small "T" ribbon top-right. Custom token: back with the name as a label.
 - Counters: pills top-left, `value kind`. Note: accent label along the bottom edge.
 - Revealed beyond owner: eye badge; a 700ms green glow when it becomes revealed.

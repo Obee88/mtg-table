@@ -4,11 +4,17 @@ import { imageFor } from '../cards/CardImage';
 import { useCardPreview } from '../cards/CardPreview';
 import { useCardSize } from './cardSize';
 
+/** The official card back, served by Scryfall; the gradient shows until it loads. */
+const CARD_BACK = {
+  small: 'https://backs.scryfall.io/small/0/a/0aeebaf5-8c7d-4636-9e82-8c27447861f7.jpg',
+  normal: 'https://backs.scryfall.io/normal/0/a/0aeebaf5-8c7d-4636-9e82-8c27447861f7.jpg',
+};
+
 export function CardBack({ className = '' }: { className?: string }) {
   const { w, h } = useCardSize();
   return (
-    <div className={`rounded-[4.5%] border border-border bg-[radial-gradient(circle_at_30%_30%,#3a2f6b,#1a1533_70%)] ${className}`} style={{ width: w, height: h }}>
-      <div className="m-[10%] h-[80%] rounded-[6%] border border-white/10" />
+    <div className={`overflow-hidden rounded-[4.5%] bg-[radial-gradient(circle_at_30%_30%,#3a2f6b,#1a1533_70%)] ${className}`} style={{ width: w, height: h }}>
+      <img src={w > 120 ? CARD_BACK.normal : CARD_BACK.small} alt="" draggable={false} className="h-full w-full object-cover" />
     </div>
   );
 }

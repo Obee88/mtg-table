@@ -44,11 +44,11 @@ describe('nameKey', () => {
 });
 
 describe('resolveDecklist', () => {
-  it('picks the latest English paper non-promo printing by default and never a token', async () => {
+  it('picks the oldest English paper non-promo printing by default and never a token', async () => {
     const r = await resolveDecklist(db, '4 lightning bolt');
     expect(r.unknown).toEqual([]);
     expect(r.resolved.main).toHaveLength(1);
-    expect(r.resolved.main[0]).toMatchObject({ quantity: 4, printing: { setCode: 'm11', collectorNumber: '149' } });
+    expect(r.resolved.main[0]).toMatchObject({ quantity: 4, printing: { setCode: 'lea', collectorNumber: '161' } });
   });
 
   it('honours set and collector number hints, and warns on fallback', async () => {
@@ -56,9 +56,10 @@ describe('resolveDecklist', () => {
 1 Lightning Bolt (PLST)
 1 Lightning Bolt (M11) 999
 1 Lightning Bolt (ZZZ) 1`);
-    expect(r.resolved.main.map((c) => c.printing.setCode)).toEqual(['lea', 'plst', 'm11', 'm11']);
+    expect(r.resolved.main.map((c) => c.printing.setCode)).toEqual(['lea', 'plst', 'm11', 'lea']);
     expect(r.warnings.map((w) => w.line)).toEqual([3, 4]);
     expect(r.warnings[0]?.message).toContain('(M11) 999 not found');
+    expect(r.warnings[1]?.message).toContain('using (LEA) 161');
   });
 
   it('matches double-faced and split cards by front face or full name', async () => {
