@@ -46,8 +46,8 @@ export function fixtureRoom(): RoomState {
   add(card(ME, 'Mountain', 'battlefield', { position: { row: 1, col: 1 } }));
   add(card(ME, 'Forest', 'battlefield', { position: { row: 1, col: 2 }, tapped: true }));
   add(card(ME, 'Forest', 'battlefield', { position: { row: 1, col: 3 } }));
-  const bears = add(card(ME, 'Grizzly Bears', 'battlefield', { position: { row: 0, col: 0 }, counters: { '+1/+1': 2 } }));
-  add(card(ME, 'Rancor', 'battlefield', { position: { row: 0, col: 0 }, attachedTo: bears.id }));
+  add(card(ME, 'Grizzly Bears', 'battlefield', { position: { row: 0, col: 0 }, counters: { '+1/+1': 2 } }));
+  add(card(ME, 'Rancor', 'battlefield', { position: { row: 0, col: 0 } }));
   add(card(ME, 'Llanowar Elves', 'battlefield', { position: { row: 0, col: 1 }, tapped: true }));
   add(card(ME, 'Sol Ring', 'battlefield', { position: { row: 1, col: 4 }, note: 'copy' }));
   add(card(ME, 'Soldier', 'battlefield', { position: { row: 0, col: 2 }, isToken: true }));

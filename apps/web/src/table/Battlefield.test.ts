@@ -8,11 +8,11 @@ const card = (id: string, row: number, col: number, attachedTo: string | null = 
 });
 
 describe('layoutRows', () => {
-  it('keeps absolute columns (gaps allowed), piles equal slots, tucks attachments with their host', () => {
+  it('keeps absolute columns (gaps allowed), piles equal slots, attached cards join their host pile', () => {
     const cards = [card('a', 0, 4), card('b', 0, 1), card('c', 0, 1), card('d', 1, 0), card('e', 1, 9, 'a')];
     const all = Object.fromEntries(cards.map((c) => [c.id, c]));
     const rows = layoutRows(cards, all);
-    expect(rows[0]!.map((s) => [s.col, s.cards.map((c) => c.id), s.attachments.map((c) => c.id)])).toEqual([[1, ['b', 'c'], []], [4, ['a'], ['e']]]);
+    expect(rows[0]!.map((s) => [s.col, s.cards.map((c) => c.id)])).toEqual([[1, ['b', 'c']], [4, ['a', 'e']]]);
     expect(rows[1]!.map((s) => s.cards.map((c) => c.id))).toEqual([['d']]);
   });
 });

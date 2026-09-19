@@ -8,6 +8,7 @@ export const SHORTCUTS: [string, string][] = [
   ['Ctrl+Z', 'Undo your last action (if nobody acted since)'],
   ['Shift/Ctrl + click', 'Add a card to the selection'],
   ['Drag on empty battlefield', 'Rubber-band select'],
+  ['Drop a card on a card', 'Pile them (auras, equipment, lands…)'],
   ['Space', 'Tap / untap the selection'],
   ['g', 'Selection → graveyard'],
   ['e', 'Selection → exile'],

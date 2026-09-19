@@ -5,9 +5,8 @@ import { useCardSize } from './cardSize';
 export interface Slot {
   /** Absolute column index; empty columns between slots stay empty. */
   col: number;
-  /** Pile members bottom→top; attachments of a member are tucked behind it. */
+  /** Pile members bottom→top. A card attached to another (legacy data) joins its host's pile. */
   cards: CardInstance[];
-  attachments: CardInstance[];
 }
 
 /** Groups a player's battlefield into rows of slots (piles) keyed by absolute column. */
@@ -19,18 +18,15 @@ export function layoutRows(cards: CardInstance[], all: Record<string, CardInstan
     return cur;
   };
   for (const c of cards) {
-    const host = hostOf(c);
-    const pos = host.position ?? { row: 0, col: 0 };
+    const pos = hostOf(c).position ?? { row: 0, col: 0 };
     const col = Math.max(0, Math.round(pos.col));
     const row = rows[Math.min(rowCount - 1, Math.max(0, pos.row))]!;
-    const slot = row.get(col) ?? { col, cards: [], attachments: [] };
-    if (host === c) slot.cards.push(c);
-    else slot.attachments.push(c);
+    const slot = row.get(col) ?? { col, cards: [] };
+    slot.cards.push(c);
     row.set(col, slot);
   }
   return rows.map((row) => [...row.values()].sort((a, b) => a.col - b.col));
 }
-
 /** Gap between columns: a tapped card overhangs its slot by 20% of its width on each side, so 40% keeps two tapped neighbours apart. */
 export const gapFor = (cardW: number) => Math.round(cardW * 0.4);
 /** Pile members shift down and right so the card beneath stays visible at its top and left. */
@@ -98,11 +94,6 @@ export function BattlefieldRow({ slots, renderCard, onDrop, onDragOver, children
     >
       {slots.map((slot) => (
         <div key={slot.col} className="absolute top-1 transition-[left] duration-150" style={{ left: 8 + slot.col * step, width: w + (slot.cards.length - 1) * dx, height: h + (slot.cards.length - 1) * dy, zIndex: slot.col }}>
-          {slot.attachments.map((a, k) => (
-            <div key={a.id} className="absolute" style={{ left: (k + 1) * Math.round(w * 0.18), top: (k + 1) * Math.round(w * 0.18), zIndex: 0 }}>
-              {renderCard(a, { inPile: true, index: -1 })}
-            </div>
-          ))}
           {slot.cards.map((c, k) => (
             <div key={c.id} className="absolute" style={{ left: k * dx, top: k * dy, zIndex: k + 1 }}>
               {renderCard(c, { inPile: slot.cards.length > 1, index: k })}

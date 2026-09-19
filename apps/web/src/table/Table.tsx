@@ -41,8 +41,6 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
   const [tokenDialog, setTokenDialog] = useState(false);
   const [libraryDialog, setLibraryDialog] = useState(false);
   const [helpDialog, setHelpDialog] = useState(false);
-  /** Card waiting for an attachment target to be clicked. */
-  const [attaching, setAttaching] = useState<string | null>(null);
   /** Own cards currently selected (battlefield or hand). */
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const cardOwner = useCallback((id: string) => game.cards[id]?.ownerId, [game.cards]);
@@ -94,7 +92,7 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
       if (!me) return;
       if (e.key === '?') return setHelpDialog(true);
       if (e.key === 'Escape') {
-        setAttaching(null);
+
         setSelected(new Set());
         return;
       }
@@ -126,11 +124,6 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
   }, [run, me, selected, game.cards, meId, moveSelection]);
 
   const onCardClick = (card: CardInstance, e: MouseEvent) => {
-    if (attaching) {
-      if (card.id !== attaching && card.zone === 'battlefield') void run({ type: 'attachCard', instanceId: attaching, to: card.id });
-      setAttaching(null);
-      return;
-    }
     if (card.controllerId !== meId) return;
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
       const next = new Set(liveSelected);
@@ -191,8 +184,6 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
         items.push({ label: `Remove one ${kind}`, onSelect: () => void run({ type: 'addCounter', instanceId: card.id, kind, delta: -1 }) });
       }
       items.push('sep');
-      items.push({ label: 'Attach to… (click a permanent)', onSelect: () => setAttaching(card.id) });
-      if (card.attachedTo) items.push({ label: 'Detach', onSelect: () => void run({ type: 'attachCard', instanceId: card.id, to: null }) });
       items.push({
         label: card.note ? 'Edit note' : 'Add note',
         onSelect: () => {
@@ -275,7 +266,7 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
     setSelected((prev) => (additive ? new Set([...prev, ...ids]) : new Set(ids)));
   }, []);
 
-  const shared = { cards: game.cards, printings, run, onCardClick, attaching: attaching !== null, highlighted };
+  const shared = { cards: game.cards, printings, run, onCardClick, highlighted };
   const connectedSet = new Set(connected);
 
   return (
@@ -301,8 +292,7 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
             isSelected={isSelected}
             onMarquee={onMarquee}
             selectedCount={liveSelected.size}
-            banner={attaching ? 'Click the permanent to attach to (Esc to cancel).' : error}
-            bannerKind={attaching ? 'info' : 'error'}
+            banner={error}
           />
         )}
       </div>
@@ -337,7 +327,7 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
   );
 }
 
-function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run, flipped = false, onCardClick, onCardMenu, onCardDragStart, onToken, onHelp, onLibraryMenu, attaching, isSelected, highlighted, onMarquee, selectedCount = 0, banner, bannerKind = 'error' }: {
+function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run, flipped = false, onCardClick, onCardMenu, onCardDragStart, onToken, onHelp, onLibraryMenu, isSelected, highlighted, onMarquee, selectedCount = 0, banner, bannerKind = 'error' }: {
   state: RoomState;
   player: RoomPlayer;
   pgs: PlayerGameState;
@@ -353,7 +343,6 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
   onToken?: (() => void) | undefined;
   onHelp?: (() => void) | undefined;
   onLibraryMenu?: ((e: MouseEvent) => void) | undefined;
-  attaching: boolean;
   isSelected: (id: string) => boolean;
   highlighted: ReadonlySet<string>;
   onMarquee?: ((ids: string[], additive: boolean) => void) | undefined;
@@ -416,11 +405,11 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
   const rowOrder = flipped ? [1, 0] : [0, 1];
   const battlefield = (
     <div
-      className={`relative flex min-h-0 flex-col justify-end gap-1 touch-none ${attaching && mine ? 'ring-1 ring-inset ring-accent/60' : ''}`}
+      className="relative flex min-h-0 flex-col justify-end gap-1 touch-none"
       {...(mine ? marquee.handlers : {})}
     >
       {rowOrder.map((r) => (
-        <BattlefieldRow key={r} slots={rows[r] ?? []} renderCard={(c) => cardEl(c, { onClick: mine || attaching })} onDragOver={allowDrop} onDrop={mine ? dropToRow(r) : undefined} />
+        <BattlefieldRow key={r} slots={rows[r] ?? []} renderCard={(c) => cardEl(c, { onClick: mine })} onDragOver={allowDrop} onDrop={mine ? dropToRow(r) : undefined} />
       ))}
       {marquee.rect && <div className="pointer-events-none absolute z-30 border border-accent bg-accent/10" style={marquee.rect} />}
       {pgs.zones.battlefield.length === 0 && mine && (

@@ -59,8 +59,8 @@ free placement**. This is the visual spec the table components follow. Iterate o
 - Token: small "T" ribbon top-right. Custom token: back with the name as a label.
 - Counters: pills top-left, `value kind`. Note: accent label along the bottom edge.
 - Revealed beyond owner: eye badge; a 700ms green glow when it becomes revealed.
-- Selected: 2px accent ring with offset. Attachments: tucked behind their host, offset 18% of card
-  width per attachment.
+- Selected: 2px accent ring with offset. No attach action: auras/equipment are simply piled on their
+  permanent (drop on the card).
 - Larger than 120px wide uses Scryfall `normal` art, else `small`.
 
 ## Piles
