@@ -33,13 +33,15 @@ export function ZoneBrowser({ cards, towards, renderCard, onClose }: {
   const dy = n > 1 ? Math.min(Math.round(h * 0.13), Math.max(Math.round(h * 0.04), Math.floor((maxH - h) / (n - 1)))) : 0;
   const height = h + (n - 1) * dy;
   // k = 0 is the pile's top card, sitting exactly over the pile; higher k spreads away from it.
+  // Names are on the card's top edge: spreading up, the lower card is above (covers the upper card's
+  // bottom); spreading down, the lower card must be on top so the upper card's name stays visible.
   const fromTop = [...cards].reverse();
   const up = towards === 'up';
 
   return (
     <div className={`absolute left-0 z-50 ${up ? 'bottom-0' : 'top-0'}`} style={{ width: w, height }} onMouseDown={(e) => e.stopPropagation()}>
       {fromTop.map((c, k) => (
-        <div key={c.id} className="absolute left-0 hover:z-[100]" style={{ [up ? 'bottom' : 'top']: k * dy, zIndex: n - k }}>
+        <div key={c.id} className="absolute left-0 hover:z-[100]" style={{ [up ? 'bottom' : 'top']: k * dy, zIndex: up ? n - k : k + 1 }}>
           {renderCard(c)}
         </div>
       ))}
