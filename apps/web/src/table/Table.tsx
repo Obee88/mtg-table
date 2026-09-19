@@ -5,6 +5,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type DragEve
 import type { CommandResult } from '../rooms/connection';
 import { CardSizeProvider, cardSizeFor, DEFAULT_CARD_SIZE, useCardSize, type CardSize } from './cardSize';
 import { ContextMenu, type MenuItem } from './ContextMenu';
+import { GENERAL_COUNTER } from './counters';
 import { Hand } from './Hand';
 import { LibraryDialog } from './LibraryDialog';
 import { PlayerStrip } from './PlayerStrip';
@@ -169,20 +170,16 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
     }
     if (onBattlefield) {
       items.push('sep');
-      items.push({ label: '+1/+1 counter', onSelect: () => void run({ type: 'addCounter', instanceId: card.id, kind: '+1/+1', delta: 1 }) });
-      items.push({ label: '−1/−1 counter', onSelect: () => void run({ type: 'addCounter', instanceId: card.id, kind: '-1/-1', delta: 1 }) });
-      items.push({
-        label: 'Other counter…',
-        onSelect: () => {
-          const kind = prompt('Counter type (e.g. loyalty, charge):');
-          if (!kind) return;
-          const delta = Number(prompt(`How many ${kind} counters to add (negative removes)?`, '1'));
-          if (Number.isInteger(delta) && delta !== 0) void run({ type: 'addCounter', instanceId: card.id, kind, delta });
-        },
-      });
-      for (const [kind] of Object.entries(card.counters)) {
-        items.push({ label: `Remove one ${kind}`, onSelect: () => void run({ type: 'addCounter', instanceId: card.id, kind, delta: -1 }) });
-      }
+      const add = (kind: string, delta: number) => () => void run({ type: 'addCounter', instanceId: card.id, kind, delta });
+      const has = (kind: string) => (card.counters[kind] ?? 0) > 0;
+      items.push({ label: '+1/+1 counter', onSelect: add('+1/+1', 1) });
+      if (has('+1/+1')) items.push({ label: 'Remove a +1/+1 counter', onSelect: add('+1/+1', -1) });
+      items.push({ label: '−1/−1 counter', onSelect: add('-1/-1', 1) });
+      if (has('-1/-1')) items.push({ label: 'Remove a −1/−1 counter', onSelect: add('-1/-1', -1) });
+      items.push({ label: 'Loyalty +1', onSelect: add('loyalty', 1) });
+      if (has('loyalty')) items.push({ label: 'Loyalty −1', onSelect: add('loyalty', -1) });
+      items.push({ label: 'Counter +1', onSelect: add(GENERAL_COUNTER, 1) });
+      if (has(GENERAL_COUNTER)) items.push({ label: 'Counter −1', onSelect: add(GENERAL_COUNTER, -1) });
       items.push('sep');
       items.push({
         label: card.note ? 'Edit note' : 'Add note',

@@ -4,7 +4,7 @@ import { imageFor } from '../cards/CardImage';
 import { useCardPreview } from '../cards/CardPreview';
 import { LoyaltyBadge, PTBadge, Tag } from './badges';
 import { useCardSize } from './cardSize';
-import { counterView } from './counters';
+import { counterView, GENERAL_COUNTER } from './counters';
 
 /** The official card back, served by Scryfall; the gradient shows until it loads. */
 const CARD_BACK = {
@@ -93,7 +93,7 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
           {view.other.map(([kind, value]) => (
             <Tag key={kind} cardW={w}>
               <span className="tabular-nums font-bold">{value}</span>
-              <span className="opacity-80">{kind}</span>
+              {kind !== GENERAL_COUNTER && <span className="opacity-80">{kind}</span>}
             </Tag>
           ))}
         </div>

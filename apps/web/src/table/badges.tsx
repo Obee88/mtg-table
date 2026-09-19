@@ -31,17 +31,17 @@ export function PTBadge({ power, toughness, cardW }: { power: number; toughness:
   );
 }
 
-/** Planeswalker-style loyalty shield, bottom-right. */
+/** Planeswalker loyalty shield, bottom-right: flat top, straight sides, pointed bottom, thin white outline. */
 export function LoyaltyBadge({ value, cardW }: { value: number; cardW: number }) {
-  const w = Math.max(22, Math.round(cardW * 0.28));
-  const h = Math.round(w * 1.15);
+  const w = Math.max(24, Math.round(cardW * 0.3));
+  const h = Math.round(w * 1.1);
   const inset = Math.round(cardW * 0.04);
   return (
     <span className="absolute drop-shadow-lg" style={{ bottom: inset, right: inset, width: w, height: h }} title={`${value} loyalty`}>
-      <svg viewBox="0 0 40 46" width={w} height={h} aria-hidden>
-        <path d="M20 1.5 L38.5 7.5 V21.5 C38.5 33.5 30.5 42 20 44.8 C9.5 42 1.5 33.5 1.5 21.5 V7.5 Z" fill="#0b0b0e" stroke="rgba(255,255,255,0.75)" strokeWidth="1.5" />
+      <svg viewBox="0 0 40 44" width={w} height={h} aria-hidden>
+        <path d="M3.5 2 H36.5 C37.6 2 38.5 2.9 38.5 4 V24.5 C38.5 30 34 36 20 42.5 C6 36 1.5 30 1.5 24.5 V4 C1.5 2.9 2.4 2 3.5 2 Z" fill="#0a0a0d" stroke="#ffffff" strokeWidth="1.6" strokeLinejoin="round" />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center font-bold tabular-nums text-white" style={{ fontSize: Math.round(w * 0.5), paddingTop: 1 }}>
+      <span className="absolute inset-0 flex items-center justify-center font-bold tabular-nums text-white" style={{ fontSize: Math.round(w * 0.5), paddingBottom: Math.round(w * 0.12) }}>
         {value}
       </span>
     </span>

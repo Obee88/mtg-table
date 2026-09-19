@@ -49,7 +49,7 @@ export function fixtureRoom(): RoomState {
   add(card(ME, 'Grizzly Bears', 'battlefield', { position: { row: 0, col: 0 }, counters: { '+1/+1': 2 } }));
   add(card(ME, 'Rancor', 'battlefield', { position: { row: 0, col: 0 } }));
   add(card(ME, 'Llanowar Elves', 'battlefield', { position: { row: 0, col: 1 }, tapped: true, counters: { '+1/+1': 1, '-1/-1': 3 } }));
-  add(card(ME, 'Sol Ring', 'battlefield', { position: { row: 1, col: 4 }, note: "doesn't untap", counters: { charge: 3 } }));
+  add(card(ME, 'Sol Ring', 'battlefield', { position: { row: 1, col: 4 }, note: "doesn't untap", counters: { counter: 3 } }));
   add(card(ME, 'Soldier', 'battlefield', { position: { row: 0, col: 2 }, isToken: true }));
   add(card(ME, 'Soldier', 'battlefield', { position: { row: 0, col: 2 }, isToken: true, tapped: true }));
   add(card(ME, null, 'battlefield', { position: { row: 0, col: 3 }, isToken: true, customName: 'Zombie 2/2' }));

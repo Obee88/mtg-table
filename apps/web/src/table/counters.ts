@@ -31,4 +31,7 @@ export function counterView(counters: Record<string, number>): CounterView {
   return { pt: hasPT ? { power, toughness } : null, loyalty, other };
 }
 
+/** The one non-specific card counter kind; shown as a bare number. */
+export const GENERAL_COUNTER = 'counter';
+
 export const signed = (n: number) => (n >= 0 ? `+${n}` : `${n}`);

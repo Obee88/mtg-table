@@ -126,6 +126,8 @@ free placement**. This is the visual spec the table components follow. Iterate o
   from the corner: green when non-negative, red when non-positive, neutral when mixed; reads
   `+2/+2`, never "2 +1/+1".
 - **Loyalty** is a planeswalker-style shield bottom-right with the number inside.
-- **Everything else** — custom counters (`3 charge`), notes, custom token names, the face-down
+- Card counters are exactly four kinds: `+1/+1`, `-1/-1`, loyalty, and one **general counter**
+  (shown as a bare number tag). Player-level counters (energy, experience…) stay named.
+- **Everything else** — the general counter, notes, custom token names, the face-down
   owner hint — uses one **Tag** style: dark pill, hairline ring, size relative to the card. Notes
   use the accent tone. The token "T" mark moved to the top-left corner.
