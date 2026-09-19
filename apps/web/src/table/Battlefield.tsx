@@ -18,9 +18,9 @@ export function layoutRows(cards: CardInstance[], all: Record<string, CardInstan
     return cur;
   };
   for (const c of cards) {
-    const pos = hostOf(c).position ?? { row: 0, col: 0 };
-    const col = Math.max(0, Math.round(pos.col));
-    const row = rows[Math.min(rowCount - 1, Math.max(0, pos.row))]!;
+    const pos = normalizePosition(hostOf(c).position);
+    const col = pos.col;
+    const row = rows[Math.min(rowCount - 1, pos.row)]!;
     const slot = row.get(col) ?? { col, cards: [] };
     slot.cards.push(c);
     row.set(col, slot);
@@ -107,4 +107,19 @@ export function BattlefieldRow({ row, slots, renderCard, onDrop, onDragOver, chi
       {children}
     </div>
   );
+}
+
+/**
+ * Rows/columns for any stored position, including legacy free-placement
+ * `{ x, y }` percentages from rooms created before the row model.
+ */
+export function normalizePosition(pos: unknown): { row: number; col: number } {
+  const p = (pos ?? {}) as Record<string, unknown>;
+  if (typeof p.row === 'number' && Number.isFinite(p.row) && typeof p.col === 'number' && Number.isFinite(p.col)) {
+    return { row: Math.max(0, Math.round(p.row)), col: Math.max(0, Math.round(p.col)) };
+  }
+  if (typeof p.x === 'number' && typeof p.y === 'number') {
+    return { row: p.y >= 50 ? 1 : 0, col: Math.max(0, Math.round(p.x / 12)) };
+  }
+  return { row: 0, col: 0 };
 }

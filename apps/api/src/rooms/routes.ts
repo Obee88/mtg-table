@@ -36,7 +36,8 @@ export async function roomRoutes(app: FastifyInstance): Promise<void> {
       .orderBy(desc(schema.rooms.updatedAt))
       .limit(50);
     const open = mine.length ? await db.select().from(schema.rooms).where(eq(schema.rooms.phase, 'lobby')).orderBy(desc(schema.rooms.updatedAt)).limit(50) : [];
-    const all = [...rows, ...open.filter((o) => !rows.some((r) => r.id === o.id))];
+    // Finished rooms drop out of the list; open lobbies are visible to everyone.
+    const all = [...rows.filter((r) => r.phase !== 'ended'), ...open.filter((o) => !rows.some((r) => r.id === o.id))];
     const counts = all.length
       ? await db.select({ roomId: schema.roomPlayers.roomId }).from(schema.roomPlayers).where(inArray(schema.roomPlayers.roomId, all.map((r) => r.id)))
       : [];

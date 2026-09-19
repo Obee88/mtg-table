@@ -55,3 +55,15 @@ describe('room routes', () => {
     expect((await ctx.app.inject({ url: `/rooms/${roomId}` })).statusCode).toBe(401);
   });
 });
+
+describe('room list after closing', () => {
+  it('drops closed rooms from the list and lets the owner close from any phase', async () => {
+    const created = await call('POST', '/rooms', alice, { settings: { playerCount: 2, mode: '1v1', startingLife: 20, commander: false } });
+    const id = created.json().id as string;
+    expect((await call('GET', '/rooms', alice)).json().some((r: { id: string }) => r.id === id)).toBe(true);
+    expect((await call('POST', `/rooms/${id}/commands`, bob, { type: 'closeRoom' })).statusCode).toBe(400);
+    expect((await call('POST', `/rooms/${id}/commands`, alice, { type: 'closeRoom' })).statusCode).toBe(200);
+    expect((await call('GET', '/rooms', alice)).json().some((r: { id: string }) => r.id === id)).toBe(false);
+    expect((await call('GET', `/rooms/${id}`, alice)).json().phase).toBe('ended');
+  });
+});

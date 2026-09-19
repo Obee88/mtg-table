@@ -24,6 +24,10 @@ export function RoomListPage() {
   const navigate = useNavigate();
   const rooms = useQuery({ queryKey: ['rooms'], queryFn: () => api<RoomListItem[]>('/rooms'), refetchInterval: 10_000 });
   const [preset, setPreset] = useState(0);
+  const close = useMutation({
+    mutationFn: (id: string) => api<unknown>(`/rooms/${id}/commands`, { body: { type: 'closeRoom' } }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['rooms'] }),
+  });
   const create = useMutation({
     mutationFn: (settings: RoomSettings) => api<RoomState>('/rooms', { body: { settings } }),
     onSuccess: (state) => {
@@ -53,18 +57,23 @@ export function RoomListPage() {
       </Card>
 
       <Card title="Open rooms">
-        <ErrorText error={rooms.error} />
+        <ErrorText error={rooms.error ?? close.error} />
         {rooms.data?.length === 0 && <p className="text-sm text-text-muted">No rooms yet.</p>}
         <ul className="flex flex-col gap-1">
           {rooms.data?.map((r) => (
-            <li key={r.id}>
-              <Link to={`/rooms/${r.id}`} className="flex items-center justify-between gap-3 rounded-md px-2 py-2 text-sm hover:bg-surface-raised">
-                <span>
+            <li key={r.id} className="flex items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-surface-raised">
+              <Link to={`/rooms/${r.id}`} className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                <span className="min-w-0">
                   <span className="block font-medium">{describeSettings(r.settings)}{r.ownerId === me.data?.id && <Chip type="primary" emphasis="solid" shape="pill" className="ml-2">yours</Chip>}</span>
                   <span className="mt-0.5 flex items-center gap-2 text-text-muted"><Chip type={r.phase === 'lobby' ? 'success' : r.phase === 'playing' ? 'primary' : 'neutral'}>{r.phase}</Chip>{r.playerCount}/{r.settings.playerCount} seated · {new Date(r.createdAt).toLocaleString()}</span>
                 </span>
-                <span className="text-accent">Open</span>
+                <span className="text-accent">{r.phase === 'playing' ? 'Rejoin' : 'Open'}</span>
               </Link>
+              {r.ownerId === me.data?.id && (
+                <Button variant="ghost" className="text-danger" disabled={close.isPending} onClick={() => confirm('Close this room for everyone?') && close.mutate(r.id)}>
+                  Close
+                </Button>
+              )}
             </li>
           ))}
         </ul>

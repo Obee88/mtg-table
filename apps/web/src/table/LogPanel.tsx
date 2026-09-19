@@ -10,7 +10,7 @@ import { seatColor } from './PlayerStrip';
 import { useCards } from './useCards';
 
 /** Full-height log column: history backfilled once, then the live buffer. Scrolls internally only. */
-export function LogPanel({ roomId, state, live, status, leaveHref }: { roomId: string; state: RoomState; live: RoomEvent[]; status: 'connecting' | 'open' | 'closed'; leaveHref: string }) {
+export function LogPanel({ roomId, state, live, status, leaveHref, onCloseRoom }: { roomId: string; state: RoomState; live: RoomEvent[]; status: 'connecting' | 'open' | 'closed'; leaveHref: string; onCloseRoom?: (() => void) | undefined }) {
   const [open, setOpen] = useState(true);
   const history = useQuery({
     queryKey: ['rooms', roomId, 'events'],
@@ -41,6 +41,7 @@ export function LogPanel({ roomId, state, live, status, leaveHref }: { roomId: s
             <span className={status === 'open' ? 'text-success' : 'text-accent'}>●</span>
             <span>{status === 'open' ? 'connected' : status === 'connecting' ? 'reconnecting…' : 'offline'}</span>
             <Link to={leaveHref} className="ml-auto text-accent hover:underline">Leave</Link>
+            {onCloseRoom && <button type="button" onClick={onCloseRoom} className="text-danger hover:underline" title="End the game and close the room for everyone">Close room</button>}
           </>
         )}
       </div>
