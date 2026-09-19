@@ -24,7 +24,7 @@ export function useCardSize(): CardSize {
  * full opening hand fit the width without overlap.
  */
 export function cardSizeFor(areaWidth: number, areaHeight: number): CardSize {
-  const HEADER_PX = 84; // name row + player bar
+  const HEADER_PX = 48; // strip + tray padding
   const h1 = (areaHeight - HEADER_PX) / 2.9;
   const w1 = h1 * (5 / 7);
   const w2 = (areaWidth - 12 * 8) / 12; // 4 piles + 7 cards + a spare, with gaps

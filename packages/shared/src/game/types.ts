@@ -3,7 +3,7 @@ export type PlayerId = string;
 /** Id of one physical card at the table (not the printing). */
 export type InstanceId = string;
 
-export const ZONES = ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command', 'sideboard'] as const;
+export const ZONES = ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command', 'sideboard', 'stack'] as const;
 export type ZoneName = (typeof ZONES)[number];
 
 export type GameMode = '1v1' | 'ffa' | '2v2';
@@ -58,6 +58,8 @@ export interface GameState {
   /** Shared life per team in 2v2 (keyed by team number). */
   teamLife: Record<number, number> | null;
   firstPlayerId: PlayerId;
+  /** Shared stack of spells/abilities being cast, in cast order (last = top). Cards there are public. */
+  stack: InstanceId[];
   /** d20 each player rolled for first; ties were re-rolled. */
   openingRoll: Record<PlayerId, number>;
   startedAt: string;
@@ -102,7 +104,7 @@ export function emptyPlayerGameState(startingLife: number): PlayerGameState {
     commanderTax: 0,
     commanderDamage: {},
     topRevealed: false,
-    zones: { library: [], hand: [], battlefield: [], graveyard: [], exile: [], command: [], sideboard: [] },
+    zones: { library: [], hand: [], battlefield: [], graveyard: [], exile: [], command: [], sideboard: [], stack: [] },
   };
 }
 

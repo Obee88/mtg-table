@@ -8,7 +8,7 @@ export function defaultVisibility(zone: ZoneName): CardInstance['visibleTo'] {
 }
 
 /** Zones where every player may see card identities. */
-export const PUBLIC_ZONES: ReadonlySet<string> = new Set(['battlefield', 'graveyard', 'exile', 'command']);
+export const PUBLIC_ZONES: ReadonlySet<string> = new Set(['battlefield', 'graveyard', 'exile', 'command', 'stack']);
 
 export function initialRoomState(id: string): RoomState {
   return {
@@ -79,7 +79,7 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
       return {
         ...state,
         phase: 'playing',
-        game: { cards, players, teamLife, firstPlayerId: event.firstPlayerId, openingRoll: event.openingRoll, startedAt: '' },
+        game: { cards, players, teamLife, firstPlayerId: event.firstPlayerId, openingRoll: event.openingRoll, stack: [], startedAt: '' },
       };
     }
 
@@ -129,7 +129,11 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
           if (other.attachedTo === card.id) cards[other.id] = { ...other, attachedTo: null };
         }
       }
-      return { ...state, game: { ...state.game, cards, players: { ...state.game.players, [card.ownerId]: { ...owner, zones } } } };
+      // Shared stack order: remove on leaving, push on entering (top = last).
+      let stack = state.game.stack ?? [];
+      if (event.from === 'stack' || event.to === 'stack') stack = stack.filter((id) => id !== card.id);
+      if (event.to === 'stack') stack = [...stack, card.id];
+      return { ...state, game: { ...state.game, cards, stack, players: { ...state.game.players, [card.ownerId]: { ...owner, zones } } } };
     }
 
     case 'cardTapped': {

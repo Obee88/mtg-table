@@ -28,7 +28,7 @@ function card(owner: string, name: string | null, zone: ZoneName, extra: Partial
     note: null,
     isToken: false,
     customName: null,
-    visibleTo: zone === 'battlefield' || zone === 'graveyard' || zone === 'exile' ? 'all' : zone === 'library' ? [] : 'owner',
+    visibleTo: zone === 'battlefield' || zone === 'graveyard' || zone === 'exile' || zone === 'stack' ? 'all' : zone === 'library' ? [] : 'owner',
     revealUntil: null,
     position: null,
     ...extra,
@@ -71,6 +71,8 @@ export function fixtureRoom(): RoomState {
   add(card(OPP, 'Lightning Bolt', 'hand', { visibleTo: 'all' })); // revealed to me
   for (let i = 0; i < 39; i++) add(card(OPP, null, 'library'));
   add(card(OPP, 'Counterspell', 'graveyard'));
+  add(card(ME, 'Lightning Bolt', 'stack'));
+  add(card(OPP, 'Counterspell', 'stack'));
   add(card(OPP, 'Wrath of God', 'graveyard'));
 
   const players: Record<string, PlayerGameState> = { [ME]: emptyPlayerGameState(20), [OPP]: emptyPlayerGameState(20) };
@@ -94,6 +96,7 @@ export function fixtureRoom(): RoomState {
       players,
       teamLife: null,
       firstPlayerId: OPP,
+      stack: cards.filter((c) => c.zone === 'stack').map((c) => c.id),
       openingRoll: { [ME]: 9, [OPP]: 14 },
       startedAt: new Date().toISOString(),
     },

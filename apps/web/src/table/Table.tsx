@@ -10,6 +10,7 @@ import { LibraryDialog } from './LibraryDialog';
 import { PlayerStrip } from './PlayerStrip';
 import { Toolbar } from './Toolbar';
 import { ShortcutsDialog } from './ShortcutsDialog';
+import { StackZone } from './StackZone';
 import { CardBack, TableCard } from './TableCard';
 import { TokenDialog } from './TokenDialog';
 import { useCards } from './useCards';
@@ -209,7 +210,7 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
       if (card.revealUntil) items.push({ label: 'Hide again', onSelect: () => void run({ type: 'dismissReveal', instanceIds: [card.id] }) });
       items.push('sep');
     }
-    const moves: [ZoneName, string][] = [['battlefield', 'battlefield'], ['hand', 'hand (h)'], ['graveyard', 'graveyard (g)'], ['exile', 'exile (e)']];
+    const moves: [ZoneName, string][] = [['stack', 'the stack (cast)'], ['battlefield', 'battlefield'], ['hand', 'hand (h)'], ['graveyard', 'graveyard (g)'], ['exile', 'exile (e)']];
     for (const [zone, label] of moves) if (zone !== card.zone) items.push({ label: `Move to ${label}`, onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: zone }) });
     items.push({ label: 'Top of library', onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: 'library', libraryPosition: 'top' }) });
     items.push({ label: 'Bottom of library (b)', onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: 'library', libraryPosition: 'bottom' }) });
@@ -277,7 +278,8 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
 
   return (
     <CardSizeProvider size={cardSize}>
-      <div ref={rootRef} className="grid h-full min-h-0 w-full" style={{ gridTemplateRows: `repeat(${Math.max(1, rows)}, minmax(0, 1fr))` }}>
+      <div className="flex h-full min-h-0 w-full">
+      <div ref={rootRef} className="grid h-full min-h-0 min-w-0 flex-1" style={{ gridTemplateRows: `repeat(${Math.max(1, rows)}, minmax(0, 1fr))` }}>
         {opponents.map((p) => (
           <PlayerArea key={p.id} {...shared} state={state} player={p} pgs={game.players[p.id]!} mine={false} flipped connected={connectedSet.has(p.id)} onCardMenu={openMenu} isSelected={() => false} />
         ))}
@@ -301,6 +303,8 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
             bannerKind={attaching ? 'info' : 'error'}
           />
         )}
+      </div>
+      <StackZone state={state} meId={meId} printings={printings} run={run} onCardMenu={openMenu} onCardDragStart={onCardDragStart} />
       </div>
       {menu && (
         <ContextMenu

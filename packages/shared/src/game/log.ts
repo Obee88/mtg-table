@@ -9,7 +9,7 @@ export interface LogContext {
 }
 
 const ZONE_LABEL: Record<string, string> = {
-  library: 'the library', hand: 'hand', battlefield: 'the battlefield', graveyard: 'the graveyard', exile: 'exile', command: 'the command zone', sideboard: 'the sideboard',
+  library: 'the library', hand: 'hand', battlefield: 'the battlefield', graveyard: 'the graveyard', exile: 'exile', command: 'the command zone', sideboard: 'the sideboard', stack: 'the stack',
 };
 
 export function logContextFor(state: RoomState, printingName: (printingId: string) => string | undefined): LogContext {
@@ -50,6 +50,7 @@ export function describeEvent(e: RoomEvent, ctx: LogContext): string | null {
     }
     case 'cardMoved':
       if (ev.from === 'library' && ev.to === 'hand') return `${actor} drew ${card(ev.instanceId)}`;
+      if (ev.to === 'stack') return `${actor} cast ${card(ev.instanceId)}`;
       if (ev.from === ev.to) return null; // repositioning is noise
       if (ev.to === 'library') return `${actor} put ${card(ev.instanceId)} on the ${ev.libraryPosition ?? 'top'} of ${ZONE_LABEL.library}`;
       return `${actor} moved ${card(ev.instanceId)} from ${ZONE_LABEL[ev.from]} to ${ZONE_LABEL[ev.to]}`;

@@ -539,3 +539,40 @@ describe('multi-card commands', () => {
     expect(decide(s, { type: 'moveCards', instanceIds: [mine, theirs], to: 'graveyard' }, ctx('a'))).toEqual({ ok: false, error: 'Not your card' });
   });
 });
+
+describe('stack zone', () => {
+  const settings: RoomSettings = { playerCount: 2, mode: '1v1', startingLife: 20, commander: false };
+  const decks = { a: { main: [{ printingId: 'bolt', quantity: 10 }], sideboard: [], commander: [] }, b: { main: [{ printingId: 'isle', quantity: 9 }], sideboard: [], commander: [] } };
+  let n = 0;
+  let r = 0;
+  const playing = () => {
+    let s = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings });
+    for (const p of ['a', 'b']) {
+      s = run(s, p, { type: 'join' });
+      s = run(s, p, { type: 'selectDeck', deckId: 'd' });
+      s = run(s, p, { type: 'setReady', ready: true });
+    }
+    const d = decide(s, { type: 'start' }, { ...ctx('a'), decks, random: () => ((r += 7) % 11) / 11, newId: () => `s${++n}` });
+    if (!d.ok) throw new Error(d.error);
+    return reduceAll(s, d.events);
+  };
+
+  it('is shared, public and ordered by cast order across players', () => {
+    let s = playing();
+    const a1 = s.game!.players.a!.zones.hand[0]!;
+    const b1 = s.game!.players.b!.zones.hand[0]!;
+    const a2 = s.game!.players.a!.zones.hand[1]!;
+    s = run(s, 'a', { type: 'moveCard', instanceId: a1, to: 'stack' });
+    s = run(s, 'b', { type: 'moveCard', instanceId: b1, to: 'stack' });
+    s = run(s, 'a', { type: 'moveCard', instanceId: a2, to: 'stack' });
+    expect(s.game!.stack).toEqual([a1, b1, a2]);
+    expect(s.game!.cards[b1]).toMatchObject({ zone: 'stack', visibleTo: 'all' });
+    expect(s.game!.players.a!.zones.stack).toEqual([a1, a2]);
+    // top resolves: b1 leaves in the middle
+    s = run(s, 'b', { type: 'moveCard', instanceId: b1, to: 'graveyard' });
+    expect(s.game!.stack).toEqual([a1, a2]);
+    s = run(s, 'a', { type: 'moveCard', instanceId: a2, to: 'battlefield' });
+    expect(s.game!.stack).toEqual([a1]);
+    expect(decide(s, { type: 'tapCard', instanceId: a1, tapped: true }, ctx('a')).ok).toBe(false);
+  });
+});
