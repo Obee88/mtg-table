@@ -148,7 +148,7 @@ circle; border always present but transparent by default; `ChipButton` for click
 Palette: five six-step ramps (primary/blue, green, red, yellow, purple) and a 13-step neutral
 scale as CSS custom properties; semantic tokens per type × emphasis. The app is dark-only, so
 the **dark mapping** is wired: soft = deep fill + white text + saturated border; solid = white
-fill + the ramp's *dark* step as text (the contrast fixes: never the base step as text). Hover:
+ramp's *dark* step as fill, white text, light step as border (white-filled badges read wrong on felt). Hover:
 no shadow, background shifts one step. A light mapping can be added under `[data-theme="light"]`.
 
 Where chips are used: P/T badge (solid pill: success/error/neutral), general counter (solid
@@ -156,3 +156,5 @@ pill, circular), token mark (primary solid pill "T"), revealed eye (success soli
 (warning soft), custom token names / face-down hints (neutral soft), pile labels, the stack
 header and "top" marker, selection/banner in the strip, "1st", player counters, lobby host /
 team / ready, room phase and "yours", promo/digital on printings, used invites.
+- The whole battlefield accepts drops (row under or nearest to the pointer), not just the row strips.
+- The stack shows no "top" marker; the pile order says it.

@@ -63,11 +63,10 @@ export function StackZone({ state, meId, printings, run, onCardMenu, onCardDragS
           {cards.map((c, i) => {
             const mine = c.controllerId === meId;
             const seat = state.players[c.ownerId]?.seat ?? 0;
-            const top = i === n - 1;
+
             return (
               <div key={c.id} className="absolute rounded-[4.5%] transition-[top,left] duration-150" style={{ top: i * dy, left: i * dx, zIndex: i + 1, boxShadow: `0 0 0 2px ${seatColor(seat)}` }}>
                 <TableCard card={c} printing={c.printingId ? printings.get(c.printingId) : undefined} mine={mine} onContextMenu={mine ? onCardMenu(c) : undefined} onDragStart={mine ? onCardDragStart(c) : undefined} />
-                {top && <Chip type="primary" emphasis="solid" shape="pill" className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 uppercase">top</Chip>}
               </div>
             );
           })}

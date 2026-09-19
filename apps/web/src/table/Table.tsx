@@ -12,7 +12,7 @@ import { LibraryDialog } from './LibraryDialog';
 import { PlayerStrip } from './PlayerStrip';
 import { Toolbar } from './Toolbar';
 import { ShortcutsDialog } from './ShortcutsDialog';
-import { BattlefieldRow, dropSlot, freeColumns, layoutRows } from './Battlefield';
+import { BattlefieldRow, columnStep, dropSlot, freeColumns, layoutRows } from './Battlefield';
 import { StackZone } from './StackZone';
 import { CardBack, TableCard } from './TableCard';
 import { TokenDialog } from './TokenDialog';
@@ -348,6 +348,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
   banner?: string | null | undefined;
   bannerKind?: 'info' | 'error';
 }) {
+  const { w } = useCardSize();
   const marquee = useMarquee(onMarquee ?? (() => undefined));
   const [expandedPile, setExpandedPile] = useState<'graveyard' | 'exile' | null>(null);
   const zoneCards = (zone: ZoneName) => pgs.zones[zone].map((id) => cards[id]).filter((c): c is CardInstance => !!c);
@@ -372,14 +373,35 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
   const rows = layoutRows(battlefieldCards, cards);
 
   /** Drop onto a battlefield row: the column under the pointer; a pile if occupied, else the selection fills free columns from there. */
-  const dropToRow = (row: number) => (e: DragEvent<HTMLDivElement>, g: { step: number }) => {
+  /**
+   * Drop anywhere on the battlefield: the row under (or nearest to) the pointer,
+   * the column under the pointer; a pile if that column is occupied, else the
+   * selection fills free columns from there.
+   */
+  const dropToBattlefield = (e: DragEvent<HTMLDivElement>) => {
     if (!mine) return;
     e.preventDefault();
     const ids = parseIds(e);
     if (ids.length === 0) return;
-    const rect = e.currentTarget.getBoundingClientRect();
+    const rowEls = [...e.currentTarget.querySelectorAll<HTMLElement>('[data-row]')];
+    if (rowEls.length === 0) return;
+    const rowEl =
+      rowEls.find((el) => {
+        const r = el.getBoundingClientRect();
+        return e.clientY >= r.top && e.clientY <= r.bottom;
+      }) ??
+      rowEls.reduce((best, el) => {
+        const d = (x: HTMLElement) => {
+          const r = x.getBoundingClientRect();
+          return Math.min(Math.abs(e.clientY - r.top), Math.abs(e.clientY - r.bottom));
+        };
+        return d(el) < d(best) ? el : best;
+      });
+    const row = Number(rowEl.dataset.row);
+    const rect = rowEl.getBoundingClientRect();
     const slots = (rows[row] ?? []).filter((s) => !s.cards.every((c) => ids.includes(c.id)));
-    const slot = dropSlot(slots, e.clientX - rect.left - 8, g.step);
+    const step = columnStep(slots, rect.width - 16, w);
+    const slot = dropSlot(slots, e.clientX - rect.left - 8, step);
     const positions: Record<string, { row: number; col: number }> = {};
     if (slot.pile) ids.forEach((id) => (positions[id] = { row, col: slot.col }));
     else freeColumns(slots, slot.col, ids.length).forEach((col, i) => (positions[ids[i]!] = { row, col }));
@@ -400,15 +422,16 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
     />
   );
 
-  // Opponents face me: their front row is nearest the middle, so it renders last.
   const rowOrder = flipped ? [1, 0] : [0, 1];
   const battlefield = (
     <div
       className="relative flex min-h-0 flex-col justify-end gap-1 touch-none"
+      onDragOver={allowDrop}
+      onDrop={mine ? dropToBattlefield : undefined}
       {...(mine ? marquee.handlers : {})}
     >
       {rowOrder.map((r) => (
-        <BattlefieldRow key={r} slots={rows[r] ?? []} renderCard={(c) => cardEl(c, { onClick: mine })} onDragOver={allowDrop} onDrop={mine ? dropToRow(r) : undefined} />
+        <BattlefieldRow key={r} row={r} slots={rows[r] ?? []} renderCard={(c) => cardEl(c, { onClick: mine })} />
       ))}
       {marquee.rect && <div className="pointer-events-none absolute z-30 border border-accent bg-accent/10" style={marquee.rect} />}
       {pgs.zones.battlefield.length === 0 && mine && (

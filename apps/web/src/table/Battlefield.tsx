@@ -60,7 +60,9 @@ export function freeColumns(slots: Slot[], from: number, count: number): number[
  * One battlefield row: slots at absolute columns; piles stack down-right;
  * columns compress (cards overlap) only when the row is wider than the space.
  */
-export function BattlefieldRow({ slots, renderCard, onDrop, onDragOver, children }: {
+export function BattlefieldRow({ row, slots, renderCard, onDrop, onDragOver, children }: {
+  /** Row index, exposed as data-row for the battlefield drop handler. */
+  row?: number;
   slots: Slot[];
   renderCard: (card: CardInstance, opts: { inPile: boolean; index: number }) => ReactNode;
   onDrop?: ((e: DragEvent<HTMLDivElement>, geometry: { step: number }) => void) | undefined;
@@ -88,6 +90,7 @@ export function BattlefieldRow({ slots, renderCard, onDrop, onDragOver, children
     <div
       ref={ref}
       className="relative min-w-0 px-2"
+      data-row={row}
       style={{ height: h + (tallest - 1) * dy + 8 }}
       onDragOver={onDragOver}
       onDrop={onDrop ? (e) => onDrop(e, { step }) : undefined}
