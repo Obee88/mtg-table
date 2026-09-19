@@ -3,11 +3,13 @@ import { useEffect, type ReactNode } from 'react';
 import { useCardSize } from './cardSize';
 
 /**
- * Expanded view of a pile zone (graveyard, exile): every card, stacked with
- * only a vertical offset so each card's name line stays visible. Anchored to
- * the pile and growing towards the battlefield.
+ * Expanded view of a pile zone (graveyard, exile): the pile's top card stays
+ * in place and the rest spread towards the battlefield, each offset only
+ * vertically so every card's name line stays visible. No box, no scrolling —
+ * the offset shrinks until the whole zone fits.
  */
 export function ZoneBrowser({ cards, towards, renderCard, onClose }: {
+  /** Zone order, bottom→top (last = top of the pile). */
   cards: CardInstance[];
   /** Which way the battlefield is from the pile. */
   towards: 'up' | 'down';
@@ -27,25 +29,28 @@ export function ZoneBrowser({ cards, towards, renderCard, onClose }: {
   }, [onClose]);
 
   const n = cards.length;
-  const maxH = typeof window === 'undefined' ? h * 4 : window.innerHeight * 0.75;
-  // Enough of each card to read its name; squeeze when the zone is large.
-  const dy = n > 1 ? Math.min(Math.round(h * 0.13), Math.max(Math.round(h * 0.07), (maxH - h) / (n - 1))) : 0;
-  // Newest (top of the pile) nearest the pile; the stack grows towards the battlefield.
-  const ordered = towards === 'up' ? [...cards].reverse() : cards;
+  const maxH = typeof window === 'undefined' ? h * 4 : window.innerHeight * 0.72;
+  const dy = n > 1 ? Math.min(Math.round(h * 0.13), Math.max(Math.round(h * 0.04), Math.floor((maxH - h) / (n - 1)))) : 0;
+  const height = h + (n - 1) * dy;
+  // k = 0 is the pile's top card, sitting exactly over the pile; higher k spreads away from it.
+  const fromTop = [...cards].reverse();
+  const up = towards === 'up';
 
   return (
-    <div
-      className={`absolute left-0 z-50 rounded-lg border border-white/15 bg-black/80 p-2 shadow-2xl backdrop-blur-sm ${towards === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'}`}
-      style={{ width: w + 16, maxHeight: maxH + 16, overflowY: 'auto' }}
-      onMouseDown={(e) => e.stopPropagation()}
-    >
-      <div className="relative" style={{ width: w, height: h + (n - 1) * dy }}>
-        {ordered.map((c, i) => (
-          <div key={c.id} className="absolute left-0 hover:z-[100]" style={{ top: i * dy, zIndex: i + 1 }}>
-            {renderCard(c)}
-          </div>
-        ))}
-      </div>
+    <div className={`absolute left-0 z-50 ${up ? 'bottom-0' : 'top-0'}`} style={{ width: w, height }} onMouseDown={(e) => e.stopPropagation()}>
+      {fromTop.map((c, k) => (
+        <div key={c.id} className="absolute left-0 hover:z-[100]" style={{ [up ? 'bottom' : 'top']: k * dy, zIndex: n - k }}>
+          {renderCard(c)}
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={onClose}
+        className={`absolute left-1/2 z-[110] -translate-x-1/2 rounded-full border border-white/20 bg-black/80 px-2 text-[10px] leading-4 text-white/80 hover:bg-black ${up ? '-top-2' : '-bottom-2'}`}
+        title="Collapse"
+      >
+        {up ? '▼' : '▲'}
+      </button>
     </div>
   );
 }

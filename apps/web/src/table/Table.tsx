@@ -506,7 +506,7 @@ function Pile({ label, count, children, stack = false, hint, browse, ...drop }: 
       <span className="pointer-events-none absolute inset-x-0 bottom-1 mx-auto w-max max-w-full truncate rounded bg-black/75 px-1.5 py-0.5 text-[10px] text-text-muted">
         {label} · {count}{hint ? ` · ${hint}` : ''}
       </span>
-      {canBrowse && (
+      {canBrowse && !browse.open && (
         <button
           type="button"
           onMouseDown={(e) => e.stopPropagation()}
