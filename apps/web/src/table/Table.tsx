@@ -395,6 +395,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
       onClick={extra.onClick === false ? undefined : (e) => onCardClick(c, e)}
       onContextMenu={onCardMenu && (mine || c.printingId !== null) ? onCardMenu(c) : undefined}
       onDragStart={mine && onCardDragStart ? onCardDragStart(c) : undefined}
+      onAdjustCounter={mine ? (kind, delta) => void run({ type: 'addCounter', instanceId: c.id, kind, delta }) : undefined}
     />
   );
 

@@ -2,9 +2,10 @@ import type { CardInstance, CardPrinting } from '@mtg/shared';
 import type { DragEvent, MouseEvent } from 'react';
 import { imageFor } from '../cards/CardImage';
 import { useCardPreview } from '../cards/CardPreview';
-import { LoyaltyBadge, PTBadge, Tag } from './badges';
+import { LoyaltyBadge, PTBadge, Tag, type Adjust } from './badges';
 import { useCardSize } from './cardSize';
 import { counterView, GENERAL_COUNTER } from './counters';
+import { useCounterKeyHeld } from './useModifier';
 
 /** The official card back, served by Scryfall; the gradient shows until it loads. */
 const CARD_BACK = {
@@ -29,7 +30,7 @@ export function faceImage(card: CardInstance, printing: CardPrinting | undefined
   return imageFor(printing, size);
 }
 
-export function TableCard({ card, printing, mine, selected = false, onClick, onContextMenu, onDragStart: onDragStartProp }: {
+export function TableCard({ card, printing, mine, selected = false, onClick, onContextMenu, onDragStart: onDragStartProp, onAdjustCounter }: {
   card: CardInstance;
   printing: CardPrinting | undefined;
   mine: boolean;
@@ -38,8 +39,13 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
   onContextMenu?: ((e: MouseEvent) => void) | undefined;
   /** Override the drag payload (multi-select drags). */
   onDragStart?: ((e: DragEvent) => void) | undefined;
+  /** Enables hold-c adjustment of counter badges (own cards): click +1, right-click −1. */
+  onAdjustCounter?: ((kind: string, delta: number) => void) | undefined;
 }) {
   const { w, h } = useCardSize();
+  const counterMode = useCounterKeyHeld();
+  const adjust = (inc: [string, number], dec: [string, number]): Adjust | undefined =>
+    onAdjustCounter ? { active: counterMode, onInc: () => onAdjustCounter(...inc), onDec: () => onAdjustCounter(...dec) } : undefined;
   // Larger cards deserve the sharper image.
   const src = faceImage(card, printing, w > 120 ? 'normal' : 'small');
   const hidden = card.printingId === null || card.faceDown;
@@ -86,12 +92,12 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
       )}
       {card.isToken && <span className={`absolute left-0.5 top-0.5 rounded bg-accent px-1 font-semibold text-bg ${badge}`} title="token">T</span>}
       {revealed && <span className={`absolute left-0.5 bottom-5 rounded bg-success px-1 font-semibold text-bg ${badge}`} title="revealed">👁</span>}
-      {view.pt && <PTBadge power={view.pt.power} toughness={view.pt.toughness} cardW={w} />}
-      {view.loyalty !== null && <LoyaltyBadge value={view.loyalty} cardW={w} />}
+      {view.pt && <PTBadge power={view.pt.power} toughness={view.pt.toughness} cardW={w} adjust={adjust(['+1/+1', 1], ['-1/-1', 1])} />}
+      {view.loyalty !== null && <LoyaltyBadge value={view.loyalty} cardW={w} adjust={adjust(['loyalty', 1], ['loyalty', -1])} />}
       {view.other.length > 0 && (
         <div className="absolute flex max-w-[80%] flex-col items-start gap-0.5" style={{ left: inset, top: inset + (card.isToken ? Math.round(w * 0.14) : 0) }}>
           {view.other.map(([kind, value]) => (
-            <Tag key={kind} cardW={w}>
+            <Tag key={kind} cardW={w} adjust={adjust([kind, 1], [kind, -1])}>
               <span className="tabular-nums font-bold">{value}</span>
               {kind !== GENERAL_COUNTER && <span className="opacity-80">{kind}</span>}
             </Tag>

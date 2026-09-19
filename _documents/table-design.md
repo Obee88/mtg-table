@@ -131,3 +131,6 @@ free placement**. This is the visual spec the table components follow. Iterate o
 - **Everything else** — the general counter, notes, custom token names, the face-down
   owner hint — uses one **Tag** style: dark pill, hairline ring, size relative to the card. Notes
   use the accent tone. The token "T" mark moved to the top-left corner.
+- **Counter mode:** hold `c` and hover any counter badge on your own card — it highlights; click adds
+  one, right-click removes one (P/T badge: click = +1/+1, right-click = −1/−1). Without `c` badges are
+  inert so a plain click still taps the card.
