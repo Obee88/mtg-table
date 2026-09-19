@@ -86,7 +86,7 @@ describe('projectEvents + applyRoomEvent', () => {
     const { state, log } = game(twoPlayer, ['a', 'b']);
     // Play a card from a's hand, then b draws.
     const hand = state.game!.players.a!.zones.hand[0]!;
-    const d1 = decide(state, { type: 'moveCard', instanceId: hand, to: 'battlefield', position: { x: 1, y: 1 } }, ctx('a'));
+    const d1 = decide(state, { type: 'moveCard', instanceId: hand, to: 'battlefield', position: { row: 0, col: 1 } }, ctx('a'));
     const s1 = reduceAll(state, d1.ok ? d1.events : []);
     const d2 = decide(s1, { type: 'draw', count: 1 }, ctx('b'));
     const s2 = reduceAll(s1, d2.ok ? d2.events : []);

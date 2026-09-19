@@ -150,11 +150,11 @@ describe('optimistic updates', () => {
   it('shows the predicted effect immediately and settles on the server events', async () => {
     const { conn, s, base } = setupPlaying();
     const hand = base.game!.players.a!.zones.hand[0]!;
-    const p = conn.send({ type: 'moveCard', instanceId: hand, to: 'battlefield', position: { x: 5, y: 5 } });
+    const p = conn.send({ type: 'moveCard', instanceId: hand, to: 'battlefield', position: { row: 0, col: 0 } });
     expect(conn.getSnapshot().state!.game!.cards[hand]!.zone).toBe('battlefield');
     expect(conn.getSnapshot().pending).toBe(1);
     // Server confirms with the real event, then the result.
-    const ev: RoomEvent = { seq: 11, actorId: 'a', at: '', event: { type: 'cardMoved', instanceId: hand, from: 'hand', to: 'battlefield', position: { x: 5, y: 5 }, libraryPosition: null } };
+    const ev: RoomEvent = { seq: 11, actorId: 'a', at: '', event: { type: 'cardMoved', instanceId: hand, from: 'hand', to: 'battlefield', position: { row: 0, col: 0 }, libraryPosition: null } };
     s.receive({ type: 'events', events: [ev] });
     expect(conn.getSnapshot().state!.game!.players.a!.zones.battlefield).toEqual([hand]); // no double-apply
     s.receive({ type: 'result', id: '1', ok: true, seq: 11 });
@@ -181,7 +181,7 @@ describe('optimistic updates', () => {
     void conn.send({ type: 'moveCard', instanceId: h0!, to: 'battlefield' });
     void conn.send({ type: 'moveCard', instanceId: h1!, to: 'battlefield' });
     expect(conn.getSnapshot().state!.game!.players.a!.zones.battlefield).toEqual([h0, h1]);
-    s.receive({ type: 'events', events: [{ seq: 11, actorId: 'a', at: '', event: { type: 'cardMoved', instanceId: h0!, from: 'hand', to: 'battlefield', position: { x: 50, y: 50 }, libraryPosition: null } }] });
+    s.receive({ type: 'events', events: [{ seq: 11, actorId: 'a', at: '', event: { type: 'cardMoved', instanceId: h0!, from: 'hand', to: 'battlefield', position: { row: 0, col: 0 }, libraryPosition: null } }] });
     s.receive({ type: 'result', id: '1', ok: true, seq: 11 });
     expect(conn.getSnapshot().state!.game!.players.a!.zones.battlefield).toEqual([h0, h1]);
     expect(conn.getSnapshot().pending).toBe(1);

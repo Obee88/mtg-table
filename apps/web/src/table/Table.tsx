@@ -10,6 +10,7 @@ import { LibraryDialog } from './LibraryDialog';
 import { PlayerStrip } from './PlayerStrip';
 import { Toolbar } from './Toolbar';
 import { ShortcutsDialog } from './ShortcutsDialog';
+import { BattlefieldRow, dropSlot, layoutRows } from './Battlefield';
 import { StackZone } from './StackZone';
 import { CardBack, TableCard } from './TableCard';
 import { TokenDialog } from './TokenDialog';
@@ -199,7 +200,7 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
         },
       });
       if (card.printingId) {
-        items.push({ label: 'Create token copy', onSelect: () => void run({ type: 'createToken', printingId: card.printingId, customName: null, count: 1, position: { x: (card.position?.x ?? 50) + 4, y: (card.position?.y ?? 50) + 4 } }) });
+        items.push({ label: 'Create token copy', onSelect: () => void run({ type: 'createToken', printingId: card.printingId, customName: null, count: 1, position: { row: card.position?.row ?? 0, col: (card.position?.col ?? 0) + 0.5 } }) });
       }
       items.push('sep');
     }
@@ -278,8 +279,8 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
 
   return (
     <CardSizeProvider size={cardSize}>
-      <div className="flex h-full min-h-0 w-full">
-      <div ref={rootRef} className="grid h-full min-h-0 min-w-0 flex-1" style={{ gridTemplateRows: `repeat(${Math.max(1, rows)}, minmax(0, 1fr))` }}>
+      <div className="relative h-full min-h-0 w-full">
+      <div ref={rootRef} className="grid h-full min-h-0 w-full" style={{ gridTemplateRows: `repeat(${Math.max(1, rows)}, minmax(0, 1fr))` }}>
         {opponents.map((p) => (
           <PlayerArea key={p.id} {...shared} state={state} player={p} pgs={game.players[p.id]!} mine={false} flipped connected={connectedSet.has(p.id)} onCardMenu={openMenu} isSelected={() => false} />
         ))}
@@ -325,7 +326,7 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
             onClose={() => setTokenDialog(false)}
             onCreate={(t) => {
               setTokenDialog(false);
-              void run({ type: 'createToken', ...t, position: { x: 40, y: 40 } });
+              void run({ type: 'createToken', ...t });
             }}
           />
         )}
@@ -359,56 +360,43 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
   banner?: string | null | undefined;
   bannerKind?: 'info' | 'error';
 }) {
-  const { w, h } = useCardSize();
-  const attachOffset = Math.round(w * 0.18);
   const marquee = useMarquee(onMarquee ?? (() => undefined));
   const zoneCards = (zone: ZoneName) => pgs.zones[zone].map((id) => cards[id]).filter((c): c is CardInstance => !!c);
 
+  const parseIds = (e: DragEvent): string[] => {
+    try {
+      return JSON.parse(e.dataTransfer.getData(DRAG_MIME) || '[]') as string[];
+    } catch {
+      return [];
+    }
+  };
+
+  /** Drop onto a non-battlefield zone. */
   const dropTo = (zone: ZoneName) => (e: DragEvent<HTMLDivElement>) => {
     if (!mine) return;
     e.preventDefault();
-    let ids: string[];
-    try {
-      ids = JSON.parse(e.dataTransfer.getData(DRAG_MIME) || '[]') as string[];
-    } catch {
-      ids = [];
-    }
-    if (ids.length === 0) return;
-    const draggedId = e.dataTransfer.getData('text/dragged-id') || ids[0]!;
-    const command: GameCommand = { type: 'moveCards', instanceIds: ids, to: zone };
-    if (zone === 'battlefield') {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = Math.max(0, Math.min(100, ((e.clientX - rect.left - w / 2) / rect.width) * 100));
-      const y = Math.max(0, Math.min(100, ((e.clientY - rect.top - h / 2) / rect.height) * 100));
-      const dragged = cards[draggedId];
-      const origin = dragged?.zone === 'battlefield' && dragged.position ? dragged.position : null;
-      const positions: Record<string, { x: number; y: number }> = {};
-      ids.forEach((id, i) => {
-        const c = cards[id];
-        // Cards already on the battlefield keep their offset from the dragged card; others fan out.
-        if (origin && c?.zone === 'battlefield' && c.position) positions[id] = { x: Math.max(0, Math.min(100, x + (c.position.x - origin.x))), y: Math.max(0, Math.min(100, y + (c.position.y - origin.y))) };
-        else positions[id] = { x: Math.min(100, x + i * 4), y };
-      });
-      command.positions = positions;
-    }
-    void run(command);
+    const ids = parseIds(e);
+    if (ids.length > 0) void run({ type: 'moveCards', instanceIds: ids, to: zone });
   };
-  const allowDrop = mine ? (e: DragEvent) => e.preventDefault() : undefined;
 
   const battlefieldCards = zoneCards('battlefield');
-  const placed = battlefieldCards.map((c) => {
-    let host = c.attachedTo ? cards[c.attachedTo] : undefined;
-    let depth = 0;
-    while (host && depth < 5) {
-      depth++;
-      host = host.attachedTo ? cards[host.attachedTo] : undefined;
-    }
-    const anchor = c.attachedTo ? cards[c.attachedTo] : undefined;
-    const siblings = anchor ? battlefieldCards.filter((o) => o.attachedTo === anchor.id) : [];
-    const index = anchor ? siblings.findIndex((o) => o.id === c.id) : 0;
-    const base = anchor?.position ?? c.position ?? { x: 50, y: 50 };
-    return { card: c, x: base.x, y: base.y, dx: anchor ? (index + 1) * attachOffset : 0, z: anchor ? 10 - depth : 20 };
-  });
+  const rows = layoutRows(battlefieldCards, cards);
+
+  /** Drop onto a battlefield row: join a pile or insert between columns; the rest of a selection follows. */
+  const dropToRow = (row: number) => (e: DragEvent<HTMLDivElement>, g: { cardW: number; gap: number; overlap: number }) => {
+    if (!mine) return;
+    e.preventDefault();
+    const ids = parseIds(e);
+    if (ids.length === 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const slot = dropSlot(rows[row] ?? [], e.clientX - rect.left - 8, g.cardW, g.gap, g.overlap);
+    const positions: Record<string, { row: number; col: number }> = {};
+    ids.forEach((id, i) => {
+      positions[id] = slot.pile ? { row, col: slot.col } : { row, col: slot.col + i * 0.001 };
+    });
+    void run({ type: 'moveCards', instanceIds: ids, to: 'battlefield', positions });
+  };
+  const allowDrop = mine ? (e: DragEvent) => e.preventDefault() : undefined;
 
   const cardEl = (c: CardInstance, extra: { onClick?: boolean } = {}) => (
     <TableCard
@@ -422,21 +410,19 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
     />
   );
 
+  // Opponents face me: their front row is nearest the middle, so it renders last.
+  const rowOrder = flipped ? [1, 0] : [0, 1];
   const battlefield = (
     <div
-      className={`relative min-h-0 touch-none ${attaching && mine ? 'ring-1 ring-inset ring-accent/60' : ''}`}
-      onDragOver={allowDrop}
-      onDrop={dropTo('battlefield')}
+      className={`relative flex min-h-0 flex-col justify-end gap-1 touch-none ${attaching && mine ? 'ring-1 ring-inset ring-accent/60' : ''}`}
       {...(mine ? marquee.handlers : {})}
     >
-      {placed.map(({ card, x, y, dx, z }) => (
-        <div key={card.id} className="absolute transition-[left,top] duration-200 ease-out" style={{ left: `calc(${x}% + ${dx}px)`, top: `calc(${y}% + ${dx}px)`, zIndex: z }}>
-          {cardEl(card, { onClick: mine || attaching })}
-        </div>
+      {rowOrder.map((r) => (
+        <BattlefieldRow key={r} slots={rows[r] ?? []} renderCard={(c) => cardEl(c, { onClick: mine || attaching })} onDragOver={allowDrop} onDrop={mine ? dropToRow(r) : undefined} />
       ))}
       {marquee.rect && <div className="pointer-events-none absolute z-30 border border-accent bg-accent/10" style={marquee.rect} />}
       {pgs.zones.battlefield.length === 0 && mine && (
-        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-white/25">drag cards here · right-click for actions · ? for shortcuts</span>
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-white/25">drag cards here · drop on a card to pile · right-click for actions · ? for shortcuts</span>
       )}
     </div>
   );

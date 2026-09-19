@@ -109,7 +109,7 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
         instanceId: card.id,
         from: card.zone,
         to: command.to,
-        position: command.to === 'battlefield' ? (command.position ?? card.position ?? { x: 50, y: 50 }) : null,
+        position: command.to === 'battlefield' ? (command.position ?? card.position ?? nextSlot(state, card.controllerId, 0)) : null,
         libraryPosition: command.to === 'library' ? (command.libraryPosition ?? 'top') : null,
       });
     }
@@ -220,7 +220,7 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       if (!command.printingId && !command.customName) return reject('A token needs a printing or a name');
       if (!ctx.newId) return reject('Ids unavailable');
       const cards = Array.from({ length: command.count }, () => ({ id: ctx.newId!(), printingId: command.printingId, customName: command.customName }));
-      return accept({ type: 'tokenCreated', controllerId: ctx.actorId, cards, position: command.position });
+      return accept({ type: 'tokenCreated', controllerId: ctx.actorId, cards, position: command.position ?? nextSlot(state, ctx.actorId, 0) });
     }
 
     case 'adjustLife': {
@@ -364,7 +364,7 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
           instanceId: card.id,
           from: card.zone,
           to: command.to,
-          position: command.to === 'battlefield' ? (command.positions?.[card.id] ?? card.position ?? { x: 50, y: 50 }) : null,
+          position: command.to === 'battlefield' ? (command.positions?.[card.id] ?? card.position ?? nextSlot(state, card.controllerId, 0, events.length)) : null,
           libraryPosition: command.to === 'library' ? (command.libraryPosition ?? 'top') : null,
         });
       }
@@ -438,4 +438,13 @@ function revealEvent(card: CardInstance, ownerId: string, to: 'all' | string[], 
     visibleTo = [...new Set([ownerId, ...current, ...to])];
   }
   return { type: 'visibilityChanged', instanceId: card.id, visibleTo, revealUntil: until };
+}
+
+/** The slot after the last occupied column of `row` on `playerId`'s battlefield (+ offset for batches). */
+function nextSlot(state: RoomState, playerId: string, row: number, offset = 0): { row: number; col: number } {
+  const cols = (state.game?.players[playerId]?.zones.battlefield ?? [])
+    .map((id) => state.game!.cards[id])
+    .filter((c): c is CardInstance => !!c && c.position?.row === row && !c.attachedTo)
+    .map((c) => c.position!.col);
+  return { row, col: (cols.length ? Math.max(...cols) : -1) + 1 + offset };
 }

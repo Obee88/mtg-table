@@ -87,3 +87,14 @@ free placement**. This is the visual spec the table components follow. Iterate o
 - Battlefield rows (lands / creatures / other) and token grouping: M3 item.
 - Four-player quadrants and focus mode: M3 item; the strip/tray/battlefield stack per player must
   work at quarter size.
+
+## Revision 2026-09-19 (after iteration 1 review)
+
+- **Battlefield is two rows per player** (front row towards the middle, back row for lands), cards
+  flow left→right with an 8px gap and snap into slots; no free placement. Dropping onto the middle
+  of a card joins its **pile** (cards stack upward with a 22px step); dropping at a card's edge
+  inserts beside it. Attachments render tucked behind their host's pile. Rows overlap cards when
+  fuller than the width. Model: `position = { row, col }`, `col` is an order key (fractions allowed).
+- **The stack is an overlay** centred on the hairline, not a column: a dashed pill when empty, a
+  translucent panel with cards left→right (rightmost = top) when spells are on it.
+- Card size formula accounts for two rows + tray (`/3.35`).

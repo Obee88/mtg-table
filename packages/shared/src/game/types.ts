@@ -36,8 +36,9 @@ export interface CardInstance {
   customName: string | null;
   visibleTo: Visibility;
   revealUntil: 'dismissed' | 'zoneChange' | null;
-  /** Battlefield placement, in table units. */
-  position: { x: number; y: number } | null;
+  /** Battlefield placement: row (0 = front, 1 = back/lands) and an order key within the row.
+   *  Cards sharing (row, col) form a pile, later in the zone list = on top. */
+  position: { row: number; col: number } | null;
 }
 
 export interface PlayerGameState {

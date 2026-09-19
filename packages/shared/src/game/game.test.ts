@@ -186,8 +186,8 @@ describe('table actions', () => {
   it('moves a card from hand to the battlefield with a position, then to the graveyard', () => {
     let s = playing();
     const id = g(s).players.a!.zones.hand[0]!;
-    s = run(s, 'a', { type: 'moveCard', instanceId: id, to: 'battlefield', position: { x: 10, y: 20 } });
-    expect(g(s).cards[id]).toMatchObject({ zone: 'battlefield', position: { x: 10, y: 20 }, visibleTo: 'all' });
+    s = run(s, 'a', { type: 'moveCard', instanceId: id, to: 'battlefield', position: { row: 0, col: 3 } });
+    expect(g(s).cards[id]).toMatchObject({ zone: 'battlefield', position: { row: 0, col: 3 }, visibleTo: 'all' });
     expect(g(s).players.a!.zones.hand).toHaveLength(6);
     expect(g(s).players.a!.zones.battlefield).toEqual([id]);
     s = run(s, 'a', { type: 'tapCard', instanceId: id, tapped: true });
@@ -201,10 +201,10 @@ describe('table actions', () => {
   it('repositions within the battlefield without resetting state', () => {
     let s = playing();
     const id = g(s).players.a!.zones.hand[0]!;
-    s = run(s, 'a', { type: 'moveCard', instanceId: id, to: 'battlefield', position: { x: 1, y: 1 } });
+    s = run(s, 'a', { type: 'moveCard', instanceId: id, to: 'battlefield', position: { row: 0, col: 1 } });
     s = run(s, 'a', { type: 'tapCard', instanceId: id, tapped: true });
-    s = run(s, 'a', { type: 'moveCard', instanceId: id, to: 'battlefield', position: { x: 5, y: 5 } });
-    expect(g(s).cards[id]).toMatchObject({ tapped: true, position: { x: 5, y: 5 } });
+    s = run(s, 'a', { type: 'moveCard', instanceId: id, to: 'battlefield', position: { row: 1, col: 2 } });
+    expect(g(s).cards[id]).toMatchObject({ tapped: true, position: { row: 1, col: 2 } });
     expect(g(s).players.a!.zones.battlefield).toEqual([id]);
   });
 
@@ -342,8 +342,8 @@ describe('card state', () => {
     if (!d.ok) throw new Error(d.error);
     s = reduceAll(s, d.events);
     const [x, y] = s.game!.players.a!.zones.hand;
-    s = run(s, 'a', { type: 'moveCard', instanceId: x!, to: 'battlefield', position: { x: 10, y: 10 } });
-    s = run(s, 'a', { type: 'moveCard', instanceId: y!, to: 'battlefield', position: { x: 30, y: 10 } });
+    s = run(s, 'a', { type: 'moveCard', instanceId: x!, to: 'battlefield', position: { row: 0, col: 0 } });
+    s = run(s, 'a', { type: 'moveCard', instanceId: y!, to: 'battlefield', position: { row: 0, col: 1 } });
     return { s, x: x!, y: y! };
   };
   const runFull = (s: ReturnType<typeof initialRoomState>, actor: string, command: Parameters<typeof decide>[1]) => {
@@ -412,15 +412,15 @@ describe('card state', () => {
 
   it('tokens are created on the battlefield, visible to all, and cease to exist when they leave', () => {
     let { s } = playing();
-    s = runFull(s, 'a', { type: 'createToken', printingId: null, customName: 'Zombie 2/2', count: 3, position: { x: 50, y: 50 } });
+    s = runFull(s, 'a', { type: 'createToken', printingId: null, customName: 'Zombie 2/2', count: 3, position: { row: 0, col: 5 } });
     const tokens = s.game!.players.a!.zones.battlefield.slice(-3);
     expect(tokens).toHaveLength(3);
     expect(s.game!.cards[tokens[0]!]).toMatchObject({ isToken: true, printingId: null, customName: 'Zombie 2/2', visibleTo: 'all', zone: 'battlefield' });
     s = run(s, 'a', { type: 'moveCard', instanceId: tokens[0]!, to: 'graveyard' });
     expect(s.game!.cards[tokens[0]!]).toBeUndefined();
     expect(s.game!.players.a!.zones.graveyard).toEqual([]);
-    expect(decide(s, { type: 'createToken', printingId: null, customName: null, count: 1, position: { x: 0, y: 0 } }, full('a')).ok).toBe(false);
-    s = runFull(s, 'a', { type: 'createToken', printingId: 'bolt', customName: null, count: 1, position: { x: 1, y: 1 } });
+    expect(decide(s, { type: 'createToken', printingId: null, customName: null, count: 1, position: { row: 0, col: 0 } }, full('a')).ok).toBe(false);
+    s = runFull(s, 'a', { type: 'createToken', printingId: 'bolt', customName: null, count: 1, position: { row: 0, col: 1 } });
     expect(s.game!.cards[s.game!.players.a!.zones.battlefield.at(-1)!]).toMatchObject({ isToken: true, printingId: 'bolt' });
   });
 });
@@ -520,9 +520,9 @@ describe('multi-card commands', () => {
   it('moves several cards in one batch with per-card positions, then taps them together', () => {
     let s = playing();
     const [x, y, z] = s.game!.players.a!.zones.hand;
-    s = run(s, 'a', { type: 'moveCards', instanceIds: [x!, y!, x!], to: 'battlefield', positions: { [x!]: { x: 1, y: 1 }, [y!]: { x: 2, y: 2 } } });
+    s = run(s, 'a', { type: 'moveCards', instanceIds: [x!, y!, x!], to: 'battlefield', positions: { [x!]: { row: 0, col: 1 }, [y!]: { row: 0, col: 2 } } });
     expect(s.game!.players.a!.zones.battlefield).toEqual([x, y]);
-    expect(s.game!.cards[y!]?.position).toEqual({ x: 2, y: 2 });
+    expect(s.game!.cards[y!]?.position).toEqual({ row: 0, col: 2 });
     s = run(s, 'a', { type: 'tapCards', instanceIds: [x!, y!, z!], tapped: true }); // z is in hand: skipped
     expect(s.game!.cards[x!]?.tapped).toBe(true);
     expect(s.game!.cards[y!]?.tapped).toBe(true);
@@ -574,5 +574,36 @@ describe('stack zone', () => {
     s = run(s, 'a', { type: 'moveCard', instanceId: a2, to: 'battlefield' });
     expect(s.game!.stack).toEqual([a1]);
     expect(decide(s, { type: 'tapCard', instanceId: a1, tapped: true }, ctx('a')).ok).toBe(false);
+  });
+});
+
+describe('battlefield slots', () => {
+  const settings: RoomSettings = { playerCount: 2, mode: '1v1', startingLife: 20, commander: false };
+  const decks = { a: { main: [{ printingId: 'bolt', quantity: 10 }], sideboard: [], commander: [] }, b: { main: [{ printingId: 'isle', quantity: 9 }], sideboard: [], commander: [] } };
+  let n = 0;
+  let r = 0;
+  it('appends to the front row when no slot is given; explicit slots and piles are kept', () => {
+    let s = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings });
+    for (const p of ['a', 'b']) {
+      s = run(s, p, { type: 'join' });
+      s = run(s, p, { type: 'selectDeck', deckId: 'd' });
+      s = run(s, p, { type: 'setReady', ready: true });
+    }
+    const d = decide(s, { type: 'start' }, { ...ctx('a'), decks, random: () => ((r += 7) % 11) / 11, newId: () => `b${++n}` });
+    if (!d.ok) throw new Error(d.error);
+    s = reduceAll(s, d.events);
+    const [x, y, z] = s.game!.players.a!.zones.hand;
+    s = run(s, 'a', { type: 'moveCard', instanceId: x!, to: 'battlefield' });
+    s = run(s, 'a', { type: 'moveCard', instanceId: y!, to: 'battlefield' });
+    expect(s.game!.cards[x!]?.position).toEqual({ row: 0, col: 0 });
+    expect(s.game!.cards[y!]?.position).toEqual({ row: 0, col: 1 });
+    // join x's pile
+    s = run(s, 'a', { type: 'moveCard', instanceId: z!, to: 'battlefield', position: { row: 0, col: 0 } });
+    expect(s.game!.cards[z!]?.position).toEqual({ row: 0, col: 0 });
+    // a batch appends sequentially
+    const [p, q] = s.game!.players.a!.zones.hand;
+    s = run(s, 'a', { type: 'moveCards', instanceIds: [p!, q!], to: 'battlefield' });
+    expect(s.game!.cards[p!]?.position).toEqual({ row: 0, col: 2 });
+    expect(s.game!.cards[q!]?.position).toEqual({ row: 0, col: 3 });
   });
 });

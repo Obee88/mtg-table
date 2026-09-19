@@ -69,7 +69,7 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
     printingId: z.string().nullable(),
     customName: z.string().trim().min(1).max(40).nullable(),
     count: z.number().int().min(1).max(20),
-    position: positionSchema,
+    position: positionSchema.optional(),
   }),
 ]);
 

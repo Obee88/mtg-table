@@ -25,7 +25,7 @@ export function useCardSize(): CardSize {
  */
 export function cardSizeFor(areaWidth: number, areaHeight: number): CardSize {
   const HEADER_PX = 48; // strip + tray padding
-  const h1 = (areaHeight - HEADER_PX) / 2.9;
+  const h1 = (areaHeight - HEADER_PX) / 3.35; // two battlefield rows + the hand tray, with pile headroom
   const w1 = h1 * (5 / 7);
   const w2 = (areaWidth - 12 * 8) / 12; // 4 piles + 7 cards + a spare, with gaps
   const w = Math.max(56, Math.min(w1, w2, 220));

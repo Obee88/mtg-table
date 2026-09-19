@@ -10,7 +10,7 @@ describe('cardSizeFor', () => {
   });
   it('is capped by width when the area is wide-but-short and by height otherwise', () => {
     expect(cardSizeFor(1200, 2000).w).toBeLessThanOrEqual((1200 - 96) / 12 + 1);
-    expect(cardSizeFor(4000, 500).h).toBeLessThanOrEqual((500 - 48) / 2.9 + 1);
+    expect(cardSizeFor(4000, 500).h).toBeLessThanOrEqual((500 - 48) / 3.35 + 1);
   });
   it('never goes below the minimum or above the maximum', () => {
     expect(cardSizeFor(100, 100).w).toBe(56);

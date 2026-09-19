@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { ZONES, type RoomState } from './types.js';
 
-export const positionSchema = z.object({ x: z.number(), y: z.number() });
+export const positionSchema = z.object({ row: z.number().int().min(0).max(3), col: z.number() });
 export const visibilitySchema = z.union([z.literal('owner'), z.literal('all'), z.array(z.string())]);
 
 export const counterTargetSchema = z.discriminatedUnion('type', [

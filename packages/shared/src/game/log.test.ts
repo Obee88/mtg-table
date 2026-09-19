@@ -13,7 +13,7 @@ describe('describeEvent', () => {
   it('names visible cards and hides hidden ones', () => {
     expect(describeEvent(ev({ type: 'cardMoved', instanceId: 'x', from: 'hand', to: 'battlefield', position: null, libraryPosition: null }), namedCtx)).toBe('Alice moved Lightning Bolt from hand to the battlefield');
     expect(describeEvent(ev({ type: 'cardMoved', instanceId: 'hidden', from: 'library', to: 'hand', position: null, libraryPosition: null }, 'b'), namedCtx)).toBe('Bob drew a card');
-    expect(describeEvent(ev({ type: 'cardMoved', instanceId: 'x', from: 'battlefield', to: 'battlefield', position: { x: 1, y: 1 }, libraryPosition: null }), namedCtx)).toBeNull();
+    expect(describeEvent(ev({ type: 'cardMoved', instanceId: 'x', from: 'battlefield', to: 'battlefield', position: { row: 0, col: 1 }, libraryPosition: null }), namedCtx)).toBeNull();
   });
 
   it('describes player state and randomness', () => {
@@ -41,7 +41,7 @@ describe('describeEvent', () => {
       { type: 'libraryShuffled', playerId: 'a', cards: [] },
       { type: 'cardAttached', instanceId: 'x', to: null },
       { type: 'noteChanged', instanceId: 'x', note: 'hi' },
-      { type: 'tokenCreated', controllerId: 'a', cards: [{ id: 't', printingId: null, customName: 'Zombie' }], position: { x: 0, y: 0 } },
+      { type: 'tokenCreated', controllerId: 'a', cards: [{ id: 't', printingId: null, customName: 'Zombie' }], position: { row: 0, col: 0 } },
       { type: 'poisonChanged', playerId: 'a', delta: 1, value: 1 },
       { type: 'commanderTaxChanged', playerId: 'a', delta: 2, value: 2 },
       { type: 'commanderDamageChanged', playerId: 'a', fromPlayerId: 'b', delta: 4, value: 4 },
