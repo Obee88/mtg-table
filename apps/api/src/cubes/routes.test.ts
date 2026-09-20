@@ -107,3 +107,28 @@ describe('Cube Cobra import', () => {
     await t.close();
   });
 });
+
+describe('version diff and restore', () => {
+  it('diffs two versions and restores an older one as a new version', async () => {
+    const created = await call('POST', '/cubes', alice, { name: 'Diff cube', cards: [{ printingId: BOLT, quantity: 2 }, { printingId: COUNTER, quantity: 1 }] });
+    const id = created.json().cube.id as string;
+    await call('POST', `/cubes/${id}/versions`, alice, { cards: [{ printingId: BOLT, quantity: 1 }], note: 'cut counter, one bolt' });
+    const diff = await call('GET', `/cubes/${id}/diff`, alice); // v1 → v2
+    expect(diff.statusCode).toBe(200);
+    expect(diff.json().from.number).toBe(1);
+    expect(diff.json().to.number).toBe(2);
+    expect(diff.json().removed.map((r: { printing: { id: string } }) => r.printing.id)).toEqual([COUNTER]);
+    expect(diff.json().quantity).toEqual([expect.objectContaining({ from: 2, to: 1 })]);
+    expect(diff.json().added).toEqual([]);
+    const explicit = await call('GET', `/cubes/${id}/diff?from=2&to=1`, alice);
+    expect(explicit.json().added.map((a: { printing: { id: string } }) => a.printing.id)).toEqual([COUNTER]);
+    expect((await call('GET', `/cubes/${id}/diff?from=9`, alice)).statusCode).toBe(404);
+
+    const restored = await call('POST', `/cubes/${id}/restore`, alice, { version: 1 });
+    expect(restored.statusCode).toBe(201);
+    expect(restored.json().version).toMatchObject({ number: 3, note: 'Restored v1', cardCount: 3 });
+    expect(restored.json().version.cards).toEqual([{ printingId: BOLT, quantity: 2 }, { printingId: COUNTER, quantity: 1 }]);
+    expect((await call('POST', `/cubes/${id}/restore`, bob, { version: 1 })).statusCode).toBe(404);
+    expect((await call('POST', `/cubes/${id}/restore`, alice, { version: 9 })).statusCode).toBe(404);
+  });
+});

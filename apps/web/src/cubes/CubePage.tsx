@@ -6,6 +6,7 @@ import { Button, Card, ErrorText, Input, Textarea } from '../components';
 import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
 import { CubeEditor } from './CubeEditor';
+import { VersionDiff } from './VersionDiff';
 import { countCubeCards, cubeToText, fromCubeResponse, fromImport, mergeCubeCards, toCubeCards, type EditableCubeCard } from './model';
 
 /** View a cube version, edit the list (printings, quantities, add by paste) and save it as a new version. */
@@ -59,6 +60,13 @@ export function CubePage() {
       setDirty(true);
     },
   });
+  const restore = useMutation({
+    mutationFn: (version: number) => api<CubeResponse>(`/cubes/${id}/restore`, { body: { version } }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['cubes'] });
+      setParams({});
+    },
+  });
   const addCards = useMutation({
     mutationFn: (text: string) => api<DeckImportResponse>('/decks/import', { body: { text } }),
     onSuccess: (res) => {
@@ -97,15 +105,23 @@ export function CubePage() {
           <Card title="Versions">
             <ul className="flex flex-col gap-1 text-sm">
               {versions.map((v) => (
-                <li key={v.id}>
-                  <button type="button" onClick={() => setParams(v.number === versions[0]?.number ? {} : { version: String(v.number) })} className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-surface-raised ${v.number === version.number ? 'bg-surface-raised' : ''}`}>
+                <li key={v.id} className="flex items-center gap-1">
+                  <button type="button" onClick={() => setParams(v.number === versions[0]?.number ? {} : { version: String(v.number) })} className={`flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-surface-raised ${v.number === version.number ? 'bg-surface-raised' : ''}`}>
                     <Chip type={v.number === versions[0]?.number ? 'primary' : 'neutral'}>v{v.number}</Chip>
                     <span className="min-w-0 flex-1 truncate">{v.note ?? <span className="text-text-muted">no note</span>}</span>
                     <span className="shrink-0 text-xs text-text-muted">{v.cardCount} · {v.createdByName} · {new Date(v.createdAt).toLocaleDateString()}</span>
                   </button>
+                  {v.number !== versions[0]?.number && (
+                    <Button variant="ghost" className="!px-2 !py-0.5 text-xs" disabled={restore.isPending} onClick={() => confirm(`Restore v${v.number} as a new version?`) && restore.mutate(v.number)} title="Create a new version with this list">Restore</Button>
+                  )}
                 </li>
               ))}
             </ul>
+            <ErrorText error={restore.error} />
+          </Card>
+
+          <Card title="Compare versions">
+            <VersionDiff cubeId={cube.id} versions={versions} />
           </Card>
 
           <Card title="Add cards">

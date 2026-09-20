@@ -1,4 +1,4 @@
-import type { CubeCard, CubeResponse, CubeSummary, CubeVersionSummary } from '@mtg/shared';
+import { diffCubeVersions, type CubeCard, type CubeDiffResponse, type CubeResponse, type CubeSummary, type CubeVersionSummary } from '@mtg/shared';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -17,6 +17,8 @@ const renameInput = z.object({ name: z.string().trim().min(1).max(80) });
 const idParam = z.object({ id: z.uuid() });
 const versionQuery = z.object({ version: z.coerce.number().int().min(1).optional() });
 const cobraInput = z.object({ ref: z.string().trim().min(1).max(300) });
+const diffQuery = z.object({ from: z.coerce.number().int().min(1).optional(), to: z.coerce.number().int().min(1).optional() });
+const restoreInput = z.object({ version: z.number().int().min(1) });
 
 const count = (cards: { quantity: number }[]) => cards.reduce((n, c) => n + c.quantity, 0);
 
@@ -128,6 +130,34 @@ export async function cubeRoutes(app: FastifyInstance): Promise<void> {
     const input = parse(versionInput, req.body);
     const cards = await normalize(db, input.cards);
     await addVersion(cube, req.user!.id, cards, input.note);
+    return reply.code(201).send(await respond(cube));
+  });
+
+  /** Diff two versions (defaults: previous → latest). */
+  app.get('/cubes/:id/diff', async (req): Promise<CubeDiffResponse> => {
+    const { id } = parse(idParam, req.params);
+    const q = parse(diffQuery, req.query);
+    const cube = await ownedCube(id, req.user!.id);
+    const versions = await versionSummaries(cube.id);
+    const to = q.to ? versions.find((v) => v.number === q.to) : versions[0];
+    const from = q.from ? versions.find((v) => v.number === q.from) : versions.find((v) => v.number === (to?.number ?? 0) - 1) ?? to;
+    if (!from || !to) throw notFound('Version not found');
+    const load = async (versionId: string) => (await db.select().from(schema.cubeVersionCards).where(eq(schema.cubeVersionCards.versionId, versionId))).map((r) => ({ printingId: r.cardId, quantity: r.quantity }));
+    const [a, b] = await Promise.all([load(from.id), load(to.id)]);
+    const printings = new Map((await getPrintings(db, [...a, ...b].map((c) => c.printingId))).map((p) => [p.id, p]));
+    return { from, to, ...diffCubeVersions(a, b, printings) };
+  });
+
+  /** Restore an older version: a new version with its exact list. */
+  app.post('/cubes/:id/restore', async (req, reply) => {
+    const { id } = parse(idParam, req.params);
+    const { version } = parse(restoreInput, req.body);
+    const cube = await ownedCube(id, req.user!.id);
+    const versions = await versionSummaries(cube.id);
+    const target = versions.find((v) => v.number === version);
+    if (!target) throw notFound('Version not found');
+    const cards = (await db.select().from(schema.cubeVersionCards).where(eq(schema.cubeVersionCards.versionId, target.id))).map((r) => ({ printingId: r.cardId, quantity: r.quantity }));
+    await addVersion(cube, req.user!.id, cards, `Restored v${target.number}`);
     return reply.code(201).send(await respond(cube));
   });
 

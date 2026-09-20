@@ -52,3 +52,71 @@ export interface CubeCobraImportResponse extends DeckImportResponse {
   /** Cards matched by exact Scryfall id (the rest were resolved by name). */
   exactMatches: number;
 }
+
+// ---- version diff ----
+
+export interface CubeDiffSwap {
+  oracleId: string;
+  from: CardPrinting;
+  to: CardPrinting;
+  quantity: number;
+}
+
+export interface CubeDiffQuantity {
+  printing: CardPrinting;
+  from: number;
+  to: number;
+}
+
+export interface CubeDiff {
+  added: { printing: CardPrinting; quantity: number }[];
+  removed: { printing: CardPrinting; quantity: number }[];
+  /** Same card (oracle id), different printing. */
+  swapped: CubeDiffSwap[];
+  quantity: CubeDiffQuantity[];
+}
+
+export interface CubeDiffResponse extends CubeDiff {
+  from: CubeVersionSummary;
+  to: CubeVersionSummary;
+}
+
+/**
+ * Compares two versions. Cards are matched by printing; leftovers on both
+ * sides sharing an oracle id are reported as printing swaps.
+ */
+export function diffCubeVersions(from: CubeCard[], to: CubeCard[], printings: Map<string, CardPrinting>): CubeDiff {
+  const a = new Map(from.map((c) => [c.printingId, c.quantity]));
+  const b = new Map(to.map((c) => [c.printingId, c.quantity]));
+  const quantity: CubeDiffQuantity[] = [];
+  const gone: CubeCard[] = [];
+  const fresh: CubeCard[] = [];
+  for (const [id, q] of a) {
+    const nq = b.get(id);
+    if (nq === undefined) gone.push({ printingId: id, quantity: q });
+    else if (nq !== q) quantity.push({ printing: printings.get(id)!, from: q, to: nq });
+  }
+  for (const [id, q] of b) if (!a.has(id)) fresh.push({ printingId: id, quantity: q });
+
+  const swapped: CubeDiffSwap[] = [];
+  const removed: CubeDiff['removed'] = [];
+  const added: CubeDiff['added'] = [];
+  const freshByOracle = new Map<string, CubeCard[]>();
+  for (const c of fresh) {
+    const o = printings.get(c.printingId)?.oracleId;
+    if (o) freshByOracle.set(o, [...(freshByOracle.get(o) ?? []), c]);
+  }
+  for (const c of gone) {
+    const p = printings.get(c.printingId)!;
+    const match = p.oracleId ? freshByOracle.get(p.oracleId)?.shift() : undefined;
+    if (match) {
+      swapped.push({ oracleId: p.oracleId!, from: p, to: printings.get(match.printingId)!, quantity: match.quantity });
+      if (match.quantity !== c.quantity) quantity.push({ printing: printings.get(match.printingId)!, from: c.quantity, to: match.quantity });
+    } else removed.push({ printing: p, quantity: c.quantity });
+  }
+  const swappedIds = new Set(swapped.map((s) => s.to.id));
+  for (const c of fresh) if (!swappedIds.has(c.printingId)) added.push({ printing: printings.get(c.printingId)!, quantity: c.quantity });
+
+  const byName = (x: { printing: CardPrinting }, y: { printing: CardPrinting }) => x.printing.name.localeCompare(y.printing.name);
+  return { added: added.sort(byName), removed: removed.sort(byName), swapped: swapped.sort((x, y) => x.from.name.localeCompare(y.from.name)), quantity: quantity.sort(byName) };
+}

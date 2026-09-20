@@ -153,7 +153,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] Cube model with versions; create/edit as printings; paste-list import
 - [x] Cube Cobra import
 - [x] Printing picker per cube card
-- [ ] Version history: diff any two versions, restore
+- [x] Version history: diff any two versions, restore
 
 **M5 — Draft**
 - [ ] Draft engine core: phases, pick-and-pass type, pack dealing, pass-direction rule, pick log with pack context
