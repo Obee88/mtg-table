@@ -1,4 +1,4 @@
-import type { CubeResponse, DeckImportResponse } from '@mtg/shared';
+import type { CardPrinting, CubeResponse, DeckImportResponse } from '@mtg/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
@@ -49,6 +49,16 @@ export function CubePage() {
       navigate('/cubes');
     },
   });
+  const oldestAll = useMutation({
+    mutationFn: async (list: EditableCubeCard[]) => {
+      const oracleIds = [...new Set(list.map((c) => c.printing.oracleId).filter((x): x is string => !!x))];
+      return api<{ printings: Record<string, CardPrinting> }>('/cards/default-printings', { body: { oracleIds } });
+    },
+    onSuccess: (res) => {
+      setCards((prev) => mergeCubeCards((prev ?? []).map((c) => (c.printing.oracleId && res.printings[c.printing.oracleId] ? { ...c, printing: res.printings[c.printing.oracleId]! } : c))));
+      setDirty(true);
+    },
+  });
   const addCards = useMutation({
     mutationFn: (text: string) => api<DeckImportResponse>('/decks/import', { body: { text } }),
     onSuccess: (res) => {
@@ -77,9 +87,10 @@ export function CubePage() {
               <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && name !== cube.name && rename.mutate(name.trim())} />
               <div className="flex flex-wrap gap-2">
                 <Button variant="ghost" onClick={() => navigator.clipboard.writeText(cubeToText(cards))}>Copy as text</Button>
+                <Button variant="ghost" onClick={() => oldestAll.mutate(cards)} disabled={oldestAll.isPending} title="Reset every card to its oldest English paper printing">Use oldest printings</Button>
                 <Button variant="ghost" className="text-danger" onClick={() => confirm(`Delete “${cube.name}” and all versions?`) && remove.mutate()}>Delete cube</Button>
               </div>
-              <ErrorText error={rename.error ?? remove.error} />
+              <ErrorText error={rename.error ?? remove.error ?? oldestAll.error} />
             </div>
           </Card>
 

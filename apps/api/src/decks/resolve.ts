@@ -15,8 +15,8 @@ export function nameKey(name: string): string {
 
 const frontFace = (name: string) => nameKey(name).split(' // ')[0] ?? '';
 
-/** Ranks printings for "no printing specified": English, paper, non-promo, oldest. */
-function rank(a: CardRow, b: CardRow): number {
+/** Ranks printings for "no printing specified": English, paper, non-promo, oldest. Exported for bulk defaults. */
+export function rank(a: CardRow, b: CardRow): number {
   return (
     Number(a.lang !== 'en') - Number(b.lang !== 'en') ||
     Number(a.isDigital) - Number(b.isDigital) ||

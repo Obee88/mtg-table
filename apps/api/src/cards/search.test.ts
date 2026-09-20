@@ -66,3 +66,13 @@ describe('token search', () => {
     expect((await searchCards(db, 'bolt', 10, 'tokens')).map((r) => r.name)).toEqual(['Bolt Token']);
   });
 });
+
+describe('defaultPrintings', () => {
+  it('returns the oldest English paper non-promo printing per oracle id', async () => {
+    const { defaultPrintings } = await import('./search.js');
+    const map = await defaultPrintings(db, [BOLT, HOUND, '00000000-0000-4000-8000-000000000000']);
+    expect(map[BOLT]).toMatchObject({ setCode: 'lea', collectorNumber: '161' });
+    expect(map[HOUND]?.name).toBe('Bolt Hound');
+    expect(Object.keys(map)).toHaveLength(2);
+  });
+});

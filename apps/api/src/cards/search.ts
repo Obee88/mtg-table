@@ -1,6 +1,7 @@
 import type { CardPrinting } from '@mtg/shared';
 import { and, asc, desc, eq, ilike, inArray, isNotNull, not, sql } from 'drizzle-orm';
 import { schema, type CardRow, type Db } from '../db/index.js';
+import { rank } from '../decks/resolve.js';
 
 export const toPrinting = (row: CardRow): CardPrinting => ({
   id: row.id,
@@ -73,4 +74,17 @@ export async function getPrintings(db: Db, ids: string[]): Promise<CardPrinting[
   if (ids.length === 0) return [];
   const rows = await db.select().from(schema.cards).where(inArray(schema.cards.id, [...new Set(ids)]));
   return rows.map(toPrinting);
+}
+
+/** The default (oldest English paper non-promo) printing per oracle id. */
+export async function defaultPrintings(db: Db, oracleIds: string[]): Promise<Record<string, CardPrinting>> {
+  if (oracleIds.length === 0) return {};
+  const rows = await db.select().from(schema.cards).where(and(inArray(schema.cards.oracleId, [...new Set(oracleIds)]), not(schema.cards.isToken)));
+  const best = new Map<string, CardRow>();
+  for (const row of rows) {
+    const key = row.oracleId!;
+    const current = best.get(key);
+    if (!current || rank(row, current) < 0) best.set(key, row);
+  }
+  return Object.fromEntries([...best].map(([k, v]) => [k, toPrinting(v)]));
 }

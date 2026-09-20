@@ -152,7 +152,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 **M4 — Cubes**
 - [x] Cube model with versions; create/edit as printings; paste-list import
 - [x] Cube Cobra import
-- [ ] Printing picker per cube card
+- [x] Printing picker per cube card
 - [ ] Version history: diff any two versions, restore
 
 **M5 — Draft**

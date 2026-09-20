@@ -1,9 +1,9 @@
-import type { CardPrintingsResponse, CardSearchResponse } from '@mtg/shared';
+import type { CardPrinting, CardPrintingsResponse, CardSearchResponse } from '@mtg/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { notFound, unauthorized } from '../errors.js';
 import { parse } from '../validate.js';
-import { getPrinting, getPrintings, listPrintings, searchCards } from './search.js';
+import { defaultPrintings, getPrinting, getPrintings, listPrintings, searchCards } from './search.js';
 
 const searchQuery = z.object({
   q: z.string().trim().min(1).max(100),
@@ -13,6 +13,7 @@ const searchQuery = z.object({
 });
 const uuidParam = z.object({ id: z.uuid() });
 const lookupInput = z.object({ ids: z.array(z.uuid()).max(500) });
+const defaultsInput = z.object({ oracleIds: z.array(z.uuid()).max(1000) });
 
 export async function cardRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', async (req) => {
@@ -33,6 +34,12 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
   app.post('/cards/lookup', async (req): Promise<CardPrintingsResponse> => {
     const { ids } = parse(lookupInput, req.body);
     return { printings: await getPrintings(app.db, ids) };
+  });
+
+  /** Default printing (oldest English paper non-promo) per oracle id. */
+  app.post('/cards/default-printings', async (req): Promise<{ printings: Record<string, CardPrinting> }> => {
+    const { oracleIds } = parse(defaultsInput, req.body);
+    return { printings: await defaultPrintings(app.db, oracleIds) };
   });
 
   app.get('/cards/:id', async (req) => {

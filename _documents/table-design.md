@@ -228,3 +228,11 @@ solid/badge look is no longer used anywhere; its tokens alias the label look.
   group (selection menu). Tokens created together already share a slot, so a "make 5 Soldiers"
   shows as one card ×5. Any difference (one tapped, one with a counter) splits the group back into
   a pile.
+
+## Printing picker (M4, 2026-09-20)
+
+- Printings list **oldest first**; the oldest English paper non-promo printing is the **default**
+  (tagged, focused on open, and offered as a one-click "Use default"). The current printing is
+  tagged too; promo / digital / language chips explain the rest.
+- Cube page: *Use oldest printings* resets every card via `POST /cards/default-printings`, the same
+  ranking the list importer uses.
