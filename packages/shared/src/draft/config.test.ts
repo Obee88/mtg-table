@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cardsPerDrafter, cardsPerDrafterIn, describeDraftConfig, draftConfigProblems, emptyGridPhase, emptyWinstonPhase, houseRulesPreset } from './config.js';
+import { cardsPerDrafter, cardsPerDrafterIn, describeDraftConfig, draftConfigProblems, emptyGridPhase, emptyWinchesterPhase, emptyWinstonPhase, houseRulesPreset } from './config.js';
 
 describe('draft config helpers', () => {
   const house = houseRulesPreset({ triColour: 'tri', main: 'main' });
@@ -32,6 +32,14 @@ describe('grid phases', () => {
   it('need grids × size² cards and hand out about half of each grid', () => {
     const config = { ...houseRulesPreset({ triColour: 'tri', main: 'main' }), seats: 2 as const, phases: [emptyGridPhase('main')] };
     expect(draftConfigProblems(config, { main: 100 })).toEqual(['Phase 1 (Grid): needs 162 cards, the cube has 100']);
+    expect(cardsPerDrafter(config)).toBe(45);
+  });
+});
+
+describe('winchester phases', () => {
+  it('need the stack and split it between the seats', () => {
+    const config = { ...houseRulesPreset({ triColour: 'tri', main: 'main' }), seats: 2 as const, phases: [emptyWinchesterPhase('main')] };
+    expect(draftConfigProblems(config, { main: 89 })).toEqual(['Phase 1 (Winchester): needs 90 cards, the cube has 89']);
     expect(cardsPerDrafter(config)).toBe(45);
   });
 });

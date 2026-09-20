@@ -100,7 +100,8 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
 
     case 'draftPick':
     case 'winstonDecide':
-    case 'gridPick': {
+    case 'gridPick':
+    case 'winchesterTake': {
       if (state.phase !== 'drafting') return reject('No draft running');
       return decideDraft(state.draft ?? null, command, ctx.actorId);
     }

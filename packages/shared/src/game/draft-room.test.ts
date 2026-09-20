@@ -317,3 +317,40 @@ describe('grid rooms', () => {
     expect(room.state.draft!.players.a!.pool.length + room.state.draft!.players.b!.pool.length).toBeGreaterThanOrEqual(16);
   });
 });
+
+describe('winchester rooms', () => {
+  it('runs a Winchester phase with every replica matching its projection', () => {
+    const winchester: DraftConfig = { name: 'Winchester', seats: 2, startDirection: 'left', phases: [{ type: 'winchester', name: 'Winchester', poolCubeVersionId: 'main', stackSize: 20, piles: 4 }] };
+    const room = new Room();
+    room.state = reduce(room.state, { type: 'roomCreated', ownerId: 'a', settings: { playerCount: 2, mode: '1v1', startingLife: 20, commander: false, draft: winchester } });
+    for (const p of ['a', 'b']) {
+      room.run(p, { type: 'join' });
+      room.run(p, { type: 'setReady', ready: true });
+    }
+    room.run('a', { type: 'start' }, { draftPools: { main: pools.main } });
+    const viewers = ['a', 'b', 'zed'];
+    const clients = Object.fromEntries(viewers.map((v) => [v, projectState({ ...initialRoomState('r'), ownerId: 'a', settings: room.state.settings }, v)]));
+    let applied = 0;
+    const sync = () => {
+      const fresh = room.log.slice(applied);
+      const base = room.log.slice(0, applied).reduce((s, e) => ({ ...reduce(s, e.event), seq: e.seq }), initialRoomState('r'));
+      for (const v of viewers) {
+        for (const e of projectEvents(fresh, v, base)) clients[v] = applyRoomEvent(clients[v]!, e);
+        expect(clients[v]).toEqual(projectState(room.state, v));
+      }
+      applied = room.log.length;
+    };
+    sync();
+    let n = 0;
+    while (room.state.phase === 'drafting') {
+      const w = room.state.draft!.winchester!;
+      const who = room.state.draft!.seats[w.activeSeat]!;
+      const index = w.piles.findIndex((p, i) => p.length > 0 && i >= n % 4) >= 0 ? w.piles.findIndex((p, i) => p.length > 0 && i >= n % 4) : w.piles.findIndex((p) => p.length > 0);
+      room.run(who, { type: 'winchesterTake', index });
+      n++;
+      sync();
+    }
+    expect(room.state.phase).toBe('deckbuilding');
+    expect(room.state.draft!.players.a!.pool.length + room.state.draft!.players.b!.pool.length).toBe(20);
+  });
+});

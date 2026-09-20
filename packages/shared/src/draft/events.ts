@@ -28,7 +28,15 @@ export const gridConfigSchema = z.object({
   size: z.number().int().min(2).max(4),
 });
 
-export const draftPhaseConfigSchema = z.discriminatedUnion('type', [pickAndPassConfigSchema, winstonConfigSchema, gridConfigSchema]);
+export const winchesterConfigSchema = z.object({
+  type: z.literal('winchester'),
+  name: z.string().trim().min(1).max(60),
+  poolCubeVersionId: z.string(),
+  stackSize: z.number().int().min(6).max(600),
+  piles: z.number().int().min(2).max(6),
+});
+
+export const draftPhaseConfigSchema = z.discriminatedUnion('type', [pickAndPassConfigSchema, winstonConfigSchema, gridConfigSchema, winchesterConfigSchema]);
 
 export const draftConfigSchema = z.object({
   name: z.string().trim().min(1).max(60),
@@ -80,6 +88,8 @@ export const draftEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('winstonPassed'), playerId: z.string(), packId: z.string(), pileIndex: z.number().int(), addedCardId: z.string().nullable() }),
   /** Grid: the active player took a row or column of the current grid (public). */
   z.object({ type: z.literal('gridTaken'), playerId: z.string(), packId: z.string(), line: z.enum(['row', 'col']), index: z.number().int(), cards: z.array(draftCardSchema) }),
+  /** Winchester: the active player took a pile (public); `added` are the stack cards that then joined each pile, in pile order. */
+  z.object({ type: z.literal('winchesterTaken'), playerId: z.string(), packId: z.string(), index: z.number().int(), cards: z.array(draftCardSchema), added: z.array(z.string()) }),
   /** A drafter's deck for the table; others only learn that it was submitted. */
   z.object({
     type: z.literal('draftDeckSubmitted'),

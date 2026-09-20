@@ -44,6 +44,8 @@ export function DraftScreen({ room, meId, leaveHref = '/rooms' }: { room: GameRo
               <WinstonView state={state} draft={draft} meId={meId} printings={printings} send={room.send} />
             ) : draft.grid ? (
               <GridView state={state} draft={draft} meId={meId} printings={printings} send={room.send} />
+            ) : draft.winchester ? (
+              <WinchesterView state={state} draft={draft} meId={meId} printings={printings} send={room.send} />
             ) : pack ? (
               <PackView key={pack.id} draft={draft} pack={pack} meId={meId} printings={printings} send={room.send} />
             ) : (
@@ -89,6 +91,7 @@ function SeatStrip({ state, draft, meId, printings, connected }: { state: RoomSt
       {running && phase && phase.type === 'pickAndPass' && <Chip type="primary">{phase.name} · round {draft.round + 1}/{phase.rounds}</Chip>}
       {running && phase && phase.type === 'winston' && <Chip type="primary">{phase.name} · Winston · {draft.packs[draft.winston?.packId ?? '']?.cards.length ?? 0} in the stack</Chip>}
       {running && phase && phase.type === 'grid' && <Chip type="primary">{phase.name} · grid {draft.round + 1}/{phase.grids}</Chip>}
+      {running && phase && phase.type === 'winchester' && <Chip type="primary">{phase.name} · Winchester · {draft.packs[draft.winchester?.packId ?? '']?.cards.length ?? 0} in the stack</Chip>}
       {running && phase?.type === 'pickAndPass' && <Chip type="neutral" title={`Packs pass ${draft.direction}`}>passing {draft.direction} {arrow}</Chip>}
       {!running && <Chip type="success">finished</Chip>}
       <span className="flex flex-wrap items-center gap-2">
@@ -488,6 +491,73 @@ function GridView({ state, draft, meId, printings, send }: { state: RoomState; d
             }),
           ])}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Winchester: every pile face up as a fanned column; the active player takes one, and each pile then grows by a card from the stack. */
+function WinchesterView({ state, draft, meId, printings, send }: { state: RoomState; draft: DraftState; meId: string; printings: Map<string, CardPrinting>; send: GameRoom['send'] }) {
+  const w = draft.winchester!;
+  const active = draft.seats[w.activeSeat] ?? '';
+  const mine = active === meId;
+  const stack = draft.packs[w.packId]?.cards.length ?? 0;
+  const ref = useRef<HTMLDivElement>(null);
+  const [area, setArea] = useState({ w: 0, h: 0 });
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => entry && setArea({ w: entry.contentRect.width, h: entry.contentRect.height }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const gap = 12;
+  const tallest = Math.max(1, ...w.piles.map((p) => p.length));
+  const byWidth = (area.w - gap * (w.piles.length - 1)) / w.piles.length;
+  // A fanned pile shows ~30% of every card but the last; fit the tallest pile in the height.
+  const byHeight = ((area.h - 44 - 32) / (1 + 0.3 * (tallest - 1))) * (5 / 7);
+  const cardW = Math.max(40, Math.floor(Math.min(byWidth, byHeight, 220)));
+  const cardH = Math.round(cardW * 1.4);
+  const overlap = Math.round(cardH * 0.3);
+  const take = async (index: number) => {
+    if (!mine || busy || (w.piles[index]?.length ?? 0) === 0) return;
+    setBusy(true);
+    const r = await send({ type: 'winchesterTake', index });
+    setBusy(false);
+    if (!r.ok) setError(r.error);
+  };
+
+  return (
+    <div ref={ref} className="flex h-full min-h-0 flex-col px-3">
+      <div className="flex h-11 shrink-0 items-center gap-2 text-[13px]">
+        <span className="font-semibold text-white/90">{mine ? 'Take a pile' : `${state.players[active]?.displayName ?? 'Someone'} is choosing a pile…`}</span>
+        <span className="text-white/50">· stack {stack}</span>
+        {error && <Chip type="error">{error}</Chip>}
+      </div>
+      <div className="flex min-h-0 flex-1 items-start justify-center" style={{ gap }}>
+        {w.piles.map((pile, i) => (
+          <div key={i} className="flex flex-col items-center" style={{ width: cardW }}>
+            <button
+              type="button"
+              disabled={!mine || busy || pile.length === 0}
+              onClick={() => void take(i)}
+              className={`mb-2 h-7 w-full rounded-md text-[12px] font-medium ${mine && pile.length > 0 ? 'bg-accent text-bg hover:bg-accent-hover' : 'bg-white/10 text-white/50'} disabled:cursor-not-allowed`}
+              title={pile.length === 0 ? 'empty' : `Take pile ${i + 1} · ${pile.length} card${pile.length === 1 ? '' : 's'}`}
+            >
+              pile {i + 1} · {pile.length}
+            </button>
+            <div className="relative w-full" style={{ height: pile.length ? cardH + overlap * (pile.length - 1) : cardH }}>
+              {pile.length === 0 && <span className="absolute inset-0 rounded-[4.5%] border border-dashed border-white/15" />}
+              {pile.map((c, j) => (
+                <div key={c.id} className="absolute left-0" style={{ top: j * overlap, zIndex: j }}>
+                  <PackCard card={c} printing={printings.get(c.printingId)} w={cardW} selected={false} onClick={() => void take(i)} onDoubleClick={() => undefined} />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

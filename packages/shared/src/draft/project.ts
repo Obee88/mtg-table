@@ -13,7 +13,8 @@ export function visibleDraftCards(state: DraftState, viewerId: string): Map<stri
   for (const c of atHand?.cards ?? []) out.set(c.id, c);
   for (const c of mine?.pool ?? []) out.set(c.id, c);
   for (const p of Object.values(state.players)) for (const c of p.faceUp) out.set(c.id, c);
-  // Grid: the whole grid lies face up.
+  // Grid and Winchester: everything on the table lies face up.
+  for (const p of state.winchester?.piles ?? []) for (const c of p) out.set(c.id, c);
   for (const c of state.grid?.cells ?? []) if (c) out.set(c.id, c);
   // Winston: only the active player sees the pile they are looking at.
   if (state.winston && state.seats[state.winston.activeSeat] === viewerId) for (const c of state.winston.piles[state.winston.pileIndex] ?? []) out.set(c.id, c);
@@ -33,13 +34,14 @@ export function projectDraft(state: DraftState, viewerId: string): DraftState {
   const mask = (c: DraftCard): DraftCard => (visible.has(c.id) ? c : blank(c));
   const packs = Object.fromEntries(Object.entries(state.packs).map(([id, p]) => [id, { ...p, cards: p.cards.map(mask) }]));
   const players = Object.fromEntries(Object.entries(state.players).map(([id, p]) => [id, { ...p, pool: p.pool.map(mask), faceUp: p.faceUp.map(mask) }]));
-  // Grid picks are public in full (the grid lay face up); other picks keep only the card when it was face up.
-  const picks = state.picks.map((r) => (r.playerId === viewerId || state.config.phases[r.phase]?.type === 'grid' ? r : { ...r, card: r.faceUp ? r.card : blank(r.card), packContents: r.packContents.map(() => '') }));
+  // Grid and Winchester picks are public in full (the cards lay face up); other picks keep only the card when it was face up.
+  const picks = state.picks.map((r) => (r.playerId === viewerId || ['grid', 'winchester'].includes(state.config.phases[r.phase]?.type ?? '') ? r : { ...r, card: r.faceUp ? r.card : blank(r.card), packContents: r.packContents.map(() => '') }));
   // Others' decks: only the fact that they were submitted.
   const decks = Object.fromEntries(Object.entries(state.decks ?? {}).map(([id, d]) => [id, id === viewerId ? d : { main: [], basics: [] }]));
   const winston = state.winston ? { ...state.winston, piles: state.winston.piles.map((p) => p.map(mask)) } : (state.winston ?? null);
   const grid = state.grid ? { ...state.grid, cells: state.grid.cells.map((c) => (c ? mask(c) : c)) } : (state.grid ?? null);
-  return { ...state, packs, players, picks, decks, winston, grid };
+  const winchester = state.winchester ? { ...state.winchester, piles: state.winchester.piles.map((p) => p.map(mask)) } : (state.winchester ?? null);
+  return { ...state, packs, players, picks, decks, winston, grid, winchester };
 }
 
 /**
@@ -62,6 +64,7 @@ export function projectDraftEvent(event: DraftEvent, viewerId: string): DraftEve
       return event.playerId === viewerId ? event : { ...event, cards: event.cards.map((c) => ({ id: c.id, printingId: null })) };
     case 'winstonPassed':
     case 'gridTaken':
+    case 'winchesterTaken':
       return event;
   }
 }
@@ -83,7 +86,8 @@ export function applyDraftIdentities(state: DraftState, revealed: readonly Draft
   const players = Object.fromEntries(Object.entries(state.players).map(([id, p]) => [id, { ...p, pool: p.pool.map(fix), faceUp: p.faceUp.map(fix) }]));
   const winston = state.winston ? { ...state.winston, piles: state.winston.piles.map((p) => p.map(fix)) } : (state.winston ?? null);
   const grid = state.grid ? { ...state.grid, cells: state.grid.cells.map((c) => (c ? fix(c) : c)) } : (state.grid ?? null);
-  return { ...state, packs, players, winston, grid };
+  const winchester = state.winchester ? { ...state.winchester, piles: state.winchester.piles.map((p) => p.map(fix)) } : (state.winchester ?? null);
+  return { ...state, packs, players, winston, grid, winchester };
 }
 
 function stripAbility<T extends { ability?: DraftCard['ability'] }>(event: T): T {

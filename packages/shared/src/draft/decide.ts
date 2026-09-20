@@ -33,7 +33,7 @@ export function dealDraft(config: DraftConfig, seats: string[], ctx: DealContext
       dealt.push(rounds);
       continue;
     }
-    if (phase.type === 'winston') {
+    if (phase.type === 'winston' || phase.type === 'winchester') {
       // One face-down stack, kept as a pack at seat 0; piles are seeded when the phase opens.
       const id = ctx.newId();
       packs.push({ id, phase: pi, round: 0, cards: pool.slice(0, phase.stackSize) });
@@ -92,6 +92,18 @@ export function decideDraft(state: DraftState | null, command: DraftCommand, act
       const blind = pack.cards[1];
       if (nextPile(w.piles, w.pileIndex + 1) < 0 && blind) events.push({ type: 'winstonTaken', playerId: actorId, packId: pack.id, pileIndex: -1, cards: [withIdentity(blind)] });
       return { ok: true, events };
+    }
+    case 'winchesterTake': {
+      if (state.status !== 'running') return reject('Draft is not running');
+      const w = state.winchester;
+      const pack = w ? state.packs[w.packId] : undefined;
+      if (!w || !pack) return reject('This is not a Winchester phase');
+      if (state.seats[w.activeSeat] !== actorId) return reject('Not your turn');
+      const pile = w.piles[command.index];
+      if (!pile) return reject('No such pile');
+      if (pile.length === 0) return reject('That pile is empty');
+      const added = pack.cards.slice(0, w.piles.length).map((c) => c.id);
+      return { ok: true, events: [{ type: 'winchesterTaken', playerId: actorId, packId: pack.id, index: command.index, cards: pile.map(withIdentity), added }] };
     }
     case 'gridPick': {
       if (state.status !== 'running') return reject('Draft is not running');

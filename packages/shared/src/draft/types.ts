@@ -37,7 +37,23 @@ export interface GridConfig {
   size: number;
 }
 
-export type DraftPhaseConfig = PickAndPassConfig | WinstonConfig | GridConfig;
+/** Winchester: a face-down stack and face-up piles; the active player takes a whole pile, then every pile grows by one card from the stack. */
+export interface WinchesterConfig {
+  type: 'winchester';
+  name: string;
+  poolCubeVersionId: string;
+  stackSize: number;
+  piles: number;
+}
+
+export type DraftPhaseConfig = PickAndPassConfig | WinstonConfig | GridConfig | WinchesterConfig;
+
+/** Live state of a Winchester phase. The stack lives in `packs[packId].cards` (top first); piles are public. */
+export interface WinchesterState {
+  packId: string;
+  piles: DraftCard[][];
+  activeSeat: number;
+}
 
 /** Live state of a Grid phase: the current grid's cells (row-major, null once taken) and whose pick it is. */
 export interface GridState {
@@ -147,6 +163,8 @@ export interface DraftState {
   winston: WinstonState | null;
   /** Set while the current phase is a Grid phase. */
   grid: GridState | null;
+  /** Set while the current phase is a Winchester phase. */
+  winchester: WinchesterState | null;
   /** Decks submitted during deckbuilding, by player. */
   decks: Record<PlayerId, DraftDeck>;
 }
@@ -165,7 +183,7 @@ export function nextSeat(seatCount: number, seat: number, direction: PassDirecti
 
 /** Total cards a config draws from each phase's pool. */
 export function cardsNeeded(config: DraftConfig, phase: DraftPhaseConfig): number {
-  if (phase.type === 'winston') return phase.stackSize;
+  if (phase.type === 'winston' || phase.type === 'winchester') return phase.stackSize;
   if (phase.type === 'grid') return phase.grids * phase.size * phase.size;
   return phase.packSize * phase.packsPerPlayer * phase.rounds * config.seats;
 }
