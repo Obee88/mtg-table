@@ -8,6 +8,7 @@ import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
 import { useMe } from '../lib/auth';
 import { describeSettings } from './RoomListPage';
+import { SettingsForm } from './SettingsForm';
 import { GameScreen } from '../table/GameScreen';
 import { useRoom } from './useRoom';
 
@@ -80,6 +81,13 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
           })}
         </ul>
       </Card>
+
+      {isOwner && (
+        <Card title="Settings">
+          <SettingsForm value={state.settings} onChange={(settings) => run({ type: 'updateSettings', settings })} />
+          <p className="mt-2 text-xs text-text-muted">Changing settings clears everyone's ready state. Player count cannot drop below the seated players.</p>
+        </Card>
+      )}
 
       <Card title="You">
         <div className="flex flex-wrap items-center gap-3">

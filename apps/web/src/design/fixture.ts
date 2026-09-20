@@ -27,6 +27,7 @@ function card(owner: string, name: string | null, zone: ZoneName, extra: Partial
     attachedTo: null,
     note: null,
     isToken: false,
+    isCommander: zone === 'command',
     customName: null,
     visibleTo: zone === 'battlefield' || zone === 'graveyard' || zone === 'exile' || zone === 'stack' ? 'all' : zone === 'library' ? [] : 'owner',
     revealUntil: null,

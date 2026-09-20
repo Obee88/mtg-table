@@ -206,3 +206,14 @@ solid/badge look is no longer used anywhere; its tokens alias the label look.
 - **Teammate hands** are visible face-up (projection) — nothing extra in the UI.
 - **Seating in the lobby**: empty seats show their team and a *Sit here* button, so partners can
   arrange themselves before the host starts. Seats are diagonal by construction (0/2 vs 1/3).
+
+## Commander (M3, 2026-09-20)
+
+- Cards that start in the command zone are flagged `isCommander`; their menu offers *Move to the
+  command zone* from anywhere. Casting a commander from the command zone (to the stack or the
+  battlefield) automatically adds **2** to its owner's commander tax; resolving from the stack does
+  not. The tax and per-opponent commander damage are steppers on the strip.
+- The command pile is always shown when the room has commander enabled.
+- **Format settings** (`SettingsForm`): players 2/4, mode (1v1 / FFA / 2v2), starting life 20/30/40
+  or custom, commander toggle — on the room creation card (with quick presets) and in the lobby for
+  the host via `updateSettings` (clears ready states).

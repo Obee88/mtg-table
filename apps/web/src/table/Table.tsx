@@ -212,6 +212,7 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
       items.push('sep');
     }
     const moves: [ZoneName, string][] = [['stack', 'the stack (cast)'], ['battlefield', 'battlefield'], ['hand', 'hand (h)'], ['graveyard', 'graveyard (g)'], ['exile', 'exile (e)']];
+    if (card.isCommander) moves.push(['command', 'the command zone']);
     for (const [zone, label] of moves) if (zone !== card.zone) items.push({ label: `Move to ${label}`, onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: zone }) });
     items.push({ label: 'Top of library', onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: 'library', libraryPosition: 'top' }) });
     items.push({ label: 'Bottom of library (b)', onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: 'library', libraryPosition: 'bottom' }) });
@@ -520,7 +521,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
         <Pile label="Exile" count={pgs.zones.exile.length} onDragOver={allowDrop} onDrop={dropTo('exile')} browse={{ cards: zoneCards('exile'), open: expandedPile === 'exile', toggle: () => setExpandedPile((p) => (p === 'exile' ? null : 'exile')), close: () => setExpandedPile(null), towards: flipped ? 'down' : 'up', render: (c) => cardEl(c, { onClick: false }) }}>
           {topCard(zoneCards('exile'), printings, mine ? onCardMenu : undefined)}
         </Pile>
-        {pgs.zones.command.length > 0 && (
+        {(state.settings.commander || pgs.zones.command.length > 0) && (
           <Pile label="Command" count={pgs.zones.command.length} onDragOver={allowDrop} onDrop={dropTo('command')}>
             {topCard(zoneCards('command'), printings, mine ? onCardMenu : undefined)}
           </Pile>

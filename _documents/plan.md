@@ -146,7 +146,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 **M3 — 4 players**
 - [x] 4-player FFA rooms, quadrant layout, focus mode (1–4, Esc), own board as strip when zoomed
 - [x] 2v2 shared life, teammate hand visibility, diagonal seating
-- [ ] Commander zone, tax, commander damage; format presets (20 / 30 / 40 / custom)
+- [x] Commander zone, tax, commander damage; format presets (20 / 30 / 40 / custom)
 - [ ] Battlefield rows (lands / creatures / other) and grouping of identical tokens
 
 **M4 — Cubes**

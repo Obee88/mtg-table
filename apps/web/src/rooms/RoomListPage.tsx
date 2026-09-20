@@ -6,6 +6,7 @@ import { Button, Card, ErrorText } from '../components';
 import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
 import { useMe } from '../lib/auth';
+import { SettingsForm } from './SettingsForm';
 
 const PRESETS: { label: string; settings: RoomSettings }[] = [
   { label: '1v1 · 20 life', settings: { playerCount: 2, mode: '1v1', startingLife: 20, commander: false } },
@@ -23,7 +24,7 @@ export function RoomListPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const rooms = useQuery({ queryKey: ['rooms'], queryFn: () => api<RoomListItem[]>('/rooms'), refetchInterval: 10_000 });
-  const [preset, setPreset] = useState(0);
+  const [settings, setSettings] = useState<RoomSettings>(PRESETS[0]!.settings);
   const close = useMutation({
     mutationFn: (id: string) => api<unknown>(`/rooms/${id}/commands`, { body: { type: 'closeRoom' } }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['rooms'] }),
@@ -44,14 +45,16 @@ export function RoomListPage() {
       </header>
 
       <Card title="New room">
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="text-sm">
-            <span className="mb-1 block text-text-muted">Format</span>
-            <select value={preset} onChange={(e) => setPreset(Number(e.target.value))} className="rounded-md border border-border bg-surface px-3 py-2 text-text">
-              {PRESETS.map((p, i) => <option key={p.label} value={i}>{p.label}</option>)}
-            </select>
-          </label>
-          <Button onClick={() => create.mutate(PRESETS[preset]!.settings)} disabled={create.isPending}>Create room</Button>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-2">
+            {PRESETS.map((p) => (
+              <Button key={p.label} variant="ghost" className="!py-1 text-xs" onClick={() => setSettings(p.settings)}>{p.label}</Button>
+            ))}
+          </div>
+          <SettingsForm value={settings} onChange={setSettings} />
+          <div>
+            <Button onClick={() => create.mutate(settings)} disabled={create.isPending}>Create room · {describeSettings(settings)}</Button>
+          </div>
         </div>
         <ErrorText error={create.error} />
       </Card>

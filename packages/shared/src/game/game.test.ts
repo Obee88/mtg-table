@@ -749,3 +749,43 @@ describe('2v2 seating and turns', () => {
     expect(isActive(s, first)).toBe(false);
   });
 });
+
+describe('commander', () => {
+  const settings: RoomSettings = { playerCount: 2, mode: '1v1', startingLife: 40, commander: true };
+  const decks = {
+    a: { main: [{ printingId: 'bolt', quantity: 9 }], sideboard: [], commander: [{ printingId: 'cmdr', quantity: 1 }] },
+    b: { main: [{ printingId: 'isle', quantity: 9 }], sideboard: [], commander: [] },
+  };
+  let n = 0;
+  let r = 0;
+  const playing = () => {
+    let s = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings });
+    for (const p of ['a', 'b']) {
+      s = run(s, p, { type: 'join' });
+      s = run(s, p, { type: 'selectDeck', deckId: 'd' });
+      s = run(s, p, { type: 'setReady', ready: true });
+    }
+    const d = decide(s, { type: 'start' }, { ...ctx('a'), decks, random: () => ((r += 7) % 11) / 11, newId: () => `cm${++n}` });
+    if (!d.ok) throw new Error(d.error);
+    return keepAll(reduceAll(s, d.events));
+  };
+
+  it('marks commanders, taxes each cast from the command zone by 2, and lets them return', () => {
+    let s = playing();
+    const cmdr = s.game!.players.a!.zones.command[0]!;
+    expect(s.game!.cards[cmdr]).toMatchObject({ isCommander: true, zone: 'command', visibleTo: 'all' });
+    expect(s.game!.cards[s.game!.players.a!.zones.hand[0]!]?.isCommander).toBe(false);
+    s = run(s, 'a', { type: 'moveCard', instanceId: cmdr, to: 'stack' });
+    expect(s.game!.players.a!.commanderTax).toBe(2);
+    s = run(s, 'a', { type: 'moveCard', instanceId: cmdr, to: 'battlefield' }); // resolving: no extra tax
+    expect(s.game!.players.a!.commanderTax).toBe(2);
+    s = run(s, 'a', { type: 'moveCard', instanceId: cmdr, to: 'graveyard' });
+    s = run(s, 'a', { type: 'moveCard', instanceId: cmdr, to: 'command' });
+    expect(s.game!.cards[cmdr]).toMatchObject({ zone: 'command', isCommander: true, visibleTo: 'all' });
+    s = run(s, 'a', { type: 'moveCards', instanceIds: [cmdr], to: 'battlefield' });
+    expect(s.game!.players.a!.commanderTax).toBe(4);
+    // A non-commander game never taxes.
+    const plain = reduce(initialRoomState('p'), { type: 'roomCreated', ownerId: 'a', settings: { ...settings, commander: false } });
+    expect(plain.settings.commander).toBe(false);
+  });
+});

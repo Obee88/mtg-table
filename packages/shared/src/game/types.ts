@@ -32,6 +32,8 @@ export interface CardInstance {
   attachedTo: InstanceId | null;
   note: string | null;
   isToken: boolean;
+  /** Started the game in the command zone: may return there, and casting from there adds commander tax. */
+  isCommander: boolean;
   /** Label for tokens without a printing (e.g. a custom 2/2 Zombie). */
   customName: string | null;
   visibleTo: Visibility;

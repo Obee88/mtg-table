@@ -107,14 +107,17 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       } else {
         card = found.card;
       }
-      return accept({
-        type: 'cardMoved',
-        instanceId: card.id,
-        from: card.zone,
-        to: command.to,
-        position: command.to === 'battlefield' ? (command.position ?? card.position ?? nextSlot(state, card.controllerId, 0)) : null,
-        libraryPosition: command.to === 'library' ? (command.libraryPosition ?? 'top') : null,
-      });
+      return accept(
+        {
+          type: 'cardMoved',
+          instanceId: card.id,
+          from: card.zone,
+          to: command.to,
+          position: command.to === 'battlefield' ? (command.position ?? card.position ?? nextSlot(state, card.controllerId, 0)) : null,
+          libraryPosition: command.to === 'library' ? (command.libraryPosition ?? 'top') : null,
+        },
+        ...commanderTaxOnCast(state, card, command.to),
+      );
     }
 
     case 'tapCard': {
@@ -385,6 +388,7 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
           position: command.to === 'battlefield' ? (command.positions?.[card.id] ?? card.position ?? nextSlot(state, card.controllerId, 0, events.length)) : null,
           libraryPosition: command.to === 'library' ? (command.libraryPosition ?? 'top') : null,
         });
+        events.push(...commanderTaxOnCast(state, card, command.to));
       }
       return accept(...events);
     }
@@ -489,6 +493,14 @@ function revealEvent(card: CardInstance, ownerId: string, to: 'all' | string[], 
     visibleTo = [...new Set([ownerId, ...current, ...to])];
   }
   return { type: 'visibilityChanged', instanceId: card.id, visibleTo, revealUntil: until };
+}
+
+/** Casting a commander from the command zone adds 2 to its owner's commander tax (commander games only). */
+function commanderTaxOnCast(state: RoomState, card: CardInstance, to: string): GameEvent[] {
+  if (!state.settings.commander || !card.isCommander || card.zone !== 'command' || (to !== 'stack' && to !== 'battlefield')) return [];
+  const pgs = state.game?.players[card.ownerId];
+  if (!pgs) return [];
+  return [{ type: 'commanderTaxChanged', playerId: card.ownerId, delta: 2, value: pgs.commanderTax + 2 }];
 }
 
 /** The slot after the last occupied column of `row` on `playerId`'s battlefield (+ offset for batches). */
