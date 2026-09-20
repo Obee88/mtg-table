@@ -21,7 +21,7 @@ import { HttpError } from '../errors.js';
 const SNAPSHOT_EVERY = 50;
 const IDLE_EVICT_MS = 30 * 60 * 1000;
 /** Lobby and bookkeeping events are never undone. */
-const NOT_UNDOABLE = new Set(['roomCreated', 'settingsChanged', 'playerJoined', 'playerLeft', 'seatChanged', 'deckSelected', 'readyChanged', 'roomClosed', 'gameStarted', 'actionUndone', 'mulliganTaken', 'handKept', 'draftStarted', 'draftPicked']);
+const NOT_UNDOABLE = new Set(['roomCreated', 'settingsChanged', 'playerJoined', 'playerLeft', 'seatChanged', 'deckSelected', 'readyChanged', 'roomClosed', 'gameStarted', 'actionUndone', 'mulliganTaken', 'handKept', 'draftStarted', 'draftPicked', 'draftCardReturned', 'draftDeckSubmitted']);
 
 export type RoomListener = (events: RoomEvent[], state: RoomState, before: RoomState) => void;
 
@@ -124,6 +124,10 @@ export class RoomService {
         newId: () => randomUUID(),
       };
       if (command.type === 'start' || command.type === 'restart') ctx.decks = await this.loadDecks(room.state);
+      if (command.type === 'submitDraftDeck') {
+        const bad = await this.nonBasicPrintings(command.basics.map((b) => b.printingId));
+        if (bad.length > 0) return { ok: false, error: 'Only basic lands can be added for free' };
+      }
       if (command.type === 'start' && room.state.settings.draft) {
         const pools = await this.loadDraftPools(room.state.settings.draft.phases.map((p) => p.poolCubeVersionId));
         if (!pools.ok) return pools;
@@ -153,6 +157,14 @@ export class RoomService {
       if (row) decks[w.playerId] = row.contents;
     }
     return decks;
+  }
+
+  /** Ids among `printingIds` that are not basic lands (or do not exist). */
+  private async nonBasicPrintings(printingIds: string[]): Promise<string[]> {
+    const ids = [...new Set(printingIds)];
+    if (ids.length === 0) return [];
+    const rows = await this.db.select({ id: schema.cards.id, typeLine: schema.cards.typeLine }).from(schema.cards).where(inArray(schema.cards.id, ids));
+    return ids.filter((id) => !rows.some((r) => r.id === id && r.typeLine?.startsWith('Basic Land')));
   }
 
   /** Printing ids (one per copy) of each cube version a draft deals from. */

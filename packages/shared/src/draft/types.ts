@@ -1,3 +1,4 @@
+import type { DeckContents } from '../decks.js';
 import type { PlayerId } from '../game/types.js';
 
 export type PassDirection = 'left' | 'right';
@@ -81,6 +82,12 @@ export interface PickRecord {
 
 export type DraftStatus = 'running' | 'finished';
 
+/** A drafter's submitted deck: main deck as draft card ids (the rest of the pool is the sideboard) plus free basic lands. */
+export interface DraftDeck {
+  main: string[];
+  basics: { printingId: string; quantity: number }[];
+}
+
 export interface DraftState {
   config: DraftConfig;
   /** Player ids by seat, clockwise. */
@@ -96,6 +103,8 @@ export interface DraftState {
   players: Record<PlayerId, DraftPlayer>;
   picks: PickRecord[];
   status: DraftStatus;
+  /** Decks submitted during deckbuilding, by player. */
+  decks: Record<PlayerId, DraftDeck>;
 }
 
 /** Direction for a given global round under the config's rule. */
@@ -138,4 +147,25 @@ export function usableLibrarians(state: DraftState, playerId: PlayerId): DraftCa
   const pack = player.queue[0] ? state.packs[player.queue[0]] : undefined;
   if (!pack || pack.cards.length < 2) return [];
   return player.faceUp.filter((c) => c.ability === 'librarian');
+}
+
+/** The submitted deck as table-ready contents: main (drafted + basics), sideboard (the rest of the pool). */
+export function draftDeckContents(state: DraftState, playerId: PlayerId): DeckContents | null {
+  const player = state.players[playerId];
+  const deck = state.decks?.[playerId];
+  if (!player || !deck) return null;
+  const inMain = new Set(deck.main);
+  const tally = (cards: DraftCard[]) => {
+    const counts = new Map<string, number>();
+    for (const c of cards) counts.set(c.printingId, (counts.get(c.printingId) ?? 0) + 1);
+    return [...counts].map(([printingId, quantity]) => ({ printingId, quantity }));
+  };
+  const main = tally(player.pool.filter((c) => inMain.has(c.id)));
+  for (const b of deck.basics) if (b.quantity > 0) main.push({ printingId: b.printingId, quantity: b.quantity });
+  return { main, sideboard: tally(player.pool.filter((c) => !inMain.has(c.id))), commander: [] };
+}
+
+/** Whether every seat has submitted a deck. */
+export function allDecksSubmitted(state: DraftState): boolean {
+  return state.seats.every((id) => !!state.decks?.[id]);
 }

@@ -48,3 +48,22 @@ describe('card routes', () => {
     expect((await ctx.app.inject({ url: '/cards/not-a-uuid', headers: { cookie } })).statusCode).toBe(400);
   });
 });
+
+describe('basic lands', () => {
+  it('returns the default printing of each basic in WUBRG order', async () => {
+    const { schema } = await import('../db/index.js');
+    const land = (id: string, name: string, released: string, setCode: string) => ({
+      id, name, lang: 'en', layout: 'normal', setCode, setName: setCode, setType: 'core', typeLine: `Basic Land — ${name}`,
+      collectorNumber: '1', releasedAt: released, rarity: 'common', colorIdentity: [], faces: [], oracleId: null,
+    });
+    await ctx.app.db.insert(schema.cards).values([
+      land('aaaaaaaa-0000-4000-8000-000000000001', 'Forest', '2020-01-01', 'm21'),
+      land('aaaaaaaa-0000-4000-8000-000000000002', 'Forest', '1993-08-05', 'lea'),
+      land('aaaaaaaa-0000-4000-8000-000000000003', 'Plains', '1993-08-05', 'lea'),
+    ]);
+    const res = await ctx.app.inject({ url: '/cards/basics', headers: { cookie } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().printings.map((p: { name: string; setCode: string }) => [p.name, p.setCode])).toEqual([['Plains', 'lea'], ['Forest', 'lea']]);
+    expect((await ctx.app.inject({ url: '/cards/basics' })).statusCode).toBe(401);
+  });
+});

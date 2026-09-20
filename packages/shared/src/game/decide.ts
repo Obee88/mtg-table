@@ -2,7 +2,7 @@ import type { GameCommand } from './commands.js';
 import type { GameEvent } from './events.js';
 import type { DeckContents } from '../decks.js';
 import { dealDraft, decideDraft } from '../draft/decide.js';
-import { draftAbilityFor, type DraftCard } from '../draft/types.js';
+import { allDecksSubmitted, draftAbilityFor, draftDeckContents, type DraftCard } from '../draft/types.js';
 import { defaultVisibility } from './reduce.js';
 import { activePlayer, inMulligan, isActive, seatedPlayers, shuffled, teamForSeat, type CardInstance, type PlayerGameState, type RoomState } from './types.js';
 
@@ -86,6 +86,10 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
 
     case 'start': {
       if (!isOwner) return reject('Only the owner can start the game');
+      if (state.phase === 'deckbuilding') {
+        if (!state.draft || !allDecksSubmitted(state.draft)) return reject('Waiting for everyone to submit a deck');
+        return deal(state, { ...ctx, decks: draftDecks(state) });
+      }
       if (state.phase !== 'lobby') return reject('Game already started');
       const players = Object.values(state.players);
       if (players.length !== state.settings.playerCount) return reject(`Waiting for ${state.settings.playerCount - players.length} more player(s)`);
@@ -99,10 +103,15 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       return decideDraft(state.draft ?? null, command, ctx.actorId);
     }
 
+    case 'submitDraftDeck': {
+      if (state.phase !== 'deckbuilding') return reject('Not in deckbuilding');
+      return decideDraft(state.draft ?? null, command, ctx.actorId);
+    }
+
     case 'restart': {
       if (!isOwner) return reject('Only the owner can restart the game');
       if (state.phase !== 'playing') return reject('Game not running');
-      return deal(state, ctx);
+      return deal(state, state.draft ? { ...ctx, decks: draftDecks(state) } : ctx);
     }
 
     case 'moveCard': {
@@ -533,4 +542,15 @@ function nextSlot(state: RoomState, playerId: string, row: number, offset = 0): 
     .filter((c): c is CardInstance => !!c && c.position?.row === row && !c.attachedTo)
     .map((c) => c.position!.col);
   return { row, col: (cols.length ? Math.max(...cols) : -1) + 1 + offset };
+}
+
+/** Table decks built from the submitted draft decks (seats stay as drafted). */
+function draftDecks(state: RoomState): Record<string, DeckContents> {
+  const decks: Record<string, DeckContents> = {};
+  if (!state.draft) return decks;
+  for (const id of state.draft.seats) {
+    const contents = draftDeckContents(state.draft, id);
+    if (contents) decks[id] = contents;
+  }
+  return decks;
 }

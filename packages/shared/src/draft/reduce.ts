@@ -12,7 +12,7 @@ export function reduceDraft(state: DraftState | null, event: DraftEvent): DraftS
     case 'draftStarted': {
       const packs = Object.fromEntries(event.packs.map((p) => [p.id, { ...p, cards: p.cards.map((c) => cardFrom(c)), taken: 0 }]));
       const players: Record<string, DraftPlayer> = Object.fromEntries(event.seats.map((id) => [id, { queue: [], pool: [], faceUp: [], picks: 0 }]));
-      const s: DraftState = { config: event.config, seats: event.seats, phase: 0, round: 0, globalRound: 0, direction: event.config.startDirection, packs, dealt: event.dealt, players, picks: [], status: 'running' };
+      const s: DraftState = { config: event.config, seats: event.seats, phase: 0, round: 0, globalRound: 0, direction: event.config.startDirection, packs, dealt: event.dealt, players, picks: [], status: 'running', decks: {} };
       return openRound(s);
     }
     case 'draftPicked': {
@@ -55,6 +55,9 @@ export function reduceDraft(state: DraftState | null, event: DraftEvent): DraftS
       const players = { ...state.players, [event.playerId]: { ...player, pool: player.pool.filter((c) => c.id !== event.cardId), faceUp: player.faceUp.filter((c) => c.id !== event.cardId) } };
       return advance(passPack({ ...state, packs, players }, event.playerId, pack.id));
     }
+    case 'draftDeckSubmitted':
+      if (!state) return state;
+      return { ...state, decks: { ...(state.decks ?? {}), [event.playerId]: { main: event.main, basics: event.basics } } };
   }
 }
 

@@ -1,6 +1,8 @@
 import type { CardPrinting, DraftCard, DraftState, RoomState } from '@mtg/shared';
-import { nextSeat, usableLibrarians } from '@mtg/shared';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { allDecksSubmitted, nextSeat, usableLibrarians } from '@mtg/shared';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { api } from '../lib/api';
 import { imageFor } from '../cards/CardImage';
 import { CardPreviewProvider, useCardPreview } from '../cards/CardPreview';
 import { Chip } from '../components/Chip';
@@ -30,9 +32,12 @@ export function DraftScreen({ room, meId, leaveHref = '/rooms' }: { room: GameRo
       <main className="felt flex h-dvh w-screen overflow-hidden">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <SeatStrip state={state} draft={draft} meId={meId} printings={printings} connected={room.connected} />
+          {draft.status === 'finished' && me ? (
+            <DeckBuilder draft={draft} meId={meId} printings={printings} send={room.send} isOwner={isOwner} />
+          ) : (
           <div className="min-h-0 flex-[3]">
             {draft.status === 'finished' ? (
-              <Notice title="Draft finished" text="Everyone has their pool. Deckbuilding is the next step." />
+              <Notice title="Draft finished" text="The drafters are building their decks." />
             ) : spectator ? (
               <Notice title="Drafting" text="You are watching; picks are private until the draft ends." />
             ) : pack ? (
@@ -41,7 +46,8 @@ export function DraftScreen({ room, meId, leaveHref = '/rooms' }: { room: GameRo
               <Notice title="Waiting for a pack" text={`The next pack comes from ${fromSeatName(state, draft, meId)}.`} pulse />
             )}
           </div>
-          {me && <Pool cards={me.pool} printings={printings} />}
+          )}
+          {me && draft.status === 'running' && <Pool title="Pool" cards={me.pool} printings={printings} />}
         </div>
         <LogPanel roomId={state.id} state={state} live={room.events} status={room.status} leaveHref={leaveHref} onCloseRoom={isOwner ? closeRoom : undefined} />
       </main>
@@ -91,6 +97,7 @@ function SeatStrip({ state, draft, meId, printings, connected }: { state: RoomSt
                 <span className="font-medium" style={player ? { color: playerColor(state, player) } : undefined}>{player?.displayName ?? id}</span>
                 <Chip type="neutral" title="cards picked">{d?.pool.length ?? 0}</Chip>
                 {running && (d?.queue.length ?? 0) > 0 && <Chip type="warning" shape="pill" title="packs waiting at this seat">{d!.queue.length}</Chip>}
+                {!running && <Chip type={draft.decks?.[id] ? 'success' : 'neutral'} shape="pill">{draft.decks?.[id] ? 'deck ✓' : 'building'}</Chip>}
                 {d?.faceUp.map((c) => <Thumb key={c.id} card={c} printing={printings.get(c.printingId)} w={28} title="drafted face up" />)}
               </span>
             </span>
@@ -209,21 +216,22 @@ function PackCard({ card, printing, w, selected, onClick, onDoubleClick }: { car
   );
 }
 
-/** The drafter's pool, sortable into columns; scrolls sideways when wide. */
-function Pool({ cards, printings }: { cards: DraftCard[]; printings: Map<string, CardPrinting> }) {
+/** A set of drafted cards sorted into columns of piled thumbnails; scrolls sideways when wide. Clicking a card calls `onCardClick`. */
+function Pool({ title, cards, printings, onCardClick, emptyText = 'Nothing picked yet.', className = 'flex-[2]', extra }: { title: string; cards: DraftCard[]; printings: Map<string, CardPrinting>; onCardClick?: ((card: DraftCard) => void) | undefined; emptyText?: string; className?: string; extra?: ReactNode }) {
   const [sort, setSort] = useState<PoolSort>('colour');
   const entries: PoolEntry[] = cards.map((card, i) => ({ card, printing: printings.get(card.printingId), n: i + 1 }));
   const groups = groupPool(entries, sort);
   const w = 72;
   const overlap = Math.round(w * 0.32);
   return (
-    <div className="flex min-h-0 flex-[2] flex-col border-t border-white/10 bg-black/20 px-3 pb-2">
+    <div className={`flex min-h-0 flex-col border-t border-white/10 bg-black/20 px-3 pb-2 ${className}`}>
       <div className="flex h-9 shrink-0 items-center gap-2 text-[12px] text-white/70">
-        <span className="font-semibold text-white/90">Pool · {cards.length}</span>
+        <span className="font-semibold text-white/90">{title} · {cards.length}</span>
         <span className="ml-2">sort</span>
         {POOL_SORTS.map((s) => (
           <button key={s.key} type="button" onClick={() => setSort(s.key)} className={`rounded px-1.5 py-0.5 ${sort === s.key ? 'bg-white/15 text-white' : 'hover:bg-white/10'}`}>{s.label}</button>
         ))}
+        {onCardClick && <span className="ml-auto text-white/40">click a card to move it</span>}
       </div>
       <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto overflow-y-hidden">
         {groups.map((g) => (
@@ -233,15 +241,97 @@ function Pool({ cards, printings }: { cards: DraftCard[]; printings: Map<string,
               <div className="relative" style={{ height: g.cards.length ? Math.round(w * 1.4) + overlap * (g.cards.length - 1) : 0 }}>
                 {g.cards.map((e, i) => (
                   <div key={e.card.id} className="absolute left-0" style={{ top: i * overlap, zIndex: i }}>
-                    <Thumb card={e.card} printing={e.printing} w={w} />
+                    {onCardClick ? (
+                      <button type="button" onClick={() => onCardClick(e.card)} className="block rounded-[4.5%] hover:ring-2 hover:ring-accent"><Thumb card={e.card} printing={e.printing} w={w} /></button>
+                    ) : (
+                      <Thumb card={e.card} printing={e.printing} w={w} />
+                    )}
                   </div>
                 ))}
               </div>
             </div>
           </div>
         ))}
-        {groups.length === 0 && <span className="self-center text-sm text-white/40">Nothing picked yet.</span>}
+        {groups.length === 0 && <span className="self-center text-sm text-white/40">{emptyText}</span>}
       </div>
+      {extra}
     </div>
+  );
+}
+
+/**
+ * Deckbuilding: the main deck on top, the rest of the pool (sideboard) below,
+ * any number of free basic lands, submit (re-submittable until the game starts).
+ * The owner starts the game once every seat has submitted.
+ */
+function DeckBuilder({ draft, meId, printings, send, isOwner }: { draft: DraftState; meId: string; printings: Map<string, CardPrinting>; send: GameRoom['send']; isOwner: boolean }) {
+  const pool = draft.players[meId]?.pool ?? [];
+  const submitted = draft.decks?.[meId];
+  const [main, setMain] = useState<Set<string>>(() => new Set(submitted?.main ?? []));
+  const [basics, setBasics] = useState<Record<string, number>>(() => Object.fromEntries((submitted?.basics ?? []).map((b) => [b.printingId, b.quantity])));
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const lands = useQuery({ queryKey: ['cards', 'basics'], queryFn: () => api<{ printings: CardPrinting[] }>('/cards/basics'), staleTime: Infinity });
+
+  const mainCards = pool.filter((c) => main.has(c.id));
+  const sideCards = pool.filter((c) => !main.has(c.id));
+  const basicCount = Object.values(basics).reduce((n, q) => n + q, 0);
+  const basicsList = Object.entries(basics).filter(([, q]) => q > 0).map(([printingId, quantity]) => ({ printingId, quantity }));
+  const dirty = !submitted || submitted.main.length !== main.size || submitted.main.some((id) => !main.has(id)) || JSON.stringify(submitted.basics) !== JSON.stringify(basicsList);
+  const everyone = allDecksSubmitted(draft);
+
+  const toggle = (card: DraftCard) => {
+    setError(null);
+    setMain((m) => {
+      const next = new Set(m);
+      if (next.has(card.id)) next.delete(card.id);
+      else next.add(card.id);
+      return next;
+    });
+  };
+  const bump = (id: string, d: number) => setBasics((b) => ({ ...b, [id]: Math.max(0, Math.min(99, (b[id] ?? 0) + d)) }));
+  const submit = async () => {
+    setBusy(true);
+    const r = await send({ type: 'submitDraftDeck', main: [...main], basics: basicsList });
+    setBusy(false);
+    if (!r.ok) setError(r.error);
+  };
+  const start = async () => {
+    const r = await send({ type: 'start' });
+    if (!r.ok) setError(r.error);
+  };
+
+  const basicsRow = (
+    <div className="flex h-12 shrink-0 items-center gap-3 text-[12px] text-white/80">
+      <span className="font-semibold text-white/90">Basics · {basicCount}</span>
+      {lands.data?.printings.map((p) => (
+        <span key={p.id} className="flex items-center gap-1">
+          <Thumb card={{ id: p.id, printingId: p.id }} printing={p} w={26} />
+          <button type="button" onClick={() => bump(p.id, -1)} className="rounded px-1 hover:bg-white/10" aria-label={`one less ${p.name}`}>−</button>
+          <span className="w-4 text-center tabular-nums">{basics[p.id] ?? 0}</span>
+          <button type="button" onClick={() => bump(p.id, 1)} className="rounded px-1 hover:bg-white/10" aria-label={`one more ${p.name}`}>+</button>
+        </span>
+      ))}
+      {lands.data?.printings.length === 0 && <span className="text-white/40">no basic lands in the card database yet</span>}
+      <span className="ml-auto flex items-center gap-2">
+        {error && <Chip type="error">{error}</Chip>}
+        {submitted && !dirty && <Chip type="success">submitted</Chip>}
+        <button type="button" onClick={() => void submit()} disabled={busy || main.size === 0 || !dirty} className="rounded-md bg-accent px-3 py-1 text-sm font-medium text-bg hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40">
+          {submitted ? 'Update deck' : 'Submit deck'}
+        </button>
+        {isOwner && (
+          <button type="button" onClick={() => void start()} disabled={!everyone} title={everyone ? 'Deal the first game' : 'Waiting for every seat to submit a deck'} className="rounded-md border border-white/30 px-3 py-1 text-sm font-medium text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40">
+            Start game
+          </button>
+        )}
+      </span>
+    </div>
+  );
+
+  return (
+    <>
+      <Pool title={`Main deck · ${main.size + basicCount} with basics`} cards={mainCards} printings={printings} onCardClick={toggle} emptyText="Click cards in the sideboard to add them to your main deck." className="flex-[3]" />
+      <Pool title="Sideboard" cards={sideCards} printings={printings} onCardClick={toggle} emptyText="Everything is in the main deck." className="flex-[2]" extra={basicsRow} />
+    </>
   );
 }

@@ -120,6 +120,8 @@ export function describeEvent(e: RoomEvent, ctx: LogContext): string | null {
       const name = ev.printingId ? (ctx.printingName?.(ev.printingId) ?? 'a card') : 'a card';
       return `${ctx.playerName(ev.playerId)} picked ${name}${ev.faceUp ? ' face up' : ''}${ev.double ? ' (extra pick)' : ''}`;
     }
+    case 'draftDeckSubmitted':
+      return `${ctx.playerName(ev.playerId)} submitted their deck`;
     case 'draftCardReturned':
       return `${ctx.playerName(ev.playerId)} put ${ev.printingId ? (ctx.printingName?.(ev.printingId) ?? 'a card') : 'a card'} into the pack`;
   }

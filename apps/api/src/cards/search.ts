@@ -88,3 +88,19 @@ export async function defaultPrintings(db: Db, oracleIds: string[]): Promise<Rec
   }
   return Object.fromEntries([...best].map(([k, v]) => [k, toPrinting(v)]));
 }
+
+export const BASIC_LAND_NAMES = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest', 'Wastes'] as const;
+
+/** The default (oldest English paper) printing of each basic land, in WUBRG order; free at deckbuilding. */
+export async function basicLands(db: Db): Promise<CardPrinting[]> {
+  const rows = await db
+    .select()
+    .from(schema.cards)
+    .where(and(inArray(schema.cards.name, [...BASIC_LAND_NAMES]), ilike(schema.cards.typeLine, 'Basic Land%'), not(schema.cards.isToken)));
+  const best = new Map<string, CardRow>();
+  for (const row of rows) {
+    const current = best.get(row.name);
+    if (!current || rank(row, current) < 0) best.set(row.name, row);
+  }
+  return BASIC_LAND_NAMES.flatMap((name) => (best.has(name) ? [toPrinting(best.get(name)!)] : []));
+}

@@ -161,7 +161,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] Draft config editor and the house-rules preset (phase 1 tri-color pool + phase 2 main cube)
 - [x] Draft ability hooks with Cogwork Librarian
 - [x] Draft UI: packs, pass direction / pick counter, face-up picks per seat, sortable pool
-- [ ] Deckbuilding step (main / sideboard / free basics) and handoff to the table with fixed seats
+- [x] Deckbuilding step (main / sideboard / free basics) and handoff to the table with fixed seats
 
 **M6 — Stats**
 - [ ] Report-result step and `game_results`

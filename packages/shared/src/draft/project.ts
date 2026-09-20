@@ -30,7 +30,9 @@ export function projectDraft(state: DraftState, viewerId: string): DraftState {
   const packs = Object.fromEntries(Object.entries(state.packs).map(([id, p]) => [id, { ...p, cards: p.cards.map(mask) }]));
   const players = Object.fromEntries(Object.entries(state.players).map(([id, p]) => [id, { ...p, pool: p.pool.map(mask), faceUp: p.faceUp.map(mask) }]));
   const picks = state.picks.map((r) => (r.playerId === viewerId ? r : { ...r, card: r.faceUp ? r.card : blank(r.card), packContents: r.packContents.map(() => '') }));
-  return { ...state, packs, players, picks };
+  // Others' decks: only the fact that they were submitted.
+  const decks = Object.fromEntries(Object.entries(state.decks ?? {}).map(([id, d]) => [id, id === viewerId ? d : { main: [], basics: [] }]));
+  return { ...state, packs, players, picks, decks };
 }
 
 /**
@@ -47,6 +49,8 @@ export function projectDraftEvent(event: DraftEvent, viewerId: string): DraftEve
       return stripAbility({ ...event, printingId: null });
     case 'draftCardReturned':
       return event;
+    case 'draftDeckSubmitted':
+      return event.playerId === viewerId ? event : { ...event, main: [], basics: [] };
   }
 }
 

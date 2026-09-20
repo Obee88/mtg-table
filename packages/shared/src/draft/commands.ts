@@ -9,5 +9,11 @@ export const draftCommandSchema = z.discriminatedUnion('type', [
     /** Spend a face-up Cogwork Librarian: also take `secondCardId` and put the Librarian into the pack. */
     librarian: z.object({ cardId: z.string(), secondCardId: z.string() }).optional(),
   }),
+  /** Deckbuilding: main deck as draft card ids from the own pool, plus any number of free basic lands. May be re-submitted until the game starts. */
+  z.object({
+    type: z.literal('submitDraftDeck'),
+    main: z.array(z.string()).max(500),
+    basics: z.array(z.object({ printingId: z.string(), quantity: z.number().int().min(0).max(99) })).max(20),
+  }),
 ]);
 export type DraftCommand = z.infer<typeof draftCommandSchema>;

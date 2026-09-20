@@ -56,5 +56,12 @@ export const draftEventSchema = z.discriminatedUnion('type', [
     printingId: z.string().nullable(),
     ability: draftAbilitySchema.optional(),
   }),
+  /** A drafter's deck for the table; others only learn that it was submitted. */
+  z.object({
+    type: z.literal('draftDeckSubmitted'),
+    playerId: z.string(),
+    main: z.array(z.string()),
+    basics: z.array(z.object({ printingId: z.string(), quantity: z.number().int().min(0).max(99) })),
+  }),
 ]);
 export type DraftEvent = z.infer<typeof draftEventSchema>;

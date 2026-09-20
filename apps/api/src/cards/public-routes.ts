@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { notFound, unauthorized } from '../errors.js';
 import { parse } from '../validate.js';
-import { defaultPrintings, getPrinting, getPrintings, listPrintings, searchCards } from './search.js';
+import { basicLands, defaultPrintings, getPrinting, getPrintings, listPrintings, searchCards } from './search.js';
 
 const searchQuery = z.object({
   q: z.string().trim().min(1).max(100),
@@ -41,6 +41,9 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
     const { oracleIds } = parse(defaultsInput, req.body);
     return { printings: await defaultPrintings(app.db, oracleIds) };
   });
+
+  /** Basic lands drafters may add for free. */
+  app.get('/cards/basics', async (): Promise<{ printings: CardPrinting[] }> => ({ printings: await basicLands(app.db) }));
 
   app.get('/cards/:id', async (req) => {
     const { id } = parse(uuidParam, req.params);

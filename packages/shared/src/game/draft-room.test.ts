@@ -154,3 +154,50 @@ describe('draft rooms', () => {
     expect(forD?.event.type === 'draftPicked' && forD.event.printingId).toBeNull();
   });
 });
+
+describe('deckbuilding and the handoff to the table', () => {
+  function finished(): Room {
+    const room = lobby();
+    for (const p of ['a', 'b', 'c', 'd']) room.run(p, { type: 'setReady', ready: true });
+    room.run('a', { type: 'start' }, { draftPools: pools });
+    while (room.state.phase === 'drafting') {
+      for (const p of ['a', 'b', 'c', 'd']) {
+        const pack = room.state.draft!.packs[room.state.draft!.players[p]!.queue[0]!]!;
+        room.run(p, { type: 'draftPick', cardId: pack.cards[0]!.id });
+      }
+    }
+    return room;
+  }
+
+  it('takes decks from the own pool plus basics, then deals the game with the drafted seats', () => {
+    const room = finished();
+    expect(room.state.phase).toBe('deckbuilding');
+    const poolOfA = room.state.draft!.players.a!.pool;
+    expect(decide(room.state, { type: 'draftPick', cardId: 'x' }, ctx('a'))).toEqual({ ok: false, error: 'No draft running' });
+    expect(decide(room.state, { type: 'submitDraftDeck', main: [], basics: [] }, ctx('a'))).toEqual({ ok: false, error: 'Put at least one card in your main deck' });
+    expect(decide(room.state, { type: 'submitDraftDeck', main: [room.state.draft!.players.b!.pool[0]!.id], basics: [] }, ctx('a'))).toEqual({ ok: false, error: 'Only cards from your own pool can go in the deck' });
+    expect(decide(room.state, { type: 'start' }, ctx('a'))).toEqual({ ok: false, error: 'Waiting for everyone to submit a deck' });
+
+    const main = poolOfA.slice(0, 23).map((c) => c.id);
+    room.run('a', { type: 'submitDraftDeck', main: [...main, main[0]!], basics: [{ printingId: 'forest', quantity: 17 }, { printingId: 'island', quantity: 0 }] });
+    expect(room.state.draft!.decks.a).toEqual({ main, basics: [{ printingId: 'forest', quantity: 17 }] });
+    // Others learn only that a deck was submitted.
+    expect(projectState(room.state, 'b').draft!.decks.a).toEqual({ main: [], basics: [] });
+    expect(projectState(room.state, 'a').draft!.decks.a!.main).toHaveLength(23);
+
+    for (const p of ['b', 'c', 'd']) room.run(p, { type: 'submitDraftDeck', main: room.state.draft!.players[p]!.pool.slice(0, 40).map((c) => c.id), basics: [] });
+    room.run('a', { type: 'start' });
+    expect(room.state.phase).toBe('playing');
+    const game = room.state.game!;
+    const zones = game.players.a!.zones;
+    expect(zones.library.length + zones.hand.length).toBe(23 + 17);
+    expect(zones.sideboard).toHaveLength(50 - 23);
+    expect(zones.library.filter((id) => game.cards[id]!.printingId === 'forest')).toHaveLength(17 - zones.hand.filter((id) => game.cards[id]!.printingId === 'forest').length);
+    expect(game.players.b!.zones.sideboard).toHaveLength(10);
+    // Seats are the draft seats.
+    expect(Object.values(room.state.players).sort((x, y) => x.seat - y.seat).map((p) => p.id)).toEqual(room.state.draft!.seats);
+    // Restart re-deals from the same submitted decks.
+    room.run('a', { type: 'restart' });
+    expect(room.state.game!.players.a!.zones.library.length + room.state.game!.players.a!.zones.hand.length).toBe(40);
+  });
+});

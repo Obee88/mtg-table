@@ -45,11 +45,21 @@ export function dealDraft(config: DraftConfig, seats: string[], ctx: DealContext
 
 /** Validates a draft command against the state. */
 export function decideDraft(state: DraftState | null, command: DraftCommand, actorId: string): DraftDecision {
-  if (!state || state.status !== 'running') return reject('Draft is not running');
+  if (!state) return reject('Draft is not running');
   const player = state.players[actorId];
   if (!player) return reject('Not in the draft');
   switch (command.type) {
+    case 'submitDraftDeck': {
+      if (state.status !== 'finished') return reject('The draft is still running');
+      const pool = new Set(player.pool.map((c) => c.id));
+      const main = [...new Set(command.main)];
+      if (main.length === 0) return reject('Put at least one card in your main deck');
+      if (main.some((id) => !pool.has(id))) return reject('Only cards from your own pool can go in the deck');
+      const basics = command.basics.filter((b) => b.quantity > 0);
+      return { ok: true, events: [{ type: 'draftDeckSubmitted', playerId: actorId, main, basics }] };
+    }
     case 'draftPick': {
+      if (state.status !== 'running') return reject('Draft is not running');
       const packId = player.queue[0];
       if (!packId) return reject('No pack to pick from — waiting for the pack to be passed');
       const pack = state.packs[packId]!;

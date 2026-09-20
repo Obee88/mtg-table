@@ -278,3 +278,49 @@ describe('draft rooms', () => {
     expect(await service.dispatch(room.id, alice, { type: 'start' })).toEqual({ ok: false, error: 'Phase 1 (Only) needs 10 cards but the pool has 4' });
   });
 });
+
+describe('deckbuilding over the service', () => {
+  it('accepts only basic lands for free and starts the game from the submitted decks', async () => {
+    const service = new RoomService(db, silentLog);
+    const cardIds = [0, 1, 2, 3].map((i) => `44444444-4444-4444-8444-44444444444${i}`);
+    const forest = '44444444-4444-4444-8444-444444444499';
+    await db.insert(schema.cards).values(cardIds.map((id, i) => ({
+      id, name: `Card ${i}`, lang: 'en', layout: 'normal', setCode: 'lea', setName: 'Alpha', setType: 'core',
+      collectorNumber: String(i), releasedAt: '1993-08-05', rarity: 'common', colorIdentity: [], faces: [], oracleId: null,
+    }))).onConflictDoNothing();
+    await db.insert(schema.cards).values({
+      id: forest, name: 'Forest', lang: 'en', layout: 'normal', setCode: 'lea', setName: 'Alpha', setType: 'core', typeLine: 'Basic Land — Forest',
+      collectorNumber: '99', releasedAt: '1993-08-05', rarity: 'common', colorIdentity: ['G'], faces: [], oracleId: null,
+    }).onConflictDoNothing();
+    const [cube] = await db.insert(schema.cubes).values({ ownerId: alice.id, name: 'Deck cube' }).returning();
+    const [version] = await db.insert(schema.cubeVersions).values({ cubeId: cube!.id, number: 1, createdBy: alice.id }).returning();
+    await db.insert(schema.cubeVersionCards).values(cardIds.map((cardId) => ({ versionId: version!.id, cardId, quantity: 1 })));
+    const draft = { name: 'Tiny', seats: 2 as const, startDirection: 'left' as const, phases: [{ type: 'pickAndPass' as const, name: 'Only', poolCubeVersionId: version!.id, packSize: 2, packsPerPlayer: 1, rounds: 1, direction: 'alternate' as const }] };
+
+    const room = await service.create(alice, { ...settings, draft });
+    await service.dispatch(room.id, bob, { type: 'join' });
+    await service.dispatch(room.id, alice, { type: 'setReady', ready: true });
+    await service.dispatch(room.id, bob, { type: 'setReady', ready: true });
+    expect((await service.dispatch(room.id, alice, { type: 'start' })).ok).toBe(true);
+    for (const who of [alice, bob, alice, bob]) {
+      const s = await service.get(room.id);
+      const pack = s.draft!.packs[s.draft!.players[who.id]!.queue[0]!]!;
+      expect((await service.dispatch(room.id, who, { type: 'draftPick', cardId: pack.cards[0]!.id })).ok).toBe(true);
+    }
+    let state = await service.get(room.id);
+    expect(state.phase).toBe('deckbuilding');
+
+    const mine = state.draft!.players[alice.id]!.pool.map((c) => c.id);
+    expect(await service.dispatch(room.id, alice, { type: 'submitDraftDeck', main: mine, basics: [{ printingId: cardIds[0]!, quantity: 1 }] })).toEqual({ ok: false, error: 'Only basic lands can be added for free' });
+    expect((await service.dispatch(room.id, alice, { type: 'submitDraftDeck', main: mine, basics: [{ printingId: forest, quantity: 3 }] })).ok).toBe(true);
+    expect(await service.dispatch(room.id, alice, { type: 'undo' })).toEqual({ ok: false, error: 'That action cannot be undone' });
+    const theirs = state.draft!.players[bob.id]!.pool.map((c) => c.id);
+    expect((await service.dispatch(room.id, bob, { type: 'submitDraftDeck', main: theirs.slice(0, 1), basics: [] })).ok).toBe(true);
+    expect((await service.dispatch(room.id, alice, { type: 'start' })).ok).toBe(true);
+    state = await new RoomService(db, silentLog).get(room.id);
+    expect(state.phase).toBe('playing');
+    const a = state.game!.players[alice.id]!.zones;
+    expect(a.library.length + a.hand.length).toBe(2 + 3);
+    expect(state.game!.players[bob.id]!.zones.sideboard).toHaveLength(1);
+  });
+});
