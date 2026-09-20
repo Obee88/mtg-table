@@ -1,5 +1,5 @@
 import type { CardPrinting, DraftCard, DraftState, RoomState } from '@mtg/shared';
-import { allDecksSubmitted, gridLine, nextPile, nextSeat, usableLibrarians } from '@mtg/shared';
+import { allDecksSubmitted, gridLine, nextPile, nextSeat, rotisserieSeat, usableLibrarians } from '@mtg/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
@@ -46,6 +46,8 @@ export function DraftScreen({ room, meId, leaveHref = '/rooms' }: { room: GameRo
               <GridView state={state} draft={draft} meId={meId} printings={printings} send={room.send} />
             ) : draft.winchester ? (
               <WinchesterView state={state} draft={draft} meId={meId} printings={printings} send={room.send} />
+            ) : draft.rotisserie ? (
+              <RotisserieView state={state} draft={draft} meId={meId} printings={printings} send={room.send} />
             ) : pack ? (
               <PackView key={pack.id} draft={draft} pack={pack} meId={meId} printings={printings} send={room.send} />
             ) : (
@@ -92,6 +94,7 @@ function SeatStrip({ state, draft, meId, printings, connected }: { state: RoomSt
       {running && phase && phase.type === 'winston' && <Chip type="primary">{phase.name} · Winston · {draft.packs[draft.winston?.packId ?? '']?.cards.length ?? 0} in the stack</Chip>}
       {running && phase && phase.type === 'grid' && <Chip type="primary">{phase.name} · grid {draft.round + 1}/{phase.grids}</Chip>}
       {running && phase && phase.type === 'winchester' && <Chip type="primary">{phase.name} · Winchester · {draft.packs[draft.winchester?.packId ?? '']?.cards.length ?? 0} in the stack</Chip>}
+      {running && phase && phase.type === 'rotisserie' && <Chip type="primary">{phase.name} · Rotisserie · pick {(draft.rotisserie?.pickNumber ?? 0) + 1} of {phase.picksPerPlayer * draft.seats.length}</Chip>}
       {running && phase?.type === 'pickAndPass' && <Chip type="neutral" title={`Packs pass ${draft.direction}`}>passing {draft.direction} {arrow}</Chip>}
       {!running && <Chip type="success">finished</Chip>}
       <span className="flex flex-wrap items-center gap-2">
@@ -226,7 +229,7 @@ function PackCard({ card, printing, w, selected, onClick, onDoubleClick }: { car
 }
 
 /** A set of drafted cards sorted into columns of piled thumbnails; scrolls sideways when wide. Clicking a card calls `onCardClick`. */
-function Pool({ title, cards, printings, onCardClick, emptyText = 'Nothing picked yet.', className = 'flex-[2]', extra }: { title: string; cards: DraftCard[]; printings: Map<string, CardPrinting>; onCardClick?: ((card: DraftCard) => void) | undefined; emptyText?: string; className?: string; extra?: ReactNode }) {
+function Pool({ title, cards, printings, onCardClick, emptyText = 'Nothing picked yet.', className = 'flex-[2]', extra, selectedId = null }: { title: string; cards: DraftCard[]; printings: Map<string, CardPrinting>; onCardClick?: ((card: DraftCard) => void) | undefined; emptyText?: string; className?: string; extra?: ReactNode; selectedId?: string | null }) {
   const [sort, setSort] = useState<PoolSort>('colour');
   const entries: PoolEntry[] = cards.map((card, i) => ({ card, printing: printings.get(card.printingId), n: i + 1 }));
   const groups = groupPool(entries, sort);
@@ -251,7 +254,7 @@ function Pool({ title, cards, printings, onCardClick, emptyText = 'Nothing picke
                 {g.cards.map((e, i) => (
                   <div key={e.card.id} className="absolute left-0" style={{ top: i * overlap, zIndex: i }}>
                     {onCardClick ? (
-                      <button type="button" onClick={() => onCardClick(e.card)} className="block rounded-[4.5%] hover:ring-2 hover:ring-accent"><Thumb card={e.card} printing={e.printing} w={w} /></button>
+                      <button type="button" onClick={() => onCardClick(e.card)} className={`block rounded-[4.5%] hover:ring-2 hover:ring-accent ${e.card.id === selectedId ? 'ring-2 ring-accent' : ''}`}><Thumb card={e.card} printing={e.printing} w={w} /></button>
                     ) : (
                       <Thumb card={e.card} printing={e.printing} w={w} />
                     )}
@@ -559,6 +562,56 @@ function WinchesterView({ state, draft, meId, printings, send }: { state: RoomSt
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** Rotisserie: the whole table face up, filterable by name and sorted like a pool; the seat on turn selects a card and confirms. */
+function RotisserieView({ state, draft, meId, printings, send }: { state: RoomState; draft: DraftState; meId: string; printings: Map<string, CardPrinting>; send: GameRoom['send'] }) {
+  const r = draft.rotisserie!;
+  const active = draft.seats[r.activeSeat] ?? '';
+  const mine = active === meId;
+  const table = draft.packs[r.packId]?.cards ?? [];
+  const [query, setQuery] = useState('');
+  const [selected, setSelected] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const q = query.trim().toLowerCase();
+  const shown = q ? table.filter((c) => (printings.get(c.printingId)?.name ?? '').toLowerCase().includes(q)) : table;
+  const chosen = selected ? table.find((c) => c.id === selected) : undefined;
+  const pick = async () => {
+    if (!mine || !chosen || busy) return;
+    setBusy(true);
+    const res = await send({ type: 'rotisseriePick', cardId: chosen.id });
+    setBusy(false);
+    if (!res.ok) setError(res.error);
+    else setSelected(null);
+  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && document.activeElement?.tagName !== 'INPUT') void pick();
+      if (e.key === 'Escape') setSelected(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+  // Snake order: who picks next, for the strip.
+  const upcoming = Array.from({ length: Math.min(3, draft.seats.length) }, (_, i) => state.players[draft.seats[rotisserieSeat(draft.seats.length, r.pickNumber + 1 + i)] ?? '']?.displayName ?? '?');
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex h-11 shrink-0 items-center gap-2 px-3 text-[13px]">
+        <span className="font-semibold text-white/90">{mine ? 'Your pick' : `${state.players[active]?.displayName ?? 'Someone'} is picking…`}</span>
+        <span className="text-white/50">· then {upcoming.join(', ')}</span>
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="filter by name" className="ml-2 w-44 rounded-md border border-white/20 bg-black/30 px-2 py-1 text-[12px] text-white placeholder:text-white/40" />
+        {error && <Chip type="error">{error}</Chip>}
+        {mine && (
+          <button type="button" onClick={() => void pick()} disabled={!chosen || busy} className="ml-auto rounded-md bg-accent px-3 py-1 text-sm font-medium text-bg hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40">
+            {chosen ? `Pick ${printings.get(chosen.printingId)?.name ?? 'card'}` : 'Choose a card'}
+          </button>
+        )}
+      </div>
+      <Pool title="On the table" cards={shown} printings={printings} onCardClick={mine ? (c) => { setError(null); setSelected((s) => (s === c.id ? null : c.id)); } : undefined} selectedId={selected} emptyText={q ? 'No card matches.' : 'The table is empty.'} className="flex-1 border-t-0 bg-transparent" />
     </div>
   );
 }

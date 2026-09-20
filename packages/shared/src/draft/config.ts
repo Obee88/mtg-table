@@ -1,4 +1,4 @@
-import { cardsNeeded, type DraftConfig, type DraftPhaseConfig } from './types.js';
+import { cardsNeeded, type DraftConfig, type DraftPhaseConfig, type RotisserieConfig } from './types.js';
 
 /** A saved, user-owned draft recipe. */
 export interface DraftConfigSummary {
@@ -53,6 +53,11 @@ export function emptyWinchesterPhase(poolCubeVersionId = ''): DraftPhaseConfig {
   return { type: 'winchester', name: 'Winchester', poolCubeVersionId, stackSize: 90, piles: 4 };
 }
 
+/** A blank Rotisserie phase for the editor: the classic 360 face up, 45 picks each. */
+export function emptyRotisseriePhase(poolCubeVersionId = ''): RotisserieConfig {
+  return { type: 'rotisserie', name: 'Rotisserie', poolCubeVersionId, poolSize: 360, picksPerPlayer: 45 };
+}
+
 export function houseRulesPreset(pools: { triColour: string; main: string }, name = 'House rules'): DraftConfig {
   return {
     name,
@@ -78,6 +83,7 @@ export function cardsPerDrafter(config: DraftConfig): number {
 /** Cards one drafter gets from a phase (a Winston stack is split evenly, roughly). */
 export function cardsPerDrafterIn(config: DraftConfig, phase: DraftPhaseConfig): number {
   if (phase.type === 'winston' || phase.type === 'winchester') return Math.floor(phase.stackSize / config.seats);
+  if (phase.type === 'rotisserie') return phase.picksPerPlayer;
   // Grid: the first pick takes a full line, later picks a line with one card already gone.
   if (phase.type === 'grid') return Math.floor((phase.grids * (phase.size + (config.seats - 1) * (phase.size - 1))) / config.seats);
   return phase.packSize * phase.packsPerPlayer * phase.rounds;
@@ -95,6 +101,7 @@ export function draftConfigProblems(config: DraftConfig, poolSizes: Record<strin
     const size = poolSizes[phase.poolCubeVersionId];
     if (size === undefined) return problems.push(`${label}: the cube version no longer exists`);
     const needed = cardsNeeded(config, phase);
+    if (phase.type === 'rotisserie' && phase.picksPerPlayer * config.seats > phase.poolSize) problems.push(`${label}: ${config.seats} × ${phase.picksPerPlayer} picks need more than ${phase.poolSize} cards`);
     if (size < needed) problems.push(`${label}: needs ${needed} cards, the cube has ${size}`);
   });
   return problems;

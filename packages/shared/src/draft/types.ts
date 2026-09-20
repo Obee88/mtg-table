@@ -46,7 +46,32 @@ export interface WinchesterConfig {
   piles: number;
 }
 
-export type DraftPhaseConfig = PickAndPassConfig | WinstonConfig | GridConfig | WinchesterConfig;
+/** Rotisserie: the pool lies face up; players take one card at a time in snake order until everyone has their picks. */
+export interface RotisserieConfig {
+  type: 'rotisserie';
+  name: string;
+  poolCubeVersionId: string;
+  /** Cards laid out on the table. */
+  poolSize: number;
+  picksPerPlayer: number;
+}
+
+export type DraftPhaseConfig = PickAndPassConfig | WinstonConfig | GridConfig | WinchesterConfig | RotisserieConfig;
+
+/** Live state of a Rotisserie phase. The table lives in `packs[packId].cards`, all public. */
+export interface RotisserieState {
+  packId: string;
+  /** Picks made so far; the seat on turn follows from it (snake order). */
+  pickNumber: number;
+  activeSeat: number;
+}
+
+/** Snake order: seats 0..n-1, then n-1..0, and so on. */
+export function rotisserieSeat(seatCount: number, pickNumber: number): number {
+  const round = Math.floor(pickNumber / seatCount);
+  const pos = pickNumber % seatCount;
+  return round % 2 === 0 ? pos : seatCount - 1 - pos;
+}
 
 /** Live state of a Winchester phase. The stack lives in `packs[packId].cards` (top first); piles are public. */
 export interface WinchesterState {
@@ -165,6 +190,8 @@ export interface DraftState {
   grid: GridState | null;
   /** Set while the current phase is a Winchester phase. */
   winchester: WinchesterState | null;
+  /** Set while the current phase is a Rotisserie phase. */
+  rotisserie: RotisserieState | null;
   /** Decks submitted during deckbuilding, by player. */
   decks: Record<PlayerId, DraftDeck>;
 }
@@ -184,6 +211,7 @@ export function nextSeat(seatCount: number, seat: number, direction: PassDirecti
 /** Total cards a config draws from each phase's pool. */
 export function cardsNeeded(config: DraftConfig, phase: DraftPhaseConfig): number {
   if (phase.type === 'winston' || phase.type === 'winchester') return phase.stackSize;
+  if (phase.type === 'rotisserie') return phase.poolSize;
   if (phase.type === 'grid') return phase.grids * phase.size * phase.size;
   return phase.packSize * phase.packsPerPlayer * phase.rounds * config.seats;
 }

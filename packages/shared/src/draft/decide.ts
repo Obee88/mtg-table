@@ -33,6 +33,13 @@ export function dealDraft(config: DraftConfig, seats: string[], ctx: DealContext
       dealt.push(rounds);
       continue;
     }
+    if (phase.type === 'rotisserie') {
+      // The whole table as one public pack at seat 0.
+      const id = ctx.newId();
+      packs.push({ id, phase: pi, round: 0, cards: pool.slice(0, phase.poolSize) });
+      dealt.push([[[id], ...Array.from({ length: config.seats - 1 }, () => [] as string[])]]);
+      continue;
+    }
     if (phase.type === 'winston' || phase.type === 'winchester') {
       // One face-down stack, kept as a pack at seat 0; piles are seeded when the phase opens.
       const id = ctx.newId();
@@ -92,6 +99,16 @@ export function decideDraft(state: DraftState | null, command: DraftCommand, act
       const blind = pack.cards[1];
       if (nextPile(w.piles, w.pileIndex + 1) < 0 && blind) events.push({ type: 'winstonTaken', playerId: actorId, packId: pack.id, pileIndex: -1, cards: [withIdentity(blind)] });
       return { ok: true, events };
+    }
+    case 'rotisseriePick': {
+      if (state.status !== 'running') return reject('Draft is not running');
+      const r = state.rotisserie;
+      const pack = r ? state.packs[r.packId] : undefined;
+      if (!r || !pack) return reject('This is not a Rotisserie phase');
+      if (state.seats[r.activeSeat] !== actorId) return reject('Not your turn');
+      const card = pack.cards.find((c) => c.id === command.cardId);
+      if (!card) return reject('That card is not on the table');
+      return { ok: true, events: [{ type: 'rotisseriePicked', playerId: actorId, packId: pack.id, cardId: card.id, printingId: card.printingId, ...abilityOf(card) }] };
     }
     case 'winchesterTake': {
       if (state.status !== 'running') return reject('Draft is not running');

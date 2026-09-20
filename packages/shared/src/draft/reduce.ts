@@ -1,5 +1,5 @@
 import type { DraftEvent } from './events.js';
-import { directionFor, nextPile, nextSeat, roundsOf, type DraftAbility, type DraftCard, type DraftPlayer, type DraftState, type PickRecord } from './types.js';
+import { directionFor, nextPile, nextSeat, rotisserieSeat, roundsOf, type DraftAbility, type DraftCard, type DraftPlayer, type DraftState, type PickRecord } from './types.js';
 
 /** A card as carried in events (identity possibly stripped) into the state shape. */
 function cardFrom(c: { id: string; printingId: string | null; ability?: DraftAbility | undefined }): DraftCard {
@@ -12,7 +12,7 @@ export function reduceDraft(state: DraftState | null, event: DraftEvent): DraftS
     case 'draftStarted': {
       const packs = Object.fromEntries(event.packs.map((p) => [p.id, { ...p, cards: p.cards.map((c) => cardFrom(c)), taken: 0 }]));
       const players: Record<string, DraftPlayer> = Object.fromEntries(event.seats.map((id) => [id, { queue: [], pool: [], faceUp: [], picks: 0 }]));
-      const s: DraftState = { config: event.config, seats: event.seats, phase: 0, round: 0, globalRound: 0, direction: event.config.startDirection, packs, dealt: event.dealt, players, picks: [], status: 'running', winston: null, grid: null, winchester: null, decks: {} };
+      const s: DraftState = { config: event.config, seats: event.seats, phase: 0, round: 0, globalRound: 0, direction: event.config.startDirection, packs, dealt: event.dealt, players, picks: [], status: 'running', winston: null, grid: null, winchester: null, rotisserie: null, decks: {} };
       return openRound(s);
     }
     case 'draftPicked': {
@@ -152,6 +152,24 @@ export function reduceDraft(state: DraftState | null, event: DraftEvent): DraftS
       const activeSeat = nextSeat(state.seats.length, state.seats.indexOf(event.playerId), 'left');
       return advance({ ...state, packs, players, picks: [...state.picks, ...records], winchester: { ...w, piles, activeSeat } });
     }
+    case 'rotisseriePicked': {
+      if (!state?.rotisserie) return state;
+      const r = state.rotisserie;
+      const pack = state.packs[event.packId];
+      const player = state.players[event.playerId];
+      if (!pack || !player) return state;
+      const card = pack.cards.find((c) => c.id === event.cardId);
+      if (!card) return state;
+      const picked = cardFrom({ id: card.id, printingId: event.printingId ?? card.printingId, ability: event.ability ?? card.ability });
+      const record: PickRecord = {
+        n: state.picks.length + 1, phase: pack.phase, round: pack.round, packId: pack.id, playerId: event.playerId, card: picked,
+        pickInPack: r.pickNumber + 1, packContents: [], double: false, faceUp: true,
+      };
+      const players = { ...state.players, [event.playerId]: { ...player, pool: [...player.pool, picked], picks: player.picks + 1 } };
+      const packs = { ...state.packs, [pack.id]: { ...pack, cards: pack.cards.filter((c) => c.id !== card.id), taken: pack.taken + 1 } };
+      const pickNumber = r.pickNumber + 1;
+      return advance({ ...state, packs, players, picks: [...state.picks, record], rotisserie: { ...r, pickNumber, activeSeat: rotisserieSeat(state.seats.length, pickNumber) } });
+    }
     case 'draftDeckSubmitted':
       if (!state) return state;
       return { ...state, decks: { ...(state.decks ?? {}), [event.playerId]: { main: event.main, basics: event.basics } } };
@@ -179,6 +197,8 @@ function advance(s: DraftState): DraftState {
     ? !!s.grid && s.grid.picksThisGrid < s.seats.length && s.grid.cells.some((c) => c !== null)
     : phaseCfg.type === 'winchester'
     ? (s.packs[s.winchester?.packId ?? '']?.cards.length ?? 0) > 0 || (s.winchester?.piles.some((p) => p.length > 0) ?? false)
+    : phaseCfg.type === 'rotisserie'
+    ? !!s.rotisserie && s.rotisserie.pickNumber < phaseCfg.picksPerPlayer * s.seats.length && (s.packs[s.rotisserie.packId]?.cards.length ?? 0) > 0
     : Object.values(s.players).some((p) => p.queue.some((id) => (s.packs[id]?.cards.length ?? 0) > 0));
   if (live) return s;
   let phase = s.phase;
@@ -187,7 +207,7 @@ function advance(s: DraftState): DraftState {
     phase += 1;
     round = 0;
   }
-  if (phase >= s.config.phases.length) return { ...s, status: 'finished', winston: null, grid: null, winchester: null, players: clearQueues(s.players) };
+  if (phase >= s.config.phases.length) return { ...s, status: 'finished', winston: null, grid: null, winchester: null, rotisserie: null, players: clearQueues(s.players) };
   return openRound({ ...s, phase, round, globalRound: s.globalRound + 1, players: clearQueues(s.players) });
 }
 
@@ -202,33 +222,38 @@ function openRound(s: DraftState): DraftState {
   if (phaseCfg.type === 'winston') {
     const packId = s.dealt[s.phase]?.[0]?.[0]?.[0];
     const pack = packId ? s.packs[packId] : undefined;
-    if (!packId || !pack) return { ...s, direction, winston: null };
+    if (!packId || !pack) return { ...s, direction, winston: null, rotisserie: null };
     const piles = Array.from({ length: phaseCfg.piles }, (_, i) => (pack.cards[i] ? [pack.cards[i]!] : []));
     const stack = pack.cards.slice(phaseCfg.piles);
     // The first Winston phase starts with seat 0; later ones with whoever did not start the previous.
     const activeSeat = s.globalRound % s.seats.length;
-    return { ...s, direction, grid: null, winchester: null, packs: { ...s.packs, [packId]: { ...pack, cards: stack } }, winston: { packId, piles, activeSeat, pileIndex: Math.max(0, nextPile(piles, 0)) } };
+    return { ...s, direction, grid: null, winchester: null, rotisserie: null, packs: { ...s.packs, [packId]: { ...pack, cards: stack } }, winston: { packId, piles, activeSeat, pileIndex: Math.max(0, nextPile(piles, 0)) } };
+  }
+  if (phaseCfg.type === 'rotisserie') {
+    const packId = s.dealt[s.phase]?.[0]?.[0]?.[0];
+    if (!packId || !s.packs[packId]) return { ...s, direction, winston: null, grid: null, winchester: null, rotisserie: null };
+    return { ...s, direction, winston: null, grid: null, winchester: null, rotisserie: { packId, pickNumber: 0, activeSeat: 0 } };
   }
   if (phaseCfg.type === 'winchester') {
     const packId = s.dealt[s.phase]?.[0]?.[0]?.[0];
     const pack = packId ? s.packs[packId] : undefined;
-    if (!packId || !pack) return { ...s, direction, winston: null, grid: null, winchester: null };
+    if (!packId || !pack) return { ...s, direction, winston: null, grid: null, winchester: null, rotisserie: null };
     const piles = Array.from({ length: phaseCfg.piles }, (_, i) => (pack.cards[i] ? [pack.cards[i]!] : []));
     const activeSeat = s.globalRound % s.seats.length;
-    return { ...s, direction, winston: null, grid: null, packs: { ...s.packs, [packId]: { ...pack, cards: pack.cards.slice(phaseCfg.piles) } }, winchester: { packId, piles, activeSeat } };
+    return { ...s, direction, winston: null, grid: null, packs: { ...s.packs, [packId]: { ...pack, cards: pack.cards.slice(phaseCfg.piles) } }, winchester: { packId, piles, activeSeat }, rotisserie: null };
   }
   if (phaseCfg.type === 'grid') {
     const packId = s.dealt[s.phase]?.[s.round]?.[0]?.[0];
     const pack = packId ? s.packs[packId] : undefined;
-    if (!packId || !pack) return { ...s, direction, winston: null, grid: null, winchester: null };
+    if (!packId || !pack) return { ...s, direction, winston: null, grid: null, winchester: null, rotisserie: null };
     // Whoever picks first rotates with every grid.
     const activeSeat = s.round % s.seats.length;
-    return { ...s, direction, winston: null, winchester: null, grid: { packId, size: phaseCfg.size, cells: pack.cards.slice(0, phaseCfg.size * phaseCfg.size), activeSeat, picksThisGrid: 0 } };
+    return { ...s, direction, winston: null, winchester: null, rotisserie: null, grid: { packId, size: phaseCfg.size, cells: pack.cards.slice(0, phaseCfg.size * phaseCfg.size), activeSeat, picksThisGrid: 0 } };
   }
   const seatsPacks = s.dealt[s.phase]?.[s.round] ?? [];
   const players = { ...s.players };
   s.seats.forEach((id, seat) => {
     players[id] = { ...players[id]!, queue: [...(seatsPacks[seat] ?? [])] };
   });
-  return { ...s, direction, players, winston: null, grid: null, winchester: null };
+  return { ...s, direction, players, winston: null, grid: null, winchester: null, rotisserie: null };
 }

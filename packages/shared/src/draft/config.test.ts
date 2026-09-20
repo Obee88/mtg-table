@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cardsPerDrafter, cardsPerDrafterIn, describeDraftConfig, draftConfigProblems, emptyGridPhase, emptyWinchesterPhase, emptyWinstonPhase, houseRulesPreset } from './config.js';
+import { cardsPerDrafter, cardsPerDrafterIn, describeDraftConfig, draftConfigProblems, emptyGridPhase, emptyRotisseriePhase, emptyWinchesterPhase, emptyWinstonPhase, houseRulesPreset } from './config.js';
 
 describe('draft config helpers', () => {
   const house = houseRulesPreset({ triColour: 'tri', main: 'main' });
@@ -49,5 +49,14 @@ describe('grid defaults', () => {
     const { gridConfigSchema } = await import('./events.js');
     expect(emptyGridPhase('x')).toMatchObject({ grids: 18, size: 3 });
     expect(gridConfigSchema.parse({ type: 'grid', name: 'Grid', poolCubeVersionId: 'x' })).toMatchObject({ grids: 18, size: 3 });
+  });
+});
+
+describe('rotisserie phases', () => {
+  it('hand out exactly the configured picks and refuse more picks than cards', () => {
+    const config = { ...houseRulesPreset({ triColour: 'tri', main: 'main' }), phases: [emptyRotisseriePhase('main')] };
+    expect(cardsPerDrafter(config)).toBe(45);
+    expect(draftConfigProblems(config, { main: 360 })).toEqual([]);
+    expect(draftConfigProblems({ ...config, phases: [{ ...emptyRotisseriePhase('main'), poolSize: 100 }] }, { main: 360 })).toEqual(['Phase 1 (Rotisserie): 4 × 45 picks need more than 100 cards']);
   });
 });

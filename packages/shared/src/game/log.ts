@@ -126,6 +126,8 @@ export function describeEvent(e: RoomEvent, ctx: LogContext): string | null {
       return ev.pileIndex < 0 ? `${ctx.playerName(ev.playerId)} took the top card of the stack` : `${ctx.playerName(ev.playerId)} took pile ${ev.pileIndex + 1} (${ev.cards.length} card${ev.cards.length === 1 ? '' : 's'})`;
     case 'winstonPassed':
       return `${ctx.playerName(ev.playerId)} passed on pile ${ev.pileIndex + 1}`;
+    case 'rotisseriePicked':
+      return `${ctx.playerName(ev.playerId)} picked ${ev.printingId ? (ctx.printingName?.(ev.printingId) ?? 'a card') : 'a card'} from the table`;
     case 'winchesterTaken':
       return `${ctx.playerName(ev.playerId)} took pile ${ev.index + 1} (${ev.cards.length} card${ev.cards.length === 1 ? '' : 's'})`;
     case 'gridTaken':

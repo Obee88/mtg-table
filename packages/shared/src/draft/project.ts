@@ -13,7 +13,8 @@ export function visibleDraftCards(state: DraftState, viewerId: string): Map<stri
   for (const c of atHand?.cards ?? []) out.set(c.id, c);
   for (const c of mine?.pool ?? []) out.set(c.id, c);
   for (const p of Object.values(state.players)) for (const c of p.faceUp) out.set(c.id, c);
-  // Grid and Winchester: everything on the table lies face up.
+  // Grid, Winchester and Rotisserie: everything on the table lies face up.
+  if (state.rotisserie) for (const c of state.packs[state.rotisserie.packId]?.cards ?? []) out.set(c.id, c);
   for (const p of state.winchester?.piles ?? []) for (const c of p) out.set(c.id, c);
   for (const c of state.grid?.cells ?? []) if (c) out.set(c.id, c);
   // Winston: only the active player sees the pile they are looking at.
@@ -34,8 +35,8 @@ export function projectDraft(state: DraftState, viewerId: string): DraftState {
   const mask = (c: DraftCard): DraftCard => (visible.has(c.id) ? c : blank(c));
   const packs = Object.fromEntries(Object.entries(state.packs).map(([id, p]) => [id, { ...p, cards: p.cards.map(mask) }]));
   const players = Object.fromEntries(Object.entries(state.players).map(([id, p]) => [id, { ...p, pool: p.pool.map(mask), faceUp: p.faceUp.map(mask) }]));
-  // Grid and Winchester picks are public in full (the cards lay face up); other picks keep only the card when it was face up.
-  const picks = state.picks.map((r) => (r.playerId === viewerId || ['grid', 'winchester'].includes(state.config.phases[r.phase]?.type ?? '') ? r : { ...r, card: r.faceUp ? r.card : blank(r.card), packContents: r.packContents.map(() => '') }));
+  // Grid, Winchester and Rotisserie picks are public in full (the cards lay face up); other picks keep only the card when it was face up.
+  const picks = state.picks.map((r) => (r.playerId === viewerId || ['grid', 'winchester', 'rotisserie'].includes(state.config.phases[r.phase]?.type ?? '') ? r : { ...r, card: r.faceUp ? r.card : blank(r.card), packContents: r.packContents.map(() => '') }));
   // Others' decks: only the fact that they were submitted.
   const decks = Object.fromEntries(Object.entries(state.decks ?? {}).map(([id, d]) => [id, id === viewerId ? d : { main: [], basics: [] }]));
   const winston = state.winston ? { ...state.winston, piles: state.winston.piles.map((p) => p.map(mask)) } : (state.winston ?? null);
@@ -65,6 +66,7 @@ export function projectDraftEvent(event: DraftEvent, viewerId: string): DraftEve
     case 'winstonPassed':
     case 'gridTaken':
     case 'winchesterTaken':
+    case 'rotisseriePicked':
       return event;
   }
 }

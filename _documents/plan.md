@@ -172,7 +172,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] Winston phase type (stack + piles, take or pass, blind take from the stack)
 - [x] Grid phase type (face-up square grids, take a row or column, first pick rotates)
 - [x] Winchester phase type (face-up piles, take one, every pile grows from the stack)
-- [ ] Rotisserie phase type
+- [x] Rotisserie phase type (whole pool face up, snake order, one card per pick)
 - [ ] Moxfield / Archidekt import
 - [ ] Passkeys / YubiKey
 - [ ] Tablet layout

@@ -354,3 +354,38 @@ describe('winchester rooms', () => {
     expect(room.state.draft!.players.a!.pool.length + room.state.draft!.players.b!.pool.length).toBe(20);
   });
 });
+
+describe('rotisserie rooms', () => {
+  it('runs a four-player Rotisserie phase with every replica matching its projection', () => {
+    const roti: DraftConfig = { name: 'Roti', seats: 4, startDirection: 'left', phases: [{ type: 'rotisserie', name: 'Rotisserie', poolCubeVersionId: 'main', poolSize: 30, picksPerPlayer: 5 }] };
+    const room = new Room();
+    room.state = reduce(room.state, { type: 'roomCreated', ownerId: 'a', settings: { playerCount: 4, mode: 'ffa', startingLife: 20, commander: false, draft: roti } });
+    for (const p of ['a', 'b', 'c', 'd']) {
+      room.run(p, { type: 'join' });
+      room.run(p, { type: 'setReady', ready: true });
+    }
+    room.run('a', { type: 'start' }, { draftPools: { main: pools.main } });
+    const viewers = ['a', 'b', 'c', 'd', 'zed'];
+    const clients = Object.fromEntries(viewers.map((v) => [v, projectState({ ...initialRoomState('r'), ownerId: 'a', settings: room.state.settings }, v)]));
+    let applied = 0;
+    const sync = () => {
+      const fresh = room.log.slice(applied);
+      const base = room.log.slice(0, applied).reduce((s, e) => ({ ...reduce(s, e.event), seq: e.seq }), initialRoomState('r'));
+      for (const v of viewers) {
+        for (const e of projectEvents(fresh, v, base)) clients[v] = applyRoomEvent(clients[v]!, e);
+        expect(clients[v]).toEqual(projectState(room.state, v));
+      }
+      applied = room.log.length;
+    };
+    sync();
+    while (room.state.phase === 'drafting') {
+      const r = room.state.draft!.rotisserie!;
+      const who = room.state.draft!.seats[r.activeSeat]!;
+      const table = room.state.draft!.packs[r.packId]!.cards;
+      room.run(who, { type: 'rotisseriePick', cardId: table[table.length - 1]!.id });
+      sync();
+    }
+    expect(room.state.phase).toBe('deckbuilding');
+    expect(Object.values(room.state.draft!.players).map((p) => p.pool.length)).toEqual([5, 5, 5, 5]);
+  });
+});

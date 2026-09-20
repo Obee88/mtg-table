@@ -1,5 +1,5 @@
 import type { CubeResponse, CubeSummary, DraftConfig, DraftConfigResponse, DraftPhaseConfig, PickAndPassConfig } from '@mtg/shared';
-import { cardsNeeded, cardsPerDrafter, cardsPerDrafterIn, draftConfigProblems, emptyGridPhase, emptyPhase, emptyWinchesterPhase, emptyWinstonPhase, houseRulesPreset } from '@mtg/shared';
+import { cardsNeeded, cardsPerDrafter, cardsPerDrafterIn, draftConfigProblems, emptyGridPhase, emptyPhase, emptyRotisseriePhase, emptyWinchesterPhase, emptyWinstonPhase, houseRulesPreset } from '@mtg/shared';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -46,7 +46,7 @@ export function DraftConfigPage() {
   const problems = draftConfigProblems(config, poolSizes);
 
   const set = (patch: Partial<DraftConfig>) => setConfig((c) => ({ ...c, ...patch }));
-  const setPhase = (i: number, patch: Partial<PickAndPassConfig> | Partial<Extract<DraftPhaseConfig, { type: 'winston' | 'winchester' }>> | Partial<Extract<DraftPhaseConfig, { type: 'grid' }>>) =>
+  const setPhase = (i: number, patch: Partial<PickAndPassConfig> | Partial<Extract<DraftPhaseConfig, { type: 'winston' | 'winchester' }>> | Partial<Extract<DraftPhaseConfig, { type: 'grid' }>> | Partial<Extract<DraftPhaseConfig, { type: 'rotisserie' }>>) =>
     setConfig((c) => ({ ...c, phases: c.phases.map((p, j) => (j === i ? ({ ...p, ...patch } as DraftPhaseConfig) : p)) }));
   const setPhases = (phases: DraftPhaseConfig[], cubesFor: string[]) => {
     setConfig((c) => ({ ...c, phases }));
@@ -114,7 +114,7 @@ export function DraftConfigPage() {
         const list = versionsByCube.get(cubeId) ?? [];
         const size = poolSizes[phase.poolCubeVersionId];
         return (
-          <Card key={i} title={`Phase ${i + 1} · ${{ winston: 'Winston', grid: 'Grid', winchester: 'Winchester', pickAndPass: 'pick and pass' }[phase.type]}`}>
+          <Card key={i} title={`Phase ${i + 1} · ${{ winston: 'Winston', grid: 'Grid', winchester: 'Winchester', rotisserie: 'Rotisserie', pickAndPass: 'pick and pass' }[phase.type]}`}>
             <div className="flex flex-wrap items-end gap-3 text-sm">
               <label>
                 <span className="mb-1 block text-text-muted">Type</span>
@@ -122,15 +122,16 @@ export function DraftConfigPage() {
                   className={select}
                   value={phase.type}
                   onChange={(e) => {
-                    const blank = { winston: emptyWinstonPhase, grid: emptyGridPhase, winchester: emptyWinchesterPhase }[e.target.value] ?? emptyPhase;
+                    const blank = { winston: emptyWinstonPhase, grid: emptyGridPhase, winchester: emptyWinchesterPhase, rotisserie: emptyRotisseriePhase }[e.target.value] ?? emptyPhase;
                     const next = blank(phase.poolCubeVersionId);
-                    setConfig((c) => ({ ...c, phases: c.phases.map((p, j) => (j === i ? { ...next, name: ['Pack draft', 'Winston', 'Grid', 'Winchester'].includes(p.name) ? next.name : p.name } : p)) }));
+                    setConfig((c) => ({ ...c, phases: c.phases.map((p, j) => (j === i ? { ...next, name: ['Pack draft', 'Winston', 'Grid', 'Winchester', 'Rotisserie'].includes(p.name) ? next.name : p.name } : p)) }));
                   }}
                 >
                   <option value="pickAndPass">pick and pass</option>
                   <option value="winston">Winston</option>
                   <option value="grid">Grid</option>
                   <option value="winchester">Winchester</option>
+                  <option value="rotisserie">Rotisserie</option>
                 </select>
               </label>
               <label>
@@ -181,6 +182,17 @@ export function DraftConfigPage() {
                       <option value="left">always left</option>
                       <option value="right">always right</option>
                     </select>
+                  </label>
+                </>
+              ) : phase.type === 'rotisserie' ? (
+                <>
+                  <label>
+                    <span className="mb-1 block text-text-muted">Cards on the table</span>
+                    <input type="number" min={2} max={1000} className={number} value={phase.poolSize} onChange={(e) => setPhase(i, { poolSize: clamp(e.target.value, 2, 1000) })} />
+                  </label>
+                  <label>
+                    <span className="mb-1 block text-text-muted">Picks each</span>
+                    <input type="number" min={1} max={200} className={number} value={phase.picksPerPlayer} onChange={(e) => setPhase(i, { picksPerPlayer: clamp(e.target.value, 1, 200) })} />
                   </label>
                 </>
               ) : phase.type === 'grid' ? (

@@ -15,6 +15,8 @@ export const draftCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('gridPick'), line: z.enum(['row', 'col']), index: z.number().int().min(0).max(3) }),
   /** Winchester: take a pile. */
   z.object({ type: z.literal('winchesterTake'), index: z.number().int().min(0).max(5) }),
+  /** Rotisserie: take a card from the table. */
+  z.object({ type: z.literal('rotisseriePick'), cardId: z.string() }),
   /** Deckbuilding: main deck as draft card ids from the own pool, plus any number of free basic lands. May be re-submitted until the game starts. */
   z.object({
     type: z.literal('submitDraftDeck'),

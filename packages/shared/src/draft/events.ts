@@ -36,7 +36,15 @@ export const winchesterConfigSchema = z.object({
   piles: z.number().int().min(2).max(6),
 });
 
-export const draftPhaseConfigSchema = z.discriminatedUnion('type', [pickAndPassConfigSchema, winstonConfigSchema, gridConfigSchema, winchesterConfigSchema]);
+export const rotisserieConfigSchema = z.object({
+  type: z.literal('rotisserie'),
+  name: z.string().trim().min(1).max(60),
+  poolCubeVersionId: z.string(),
+  poolSize: z.number().int().min(2).max(1000),
+  picksPerPlayer: z.number().int().min(1).max(200),
+});
+
+export const draftPhaseConfigSchema = z.discriminatedUnion('type', [pickAndPassConfigSchema, winstonConfigSchema, gridConfigSchema, winchesterConfigSchema, rotisserieConfigSchema]);
 
 export const draftConfigSchema = z.object({
   name: z.string().trim().min(1).max(60),
@@ -90,6 +98,8 @@ export const draftEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('gridTaken'), playerId: z.string(), packId: z.string(), line: z.enum(['row', 'col']), index: z.number().int(), cards: z.array(draftCardSchema) }),
   /** Winchester: the active player took a pile (public); `added` are the stack cards that then joined each pile, in pile order. */
   z.object({ type: z.literal('winchesterTaken'), playerId: z.string(), packId: z.string(), index: z.number().int(), cards: z.array(draftCardSchema), added: z.array(z.string()) }),
+  /** Rotisserie: the active player took one card from the table (public). */
+  z.object({ type: z.literal('rotisseriePicked'), playerId: z.string(), packId: z.string(), cardId: z.string(), printingId: z.string().nullable(), ability: draftAbilitySchema.optional() }),
   /** A drafter's deck for the table; others only learn that it was submitted. */
   z.object({
     type: z.literal('draftDeckSubmitted'),
