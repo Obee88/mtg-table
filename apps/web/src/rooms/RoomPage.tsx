@@ -25,18 +25,52 @@ export function RoomPage() {
     return <GameScreen room={{ ...room, state: room.state }} meId={me.data.id} />;
   }
 
+  const title = { lobby: 'Lobby', drafting: 'Drafting', deckbuilding: 'Deckbuilding', playing: 'Playing', ended: 'Closed' }[room.state.phase];
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
       <header className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">{room.state.phase === 'lobby' ? 'Lobby' : 'Closed'}</h1>
+          <h1 className="text-2xl font-semibold">{title}</h1>
           <p className="text-sm text-text-muted">{describeSettings(room.state.settings)} · {room.status === 'open' ? 'connected' : 'reconnecting…'}</p>
         </div>
         <Link to="/rooms" className="text-sm text-accent hover:underline">Rooms</Link>
       </header>
       {room.state.phase === 'lobby' && <Lobby state={room.state} meId={me.data.id} connected={room.connected} send={room.send} />}
+      {(room.state.phase === 'drafting' || room.state.phase === 'deckbuilding') && room.state.draft && <DraftStatus state={room.state} meId={me.data.id} connected={room.connected} />}
       {room.state.phase === 'ended' && <p className="text-text-muted">This room has been closed.</p>}
     </main>
+  );
+}
+
+/** Where the draft stands, per seat. The pick-and-pass table itself is the next milestone item. */
+function DraftStatus({ state, meId, connected }: { state: RoomState; meId: string; connected: string[] }) {
+  const draft = state.draft!;
+  const phase = draft.config.phases[draft.phase];
+  const running = draft.status === 'running';
+  return (
+    <>
+      <Card title={running ? `${phase?.name ?? 'Draft'} · round ${draft.round + 1} of ${phase?.rounds ?? 1} · passing ${draft.direction}` : 'Draft finished'}>
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {draft.seats.map((id, seat) => {
+            const p = state.players[id];
+            const d = draft.players[id];
+            const waiting = (d?.queue.length ?? 0) > 0;
+            return (
+              <li key={id} className="flex items-center gap-3 rounded-md border border-border bg-surface-raised px-3 py-2 text-sm">
+                <span className="text-text-muted">#{seat + 1}</span>
+                <span className={`h-2 w-2 rounded-full ${connected.includes(id) ? 'bg-success' : 'bg-border'}`} />
+                <span className="flex-1 truncate font-medium">{p?.displayName ?? id}{id === meId && <Chip type="primary" className="ml-1">you</Chip>}</span>
+                <Chip type="neutral">{d?.pool.length ?? 0} picked</Chip>
+                {running && <Chip type={waiting ? 'warning' : 'success'} shape="pill">{waiting ? `${d!.queue.length} pack${d!.queue.length === 1 ? '' : 's'} waiting` : 'passed'}</Chip>}
+              </li>
+            );
+          })}
+        </ul>
+        <p className="mt-3 text-xs text-text-muted">
+          {running ? 'The draft table (pack view, picking, pool) is coming next; until then picks can only be made through the API.' : 'Deckbuilding from the drafted pool is the next step.'}
+        </p>
+      </Card>
+    </>
   );
 }
 

@@ -200,3 +200,78 @@ describe('undo', () => {
     expect(await service.dispatch(roomId, bob, { type: 'undo' })).toEqual({ ok: false, error: 'That action cannot be undone' });
   });
 });
+
+describe('draft rooms', () => {
+  const cardIds = [0, 1, 2, 3].map((i) => `44444444-4444-4444-8444-44444444444${i}`);
+  const config = (poolCubeVersionId: string) => ({
+    name: 'Tiny', seats: 2 as const, startDirection: 'left' as const,
+    phases: [{ type: 'pickAndPass' as const, name: 'Only', poolCubeVersionId, packSize: 2, packsPerPlayer: 1, rounds: 1, direction: 'alternate' as const }],
+  });
+
+  async function cubeVersion(): Promise<string> {
+    await db.insert(schema.cards).values(cardIds.map((id, i) => ({
+      id, name: `Card ${i}`, lang: 'en', layout: 'normal', setCode: 'lea', setName: 'Alpha', setType: 'core',
+      collectorNumber: String(i), releasedAt: '1993-08-05', rarity: 'common', colorIdentity: [], faces: [], oracleId: null,
+    }))).onConflictDoNothing();
+    const [cube] = await db.insert(schema.cubes).values({ ownerId: alice.id, name: 'Tiny cube' }).returning();
+    const [version] = await db.insert(schema.cubeVersions).values({ cubeId: cube!.id, number: 1, createdBy: alice.id }).returning();
+    await db.insert(schema.cubeVersionCards).values(cardIds.map((cardId) => ({ versionId: version!.id, cardId, quantity: 1 })));
+    return version!.id;
+  }
+
+  it('deals from the cube version, passes packs, records every pick and ends in deckbuilding', async () => {
+    const service = new RoomService(db, silentLog);
+    const versionId = await cubeVersion();
+    const room = await service.create(alice, { ...settings, draft: config(versionId) });
+    await service.dispatch(room.id, bob, { type: 'join' });
+    expect((await service.dispatch(room.id, alice, { type: 'setReady', ready: true })).ok).toBe(true); // no deck needed
+    await service.dispatch(room.id, bob, { type: 'setReady', ready: true });
+    const started = await service.dispatch(room.id, alice, { type: 'start' });
+    expect(started.ok).toBe(true);
+    let state = await service.get(room.id);
+    expect(state.phase).toBe('drafting');
+    expect(state.draft?.seats).toEqual([alice.id, bob.id]);
+    const dealt = Object.values(state.draft!.packs).flatMap((p) => p.cards.map((c) => c.printingId)).sort();
+    expect(dealt).toEqual([...cardIds].sort());
+
+    const pickTop = async (who: typeof alice) => {
+      const s = await service.get(room.id);
+      const pack = s.draft!.packs[s.draft!.players[who.id]!.queue[0]!]!;
+      const r = await service.dispatch(room.id, who, { type: 'draftPick', cardId: pack.cards[0]!.id });
+      if (!r.ok) throw new Error(r.error);
+    };
+    await pickTop(alice);
+    state = await service.get(room.id);
+    expect(state.draft!.players[bob.id]!.queue).toHaveLength(2);
+    expect(await service.dispatch(room.id, alice, { type: 'undo' })).toEqual({ ok: false, error: 'That action cannot be undone' });
+    await pickTop(bob);
+    await pickTop(alice);
+    await pickTop(bob);
+    state = await new RoomService(db, silentLog).get(room.id);
+    expect(state.phase).toBe('deckbuilding');
+    expect(state.draft?.status).toBe('finished');
+    expect(state.draft!.players[alice.id]!.pool).toHaveLength(2);
+    const [row] = await db.select().from(schema.rooms).where(eq(schema.rooms.id, room.id));
+    expect(row?.phase).toBe('deckbuilding');
+
+    const picks = await db.select().from(schema.draftPicks).where(eq(schema.draftPicks.roomId, room.id)).orderBy(schema.draftPicks.overallPick);
+    expect(picks.map((p) => [p.overallPick, p.playerId === alice.id ? 'A' : 'B', p.pickInPack, p.packContents.length])).toEqual([[1, 'A', 1, 2], [2, 'B', 1, 2], [3, 'A', 2, 1], [4, 'B', 2, 1]]);
+    expect(picks.every((p) => cardIds.includes(p.cardId) && p.packContents.includes(p.cardId))).toBe(true);
+  });
+
+  it('refuses to start when a cube version is gone or too small', async () => {
+    const service = new RoomService(db, silentLog);
+    const room = await service.create(alice, { ...settings, draft: config('00000000-0000-4000-8000-000000000000') });
+    await service.dispatch(room.id, bob, { type: 'join' });
+    await service.dispatch(room.id, alice, { type: 'setReady', ready: true });
+    await service.dispatch(room.id, bob, { type: 'setReady', ready: true });
+    expect(await service.dispatch(room.id, alice, { type: 'start' })).toEqual({ ok: false, error: 'A cube version this draft uses no longer exists' });
+
+    const versionId = await cubeVersion();
+    const big = { ...config(versionId), phases: [{ ...config(versionId).phases[0]!, packSize: 5 }] };
+    await service.dispatch(room.id, alice, { type: 'updateSettings', settings: { ...settings, draft: big } });
+    await service.dispatch(room.id, alice, { type: 'setReady', ready: true });
+    await service.dispatch(room.id, bob, { type: 'setReady', ready: true });
+    expect(await service.dispatch(room.id, alice, { type: 'start' })).toEqual({ ok: false, error: 'Phase 1 (Only) needs 10 cards but the pool has 4' });
+  });
+});

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { draftConfigSchema, draftEventSchema } from '../draft/events.js';
 import { ZONES, type RoomState } from './types.js';
 
 export const positionSchema = z.object({ row: z.number().int().min(0).max(3), col: z.number() });
@@ -20,6 +21,7 @@ export const roomSettingsSchema = z.object({
   mode: z.enum(['1v1', 'ffa', '2v2']),
   startingLife: z.number().int().min(1).max(999),
   commander: z.boolean(),
+  draft: draftConfigSchema.nullable().optional(),
 });
 
 /**
@@ -95,6 +97,8 @@ export const gameEventSchema = z.discriminatedUnion('type', [
     openingRoll: z.record(z.string(), z.number().int()),
     players: z.record(z.string(), startedPlayer),
   }),
+  // ---- draft ----
+  ...draftEventSchema.options,
 ]);
 
 export type GameEvent = z.infer<typeof gameEventSchema>;
@@ -112,4 +116,8 @@ export interface RoomEvent {
   revealed?: { instanceId: string; printingId: string }[];
   /** Cards whose identity the viewer may no longer see (projection only). */
   hidden?: string[];
+  /** Draft cards whose identity the viewer just gained (pack arrived at their seat, face-up pick). */
+  draftRevealed?: { cardId: string; printingId: string }[];
+  /** Draft cards the viewer may no longer see (pack passed on). */
+  draftHidden?: string[];
 }

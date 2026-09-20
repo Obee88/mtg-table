@@ -99,3 +99,16 @@ export function nextSeat(seatCount: number, seat: number, direction: PassDirecti
 export function cardsNeeded(config: DraftConfig, phase: DraftPhaseConfig): number {
   return phase.packSize * phase.packsPerPlayer * phase.rounds * config.seats;
 }
+
+/** One row of a finished draft's pick log, as served by the API. */
+export interface DraftPickSummary {
+  n: number;
+  playerId: PlayerId;
+  printingId: string;
+  phase: number;
+  round: number;
+  packId: string;
+  pickInPack: number;
+  packContents: string[];
+  double: boolean;
+}

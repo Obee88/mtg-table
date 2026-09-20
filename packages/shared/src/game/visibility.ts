@@ -1,3 +1,4 @@
+import { applyDraftIdentities, projectDraft, projectDraftEvent, visibleDraftCards } from '../draft/project.js';
 import type { GameEvent, RoomEvent } from './events.js';
 import { reduce } from './reduce.js';
 import type { CardInstance, PlayerId, RoomState } from './types.js';
@@ -20,12 +21,13 @@ function isTeammate(state: RoomState, a: PlayerId, b: PlayerId): boolean {
 
 /** The state as `viewerId` is allowed to see it: hidden cards lose their identity and note. */
 export function projectState(state: RoomState, viewerId: PlayerId): RoomState {
-  if (!state.game) return state;
+  const draft = state.draft ? projectDraft(state.draft, viewerId) : (state.draft ?? null);
+  if (!state.game) return { ...state, draft };
   const cards: Record<string, CardInstance> = {};
   for (const card of Object.values(state.game.cards)) {
     cards[card.id] = canSee(state, card, viewerId) ? card : { ...card, printingId: null, note: null };
   }
-  return { ...state, game: { ...state.game, cards } };
+  return { ...state, game: { ...state.game, cards }, draft };
 }
 
 export interface Revealed {
@@ -57,6 +59,14 @@ export function projectEvent(stored: RoomEvent, viewerId: PlayerId, before: Room
   const out: RoomEvent = { seq: stored.seq, actorId: stored.actorId, at: stored.at, event };
   if (revealed.length > 0) out.revealed = revealed;
   if (hidden.length > 0) out.hidden = hidden;
+  if (after.draft) {
+    const was = before.draft ? visibleDraftCards(before.draft, viewerId) : new Map<string, string>();
+    const now = visibleDraftCards(after.draft, viewerId);
+    const draftRevealed = [...now].filter(([id]) => !was.has(id)).map(([cardId, printingId]) => ({ cardId, printingId }));
+    const draftHidden = [...was.keys()].filter((id) => !now.has(id));
+    if (draftRevealed.length > 0) out.draftRevealed = draftRevealed;
+    if (draftHidden.length > 0) out.draftHidden = draftHidden;
+  }
   return out;
 }
 
@@ -84,6 +94,9 @@ function projectPayload(event: GameEvent, viewerId: PlayerId, after: RoomState):
       return { ...event, cards: event.cards.map((c) => ({ id: c.id, printingId: null, previousId: null })) };
     case 'actionUndone':
       return { ...event, state: projectState(event.state, viewerId) };
+    case 'draftStarted':
+    case 'draftPicked':
+      return projectDraftEvent(event, viewerId);
     default:
       return event;
   }
@@ -116,6 +129,9 @@ export function applyRoomEvent(state: RoomState, e: RoomEvent): RoomState {
       if (card) cards[id] = { ...card, printingId: null, note: null };
     }
     next = { ...next, game: { ...next.game, cards } };
+  }
+  if ((e.draftRevealed || e.draftHidden) && next.draft) {
+    next = { ...next, draft: applyDraftIdentities(next.draft, e.draftRevealed ?? [], e.draftHidden ?? []) };
   }
   return next;
 }

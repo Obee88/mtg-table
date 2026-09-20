@@ -6,6 +6,8 @@ export interface LogContext {
   playerName: (playerId: string) => string;
   /** Name of a card instance as the viewer knows it (null when hidden). */
   cardName: (instanceId: string) => string | null;
+  /** Name of a printing (draft picks name cards by printing, not instance). */
+  printingName?: (printingId: string) => string | undefined;
 }
 
 const ZONE_LABEL: Record<string, string> = {
@@ -14,6 +16,7 @@ const ZONE_LABEL: Record<string, string> = {
 
 export function logContextFor(state: RoomState, printingName: (printingId: string) => string | undefined): LogContext {
   return {
+    printingName,
     playerName: (id) => state.players[id]?.displayName ?? 'Someone',
     cardName: (id) => {
       const card = state.game?.cards[id];
@@ -111,5 +114,11 @@ export function describeEvent(e: RoomEvent, ctx: LogContext): string | null {
       return `${actor} rolled ${ev.results.length > 1 ? `${ev.results.length}d${ev.sides}` : `a d${ev.sides}`}: ${ev.results.join(', ')}${ev.results.length > 1 ? ` (total ${ev.results.reduce((a, b) => a + b, 0)})` : ''}`;
     case 'coinFlipped':
       return `${actor} flipped ${ev.results.length > 1 ? `${ev.results.length} coins` : 'a coin'}: ${ev.results.join(', ')}`;
+    case 'draftStarted':
+      return `Draft started: ${ev.config.name}, ${ev.packs.length} packs over ${ev.config.phases.length} phase${ev.config.phases.length === 1 ? '' : 's'}`;
+    case 'draftPicked': {
+      const name = ev.printingId ? (ctx.printingName?.(ev.printingId) ?? 'a card') : 'a card';
+      return `${ctx.playerName(ev.playerId)} picked ${name}${ev.faceUp ? ' face up' : ''}${ev.double ? ' (double pick)' : ''}`;
+    }
   }
 }

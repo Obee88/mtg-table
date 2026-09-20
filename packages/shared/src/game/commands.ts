@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { draftCommandSchema } from '../draft/commands.js';
 import { positionSchema, roomSettingsSchema } from './events.js';
 
 export const revealTargetSchema = z.union([z.literal('all'), z.array(z.string()).min(1).max(8)]);
@@ -80,6 +81,8 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
     count: z.number().int().min(1).max(20),
     position: positionSchema.optional(),
   }),
+  // ---- draft ----
+  ...draftCommandSchema.options,
 ]);
 
 export type GameCommand = z.infer<typeof gameCommandSchema>;

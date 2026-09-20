@@ -17,7 +17,7 @@ const PRESETS: { label: string; settings: RoomSettings }[] = [
 ];
 
 export const describeSettings = (s: RoomSettings) =>
-  `${s.mode === '1v1' ? '1v1' : s.mode === 'ffa' ? `${s.playerCount}-player FFA` : '2v2'} · ${s.startingLife} life${s.commander ? ' · commander' : ''}`;
+  `${s.draft ? `Draft: ${s.draft.name} · ` : ''}${s.mode === '1v1' ? '1v1' : s.mode === 'ffa' ? `${s.playerCount}-player FFA` : '2v2'} · ${s.startingLife} life${s.commander ? ' · commander' : ''}`;
 
 export function RoomListPage() {
   const me = useMe();
@@ -68,9 +68,9 @@ export function RoomListPage() {
               <Link to={`/rooms/${r.id}`} className="flex min-w-0 flex-1 items-center justify-between gap-3">
                 <span className="min-w-0">
                   <span className="block font-medium">{describeSettings(r.settings)}{r.ownerId === me.data?.id && <Chip type="primary" shape="pill" className="ml-2">yours</Chip>}</span>
-                  <span className="mt-0.5 flex items-center gap-2 text-text-muted"><Chip type={r.phase === 'lobby' ? 'success' : r.phase === 'playing' ? 'primary' : 'neutral'}>{r.phase}</Chip>{r.playerCount}/{r.settings.playerCount} seated · {new Date(r.createdAt).toLocaleString()}</span>
+                  <span className="mt-0.5 flex items-center gap-2 text-text-muted"><Chip type={r.phase === 'lobby' ? 'success' : r.phase === 'ended' ? 'neutral' : 'primary'}>{r.phase}</Chip>{r.playerCount}/{r.settings.playerCount} seated · {new Date(r.createdAt).toLocaleString()}</span>
                 </span>
-                <span className="text-accent">{r.phase === 'playing' ? 'Rejoin' : 'Open'}</span>
+                <span className="text-accent">{r.phase === 'lobby' ? 'Open' : 'Rejoin'}</span>
               </Link>
               {r.ownerId === me.data?.id && (
                 <Button variant="ghost" className="text-danger" disabled={close.isPending} onClick={() => confirm('Close this room for everyone?') && close.mutate(r.id)}>

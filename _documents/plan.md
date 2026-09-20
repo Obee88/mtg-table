@@ -92,9 +92,9 @@ PickAndPassSettings { packSize, packsPerPlayer, rounds, direction: 'alternate' |
 - `cubes(id, owner_id, name)` · `cube_versions(id, cube_id, number, note, created_by, created_at)` · `cube_version_cards(version_id, card_id, quantity)` — every save is a full snapshot (migration 0005)
 - `draft_configs(id, owner_id, name, json)`
 - `decks(id, owner_id, name, json)` — main / sideboard / commander as printing ids
-- `rooms(id, owner_id, kind, settings_json, status, created_at)` · `room_players(room_id, user_id, seat, team)`
+- `rooms(id, owner_id, settings_json, phase, created_at)` — a draft room is a room whose settings carry a `draft` config; phase runs lobby → drafting → deckbuilding → playing → ended · `room_players(room_id, user_id, seat)`
 - `room_events(room_id, seq, actor_id, type, payload, created_at)` · `room_snapshots(room_id, seq, state)`
-- `draft_picks(room_id, seq, player_id, card_id, pack_contents, pick_no, overall_pick_no, double_pick)` — denormalized from events for stats
+- `draft_picks(room_id, overall_pick, player_id, card_id, phase, round, pack_id, pick_in_pack, pack_contents, double_pick)` — denormalized from `draftPicked` events for stats (migration 0006)
 - `game_results(room_id, reported_by, winners, json)`
 
 ---
@@ -157,7 +157,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 
 **M5 — Draft**
 - [x] Draft engine core (a): pure model in shared — config, pick-and-pass phase, dealing, pass-direction rule, pick log with pack context, projection
-- [ ] Draft engine core (b): server integration — draft rooms over the event stream, pools from cube versions, draft_picks table, routes, socket, tests
+- [x] Draft engine core (b): server integration — draft rooms over the event stream, pools from cube versions, draft_picks table, routes, socket, tests
 - [ ] Draft config editor and the house-rules preset (phase 1 tri-color pool + phase 2 main cube)
 - [ ] Draft ability hooks with Cogwork Librarian
 - [ ] Draft UI: packs, pass direction / pick counter, face-up picks per seat, sortable pool

@@ -1,3 +1,4 @@
+import { reduceDraft } from '../draft/reduce.js';
 import type { GameEvent } from './events.js';
 import { emptyPlayerGameState, type CardInstance, type GameState, type PlayerGameState, type RoomState, type ZoneName } from './types.js';
 
@@ -18,6 +19,7 @@ export function initialRoomState(id: string): RoomState {
     phase: 'lobby',
     players: {},
     game: null,
+    draft: null,
     seq: 0,
   };
 }
@@ -281,6 +283,15 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
 
     case 'roomClosed':
       return { ...state, phase: 'ended' };
+
+    // ---- draft: the draft state is its own reducer; the room only tracks the phase ----
+    case 'draftStarted':
+      return { ...state, phase: 'drafting', draft: reduceDraft(null, event) };
+
+    case 'draftPicked': {
+      const draft = reduceDraft(state.draft ?? null, event);
+      return { ...state, draft, phase: draft?.status === 'finished' ? 'deckbuilding' : state.phase };
+    }
   }
 }
 

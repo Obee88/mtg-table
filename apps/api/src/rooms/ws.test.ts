@@ -199,3 +199,59 @@ describe('projection over the wire', () => {
     await b.close();
   });
 });
+
+describe('draft over the wire', () => {
+  it('reveals a pack only when it reaches the seat, and hides it once passed', async () => {
+    const { schema } = await import('../db/index.js');
+    const cardIds = [0, 1, 2, 3].map((i) => `66666666-6666-4666-8666-66666666666${i}`);
+    await ctx.app.db.insert(schema.cards).values(cardIds.map((id, i) => ({
+      id, name: `Pick ${i}`, lang: 'en', layout: 'normal', setCode: 'lea', setName: 'Alpha', setType: 'core',
+      collectorNumber: String(10 + i), releasedAt: '1993-08-05', rarity: 'common', colorIdentity: [], faces: [], oracleId: null,
+    })));
+    const me = async (cookie: string) => (await ctx.app.inject({ url: '/me', headers: { cookie } })).json().id as string;
+    const [aliceId, bobId] = [await me(alice), await me(bob)];
+    const [cube] = await ctx.app.db.insert(schema.cubes).values({ ownerId: aliceId, name: 'Wire cube' }).returning();
+    const [version] = await ctx.app.db.insert(schema.cubeVersions).values({ cubeId: cube!.id, number: 1, createdBy: aliceId }).returning();
+    await ctx.app.db.insert(schema.cubeVersionCards).values(cardIds.map((cardId) => ({ versionId: version!.id, cardId, quantity: 1 })));
+    const draft = { name: 'Wire', seats: 2, startDirection: 'left', phases: [{ type: 'pickAndPass', name: 'Only', poolCubeVersionId: version!.id, packSize: 2, packsPerPlayer: 1, rounds: 1, direction: 'alternate' }] };
+
+    const created = await ctx.app.inject({ method: 'POST', url: '/rooms', headers: { origin: TEST_ORIGIN, cookie: alice }, payload: { settings: { ...settings, draft } } });
+    const room = created.json().id as string;
+    const http = (cookie: string, command: object) => ctx.app.inject({ method: 'POST', url: `/rooms/${room}/commands`, headers: { origin: TEST_ORIGIN, cookie }, payload: command });
+    await http(bob, { type: 'join' });
+    await http(alice, { type: 'setReady', ready: true });
+    await http(bob, { type: 'setReady', ready: true });
+
+    const b = new Client(bob, room);
+    await b.open();
+    b.send({ type: 'hello', lastSeq: 0 });
+    await b.nextOf('state');
+
+    expect((await http(alice, { type: 'start' })).statusCode).toBe(200);
+    const started = await b.nextOf('events');
+    const ev = started.events[0]!;
+    if (ev.event.type !== 'draftStarted') throw new Error('expected draftStarted');
+    expect(ev.event.packs.flatMap((p) => p.cards).every((c) => c.printingId === null)).toBe(true);
+    expect(ev.draftRevealed).toHaveLength(2);
+    const bobPack = ev.event.packs.find((p) => p.cards.some((c) => c.id === ev.draftRevealed![0]!.cardId))!;
+    const alicePack = ev.event.packs.find((p) => p.id !== bobPack.id)!;
+
+    // Alice picks: Bob receives the event with the identity hidden, and no reveal yet (her pack queues behind his).
+    const aliceView = (await ctx.app.inject({ url: `/rooms/${room}`, headers: { cookie: alice } })).json();
+    const aliceCard = aliceView.draft.packs[alicePack.id].cards[0];
+    expect(aliceCard.printingId).not.toBe('');
+    await http(alice, { type: 'draftPick', cardId: aliceCard.id });
+    const picked = await b.nextOf('events');
+    expect(picked.events[0]!.event).toMatchObject({ type: 'draftPicked', playerId: aliceId, printingId: null });
+    expect(picked.events[0]!.draftRevealed).toBeUndefined();
+
+    // Bob picks over the socket: his pack leaves (hidden) and Alice's remaining card arrives (revealed).
+    b.send({ type: 'command', id: 'p1', command: { type: 'draftPick', cardId: bobPack.cards[0]!.id } });
+    const own = await b.nextOf('events');
+    expect(own.events[0]!.event).toMatchObject({ type: 'draftPicked', playerId: bobId, cardId: bobPack.cards[0]!.id });
+    expect(own.events[0]!.draftHidden).toEqual([bobPack.cards[1]!.id]);
+    expect(own.events[0]!.draftRevealed).toEqual([{ cardId: alicePack.cards[1]!.id, printingId: expect.any(String) }]);
+    expect(await b.nextOf('result')).toEqual({ type: 'result', id: 'p1', ok: true, seq: own.events[0]!.seq });
+    await b.close();
+  });
+});

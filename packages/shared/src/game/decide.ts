@@ -1,6 +1,8 @@
 import type { GameCommand } from './commands.js';
 import type { GameEvent } from './events.js';
 import type { DeckContents } from '../decks.js';
+import { dealDraft, decideDraft } from '../draft/decide.js';
+import type { DraftCard } from '../draft/types.js';
 import { defaultVisibility } from './reduce.js';
 import { activePlayer, inMulligan, isActive, seatedPlayers, shuffled, teamForSeat, type CardInstance, type PlayerGameState, type RoomState } from './types.js';
 
@@ -14,6 +16,8 @@ export interface CommandContext {
   now: Date;
   /** Needed by `start`: each seated player's deck, a random source in [0, 1) and fresh ids. */
   decks?: Record<string, DeckContents>;
+  /** Needed by `start` in a draft room: printing ids per cube version id, one entry per copy. */
+  draftPools?: Record<string, string[]>;
   random?: () => number;
   newId?: () => string;
 }
@@ -65,7 +69,7 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
     case 'setReady':
       if (!me) return reject('Not in the room');
       if (state.phase !== 'lobby') return reject('Game already started');
-      if (command.ready && !me.deckId) return reject('Choose a deck first');
+      if (command.ready && !me.deckId && !state.settings.draft) return reject('Choose a deck first');
       if (me.ready === command.ready) return accept();
       return accept({ type: 'readyChanged', playerId: ctx.actorId, ready: command.ready });
 
@@ -76,6 +80,7 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       if (command.settings.playerCount < seated) return reject(`${seated} players are seated`);
       if (command.settings.mode === '2v2' && command.settings.playerCount !== 4) return reject('2v2 needs 4 players');
       if (command.settings.mode === '1v1' && command.settings.playerCount !== 2) return reject('1v1 needs 2 players');
+      if (command.settings.draft && command.settings.draft.seats !== command.settings.playerCount) return reject('The draft is for a different number of players');
       return accept({ type: 'settingsChanged', settings: command.settings });
     }
 
@@ -86,7 +91,12 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       if (players.length !== state.settings.playerCount) return reject(`Waiting for ${state.settings.playerCount - players.length} more player(s)`);
       const notReady = players.filter((p) => !p.ready);
       if (notReady.length > 0) return reject(`Not ready: ${notReady.map((p) => p.displayName).join(', ')}`);
-      return deal(state, ctx);
+      return state.settings.draft ? startDraft(state, ctx) : deal(state, ctx);
+    }
+
+    case 'draftPick': {
+      if (state.phase !== 'drafting') return reject('No draft running');
+      return decideDraft(state.draft ?? null, command, ctx.actorId);
     }
 
     case 'restart': {
@@ -452,6 +462,16 @@ function deal(state: RoomState, ctx: CommandContext): Decision {
   }
   const openingRoll = rollForFirst(players.map((p) => p.id), ctx.random);
   return accept({ type: 'gameStarted', firstPlayerId: openingRoll.winner, openingRoll: openingRoll.rolls, players: layouts });
+}
+
+/** Deals every pack of the configured draft from the cube-version pools the server loaded. Seats are fixed from here on. */
+function startDraft(state: RoomState, ctx: CommandContext): Decision {
+  const config = state.settings.draft;
+  if (!config || !ctx.draftPools || !ctx.random || !ctx.newId) return reject('Draft pools unavailable');
+  const pools: DraftCard[][] = config.phases.map((phase) =>
+    (ctx.draftPools![phase.poolCubeVersionId] ?? []).map((printingId) => ({ id: ctx.newId!(), printingId })),
+  );
+  return dealDraft(config, seatedPlayers(state).map((p) => p.id), { pools, random: ctx.random, newId: ctx.newId });
 }
 
 const MULLIGAN_WAIT = 'Waiting for everyone to keep their opening hand';

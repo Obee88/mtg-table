@@ -21,7 +21,7 @@ import { HttpError } from '../errors.js';
 const SNAPSHOT_EVERY = 50;
 const IDLE_EVICT_MS = 30 * 60 * 1000;
 /** Lobby and bookkeeping events are never undone. */
-const NOT_UNDOABLE = new Set(['roomCreated', 'settingsChanged', 'playerJoined', 'playerLeft', 'seatChanged', 'deckSelected', 'readyChanged', 'roomClosed', 'gameStarted', 'actionUndone', 'mulliganTaken', 'handKept']);
+const NOT_UNDOABLE = new Set(['roomCreated', 'settingsChanged', 'playerJoined', 'playerLeft', 'seatChanged', 'deckSelected', 'readyChanged', 'roomClosed', 'gameStarted', 'actionUndone', 'mulliganTaken', 'handKept', 'draftStarted', 'draftPicked']);
 
 export type RoomListener = (events: RoomEvent[], state: RoomState, before: RoomState) => void;
 
@@ -124,6 +124,11 @@ export class RoomService {
         newId: () => randomUUID(),
       };
       if (command.type === 'start' || command.type === 'restart') ctx.decks = await this.loadDecks(room.state);
+      if (command.type === 'start' && room.state.settings.draft) {
+        const pools = await this.loadDraftPools(room.state.settings.draft.phases.map((p) => p.poolCubeVersionId));
+        if (!pools.ok) return pools;
+        ctx.draftPools = pools.pools;
+      }
       const decision = command.type === 'undo' ? await this.undoDecision(room, actor) : decide(room.state, command, ctx);
       if (!decision.ok) return decision;
       if (decision.events.length === 0) return { ok: true, events: [], state: room.state, before: room.state };
@@ -148,6 +153,18 @@ export class RoomService {
       if (row) decks[w.playerId] = row.contents;
     }
     return decks;
+  }
+
+  /** Printing ids (one per copy) of each cube version a draft deals from. */
+  private async loadDraftPools(versionIds: string[]): Promise<{ ok: true; pools: Record<string, string[]> } | { ok: false; error: string }> {
+    const ids = [...new Set(versionIds)];
+    const versions = await this.db.select({ id: schema.cubeVersions.id }).from(schema.cubeVersions).where(inArray(schema.cubeVersions.id, ids));
+    const missing = ids.filter((id) => !versions.some((v) => v.id === id));
+    if (missing.length > 0) return { ok: false, error: 'A cube version this draft uses no longer exists' };
+    const rows = await this.db.select().from(schema.cubeVersionCards).where(inArray(schema.cubeVersionCards.versionId, ids));
+    const pools: Record<string, string[]> = Object.fromEntries(ids.map((id) => [id, []]));
+    for (const r of rows) for (let i = 0; i < r.quantity; i++) pools[r.versionId]!.push(r.cardId);
+    return { ok: true, pools };
   }
 
   subscribe(roomId: string, listener: RoomListener): () => void {
@@ -215,6 +232,14 @@ export class RoomService {
         } else if (e.type === 'seatChanged') {
           await tx.update(schema.roomPlayers).set({ seat: e.seat }).where(and(eq(schema.roomPlayers.roomId, room.state.id), eq(schema.roomPlayers.userId, e.playerId)));
         }
+      }
+      // Picks are denormalised for statistics; the draft reducer already computed their context.
+      const picked = after.draft ? after.draft.picks.slice(before.draft?.picks.length ?? 0) : [];
+      if (picked.length > 0) {
+        await tx.insert(schema.draftPicks).values(picked.map((p) => ({
+          roomId: room.state.id, overallPick: p.n, playerId: p.playerId, cardId: p.card.printingId, phase: p.phase, round: p.round,
+          packId: p.packId, pickInPack: p.pickInPack, packContents: p.packContents, doublePick: p.double, createdAt: now,
+        })));
       }
       if (Math.floor(after.seq / SNAPSHOT_EVERY) > Math.floor(before.seq / SNAPSHOT_EVERY)) {
         await tx

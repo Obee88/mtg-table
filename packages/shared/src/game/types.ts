@@ -1,3 +1,5 @@
+import type { DraftConfig, DraftState } from '../draft/types.js';
+
 /** User id of a seated player. */
 export type PlayerId = string;
 /** Id of one physical card at the table (not the printing). */
@@ -13,6 +15,8 @@ export interface RoomSettings {
   mode: GameMode;
   startingLife: number;
   commander: boolean;
+  /** Present for draft rooms: the draft runs before the game, with fixed seats. */
+  draft?: DraftConfig | null | undefined;
 }
 
 export type Visibility = 'owner' | 'all' | PlayerId[];
@@ -82,7 +86,7 @@ export interface RoomPlayer {
   ready: boolean;
 }
 
-export type RoomPhase = 'lobby' | 'playing' | 'ended';
+export type RoomPhase = 'lobby' | 'drafting' | 'deckbuilding' | 'playing' | 'ended';
 
 export interface RoomState {
   id: string;
@@ -91,6 +95,8 @@ export interface RoomState {
   phase: RoomPhase;
   players: Record<PlayerId, RoomPlayer>;
   game: GameState | null;
+  /** The draft of a draft room, from `draftStarted` on; null for pre-constructed rooms. */
+  draft: DraftState | null;
   /** Sequence number of the last event applied. */
   seq: number;
 }

@@ -67,3 +67,66 @@ describe('room list after closing', () => {
     expect((await call('GET', `/rooms/${id}`, alice)).json().phase).toBe('ended');
   });
 });
+
+describe('draft rooms over HTTP', () => {
+  const cardIds = [0, 1, 2, 3].map((i) => `55555555-5555-4555-8555-55555555555${i}`);
+
+  it('projects packs per viewer, streams reveals, and serves the pick log once finished', async () => {
+    const db = ctx.app.db;
+    const { schema } = await import('../db/index.js');
+    await db.insert(schema.cards).values(cardIds.map((id, i) => ({
+      id, name: `Card ${i}`, lang: 'en', layout: 'normal', setCode: 'lea', setName: 'Alpha', setType: 'core',
+      collectorNumber: String(i), releasedAt: '1993-08-05', rarity: 'common', colorIdentity: [], faces: [], oracleId: null,
+    })));
+    const cube = await call('POST', '/cubes', alice, { name: 'Tiny', cards: cardIds.map((printingId) => ({ printingId, quantity: 1 })) });
+    expect(cube.statusCode).toBe(201);
+    const versionId = cube.json().version.id as string;
+    const draft = { name: 'Tiny', seats: 2, startDirection: 'left', phases: [{ type: 'pickAndPass', name: 'Only', poolCubeVersionId: versionId, packSize: 2, packsPerPlayer: 1, rounds: 1, direction: 'alternate' }] };
+
+    const created = await call('POST', '/rooms', alice, { settings: { playerCount: 2, mode: '1v1', startingLife: 20, commander: false, draft } });
+    expect(created.statusCode).toBe(201);
+    const id = created.json().id as string;
+    await call('POST', `/rooms/${id}/commands`, bob, { type: 'join' });
+    await call('POST', `/rooms/${id}/commands`, alice, { type: 'setReady', ready: true });
+    await call('POST', `/rooms/${id}/commands`, bob, { type: 'setReady', ready: true });
+    const seqBefore = (await call('GET', `/rooms/${id}`, alice)).json().seq as number;
+    const started = await call('POST', `/rooms/${id}/commands`, alice, { type: 'start' });
+    expect(started.statusCode).toBe(200);
+
+    expect((await call('GET', `/rooms/${id}/draft/picks`, alice)).statusCode).toBe(400);
+
+    const forBob = (await call('GET', `/rooms/${id}`, bob)).json();
+    expect(forBob.phase).toBe('drafting');
+    const bobId = forBob.draft.seats[1] as string;
+    const bobPack = forBob.draft.packs[forBob.draft.players[bobId].queue[0]];
+    expect(bobPack.cards.every((c: { printingId: string }) => cardIds.includes(c.printingId))).toBe(true);
+    const alicePack = forBob.draft.packs[forBob.draft.players[forBob.draft.seats[0]].queue[0]];
+    expect(alicePack.cards.every((c: { printingId: string }) => c.printingId === '')).toBe(true);
+
+    const events = (await call('GET', `/rooms/${id}/events?after=${seqBefore}`, bob)).json();
+    expect(events).toHaveLength(1);
+    expect(events[0].event.packs.every((p: { cards: { printingId: null }[] }) => p.cards.every((c) => c.printingId === null))).toBe(true);
+    expect(events[0].draftRevealed).toHaveLength(2);
+
+    const pick = async (cookie: string) => {
+      const s = (await call('GET', `/rooms/${id}`, cookie)).json();
+      const meId = Object.keys(s.draft.players).find((p) => s.draft.packs[s.draft.players[p].queue[0]]?.cards[0]?.printingId)!;
+      const pack = s.draft.packs[s.draft.players[meId].queue[0]];
+      const r = await call('POST', `/rooms/${id}/commands`, cookie, { type: 'draftPick', cardId: pack.cards[0].id });
+      expect(r.statusCode).toBe(200);
+      return r.json();
+    };
+    const first = await pick(alice);
+    expect(first.events[0].draftHidden).toHaveLength(1);
+    expect((await call('POST', `/rooms/${id}/commands`, alice, { type: 'draftPick', cardId: 'nope' })).json().message).toBe('No pack to pick from — waiting for the pack to be passed');
+    await pick(bob);
+    await pick(alice);
+    await pick(bob);
+
+    expect((await call('GET', `/rooms/${id}`, alice)).json().phase).toBe('deckbuilding');
+    const log = await call('GET', `/rooms/${id}/draft/picks`, bob);
+    expect(log.statusCode).toBe(200);
+    expect(log.json().map((p: { n: number; pickInPack: number }) => [p.n, p.pickInPack])).toEqual([[1, 1], [2, 1], [3, 2], [4, 2]]);
+    expect((await call('GET', `/rooms/${id}/draft/picks`, alice)).json()).toHaveLength(4);
+  });
+});

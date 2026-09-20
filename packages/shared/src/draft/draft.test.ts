@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { dealDraft, decideDraft } from './decide.js';
 import type { DraftEvent } from './events.js';
-import { projectDraft, projectDraftEvent } from './project.js';
+import { applyDraftIdentities, projectDraft, projectDraftEvent, visibleDraftCards } from './project.js';
 import { reduceDraft } from './reduce.js';
 import { cardsNeeded, directionFor, nextSeat, type DraftCard, type DraftConfig, type DraftState } from './types.js';
 
@@ -148,21 +148,37 @@ describe('rounds and phases', () => {
 });
 
 describe('projection', () => {
-  it('shows only the pack at hand and the viewer\'s own pool; picks wait for the end', () => {
+  it('shows only the pack at hand, the viewer\'s own pool and face-up picks; only own picks are logged', () => {
     let s = start();
+    s = everyonePicks(s); // hidden picks
     s = everyonePicks(s, { faceUp: true });
     const view = projectDraft(s, 'a');
     const mine = view.players.a!.queue[0]!;
     expect(view.packs[mine]!.cards.every((c) => c.printingId !== '')).toBe(true);
     for (const [id, p] of Object.entries(view.packs)) if (id !== mine) expect(p.cards.every((c) => c.printingId === '')).toBe(true);
-    expect(view.players.a!.pool[0]!.printingId).not.toBe('');
-    expect(view.players.b!.pool[0]!.printingId).toBe('');
+    expect(view.players.a!.pool.every((c) => c.printingId !== '')).toBe(true);
+    expect(view.players.b!.pool.map((c) => c.printingId === '')).toEqual([true, false]);
     expect(view.players.b!.faceUp[0]!.printingId).not.toBe('');
-    expect(view.picks.map((p) => p.playerId)).toEqual(['a']);
+    // Others' records keep their numbering but only face-up cards stay named; pack contents are blank.
+    expect(view.picks.map((p) => p.n)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(view.picks.filter((p) => p.playerId !== 'a').map((p) => p.card.printingId !== '')).toEqual([false, false, false, true, true, true]);
+    expect(view.picks.filter((p) => p.playerId !== 'a').every((p) => p.packContents.every((c) => c === ''))).toBe(true);
+    expect(view.picks.filter((p) => p.playerId === 'a').every((p) => p.packContents.every((c) => c !== ''))).toBe(true);
 
-    // A finished draft reveals the whole log.
-    const done = { ...s, status: 'finished' as const };
-    expect(projectDraft(done, 'a').picks).toHaveLength(4);
+    const visible = visibleDraftCards(s, 'a');
+    expect(visible.size).toBe(3 + 2 + 3); // pack at hand (5 − 2 picks), own pool, others' face-up picks
+  });
+
+  it('applies revealed/hidden identities wherever the cards sit', () => {
+    let s = start();
+    s = everyonePicks(s);
+    const stripped = projectDraft(s, 'zed'); // nobody: everything blank
+    const mine = s.players.a!.queue[0]!;
+    const revealed = s.packs[mine]!.cards.map((c) => ({ cardId: c.id, printingId: c.printingId }));
+    const applied = applyDraftIdentities(stripped, [...revealed, { cardId: s.players.a!.pool[0]!.id, printingId: s.players.a!.pool[0]!.printingId }], []);
+    expect(applied.packs[mine]).toEqual(s.packs[mine]);
+    expect(applied.players.a!.pool).toEqual(s.players.a!.pool);
+    expect(applyDraftIdentities(applied, [], revealed.map((r) => r.cardId)).packs[mine]!.cards.every((c) => c.printingId === '')).toBe(true);
   });
 
   it('strips identities from the events others receive', () => {

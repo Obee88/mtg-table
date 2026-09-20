@@ -118,7 +118,7 @@ export const rooms = pgTable(
     ownerId: uuid('owner_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    phase: text('phase', { enum: ['lobby', 'playing', 'ended'] }).notNull().default('lobby'),
+    phase: text('phase', { enum: ['lobby', 'drafting', 'deckbuilding', 'playing', 'ended'] }).notNull().default('lobby'),
     settings: jsonb('settings').$type<RoomSettings>().notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -219,3 +219,34 @@ export const cubeVersionCards = pgTable(
 
 export type CubeRow = typeof cubes.$inferSelect;
 export type CubeVersionRow = typeof cubeVersions.$inferSelect;
+
+// ---- draft picks: denormalised from `draftPicked` events for statistics ----
+
+export const draftPicks = pgTable(
+  'draft_picks',
+  {
+    roomId: uuid('room_id')
+      .notNull()
+      .references(() => rooms.id, { onDelete: 'cascade' }),
+    /** Overall pick number within the draft (1-based). */
+    overallPick: integer('overall_pick').notNull(),
+    playerId: uuid('player_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    cardId: uuid('card_id')
+      .notNull()
+      .references(() => cards.id),
+    phase: integer('phase').notNull(),
+    round: integer('round').notNull(),
+    packId: text('pack_id').notNull(),
+    /** 1-based position within the pack (how many cards had already left it + 1). */
+    pickInPack: integer('pick_in_pack').notNull(),
+    /** Printing ids the pack held when the pick was made, including the chosen one. */
+    packContents: jsonb('pack_contents').$type<string[]>().notNull(),
+    doublePick: boolean('double_pick').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.roomId, t.overallPick] }), index('draft_picks_player_id_idx').on(t.playerId), index('draft_picks_card_id_idx').on(t.cardId)],
+);
+
+export type DraftPickRow = typeof draftPicks.$inferSelect;
