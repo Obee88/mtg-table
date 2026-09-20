@@ -1,0 +1,46 @@
+import { z } from 'zod';
+
+export const passDirectionSchema = z.enum(['left', 'right']);
+
+export const pickAndPassConfigSchema = z.object({
+  type: z.literal('pickAndPass'),
+  name: z.string().trim().min(1).max(60),
+  poolCubeVersionId: z.string(),
+  packSize: z.number().int().min(1).max(30),
+  packsPerPlayer: z.number().int().min(1).max(4),
+  rounds: z.number().int().min(1).max(10),
+  direction: z.enum(['alternate', 'left', 'right']),
+});
+
+export const draftConfigSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  seats: z.union([z.literal(2), z.literal(4)]),
+  startDirection: passDirectionSchema,
+  phases: z.array(pickAndPassConfigSchema).min(1).max(6),
+});
+
+const draftCardSchema = z.object({ id: z.string(), printingId: z.string().nullable() });
+const packSchema = z.object({ id: z.string(), phase: z.number().int(), round: z.number().int(), cards: z.array(draftCardSchema) });
+
+/** Facts about a draft. `draftStarted` carries every pack dealt for every phase and round. */
+export const draftEventSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('draftStarted'),
+    config: draftConfigSchema,
+    seats: z.array(z.string()),
+    packs: z.array(packSchema),
+    /** dealt[phase][round][seat] = pack ids */
+    dealt: z.array(z.array(z.array(z.array(z.string())))),
+  }),
+  z.object({
+    type: z.literal('draftPicked'),
+    playerId: z.string(),
+    packId: z.string(),
+    cardId: z.string(),
+    /** Printing may be null in a projection for viewers who may not see it. */
+    printingId: z.string().nullable(),
+    faceUp: z.boolean(),
+    double: z.boolean(),
+  }),
+]);
+export type DraftEvent = z.infer<typeof draftEventSchema>;

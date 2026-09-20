@@ -156,7 +156,8 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] Version history: diff any two versions, restore
 
 **M5 — Draft**
-- [ ] Draft engine core: phases, pick-and-pass type, pack dealing, pass-direction rule, pick log with pack context
+- [x] Draft engine core (a): pure model in shared — config, pick-and-pass phase, dealing, pass-direction rule, pick log with pack context, projection
+- [ ] Draft engine core (b): server integration — draft rooms over the event stream, pools from cube versions, draft_picks table, routes, socket, tests
 - [ ] Draft config editor and the house-rules preset (phase 1 tri-color pool + phase 2 main cube)
 - [ ] Draft ability hooks with Cogwork Librarian
 - [ ] Draft UI: packs, pass direction / pick counter, face-up picks per seat, sortable pool
