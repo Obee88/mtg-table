@@ -68,3 +68,42 @@ describe('cube routes', () => {
     expect((await call('GET', '/cubes', alice)).json()).toEqual([]);
   });
 });
+
+describe('Cube Cobra import', () => {
+  it('matches exact Scryfall ids, resolves the rest by name, reports unknowns', async () => {
+    const stub = async (id: string) => {
+      if (id === 'missing') return { status: 404, json: async () => 'Cube not found.' };
+      return {
+        status: 200,
+        json: async () => ({
+          name: 'Test Cube',
+          cards: {
+            mainboard: [
+              { cardID: BOLT, board: 'mainboard', details: { name: 'Lightning Bolt', set: 'lea', collector_number: '161' } },
+              { cardID: '99999999-9999-4999-8999-999999999999', board: 'mainboard', details: { name: 'Counterspell', set: 'xyz', collector_number: '1' } },
+              { cardID: '88888888-8888-4888-8888-888888888888', board: 'mainboard', details: { name: 'Nonexistent Card' } },
+              { cardID: BOLT, board: 'maybeboard', details: { name: 'Lightning Bolt' } },
+            ],
+          },
+        }),
+      };
+    };
+    const t = await testApp({ cardSource: fakeSource([rawCard(), rawCard({ id: COUNTER, oracle_id: '55555555-5555-4555-8555-555555555555', name: 'Counterspell' })]), cubeCobraFetch: stub });
+    await t.app.cardIngest.start();
+    await t.app.cardIngest.wait();
+    const reg = await t.app.inject({ method: 'POST', url: '/auth/register', headers: { origin: TEST_ORIGIN }, payload: { email: 'c@x.io', password: 'secret1', displayName: 'Cy' } });
+    const cookie = sessionCookie(reg);
+    const res = await t.app.inject({ method: 'POST', url: '/cubes/import/cubecobra', headers: { origin: TEST_ORIGIN, cookie }, payload: { ref: 'https://cubecobra.com/cube/overview/testcube' } });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.name).toBe('Test Cube');
+    expect(body.cubeCobraId).toBe('testcube');
+    expect(body.exactMatches).toBe(1);
+    expect(body.resolved.main.map((c: { printing: { id: string } }) => c.printing.id)).toEqual([BOLT, COUNTER]);
+    expect(body.warnings.length).toBe(1); // (XYZ) 1 not found → default printing
+    expect(body.unknown.map((u: { name: string; line: number }) => [u.line, u.name])).toEqual([[3, 'Nonexistent Card']]);
+    expect((await t.app.inject({ method: 'POST', url: '/cubes/import/cubecobra', headers: { origin: TEST_ORIGIN, cookie }, payload: { ref: 'missing' } })).statusCode).toBe(404);
+    expect((await t.app.inject({ method: 'POST', url: '/cubes/import/cubecobra', headers: { origin: TEST_ORIGIN, cookie }, payload: { ref: 'https://example.com/x' } })).statusCode).toBe(400);
+    await t.close();
+  });
+});

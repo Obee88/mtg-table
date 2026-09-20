@@ -2,6 +2,7 @@ import type { CubeCard, CubeResponse, CubeSummary, CubeVersionSummary } from '@m
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { importCubeCobra } from './cubecobra.js';
 import { getPrintings } from '../cards/search.js';
 import { schema, type CubeRow, type CubeVersionRow, type Db } from '../db/index.js';
 import { badRequest, notFound, unauthorized } from '../errors.js';
@@ -15,6 +16,7 @@ const versionInput = z.object({ cards: cardsInput, note: z.string().trim().max(2
 const renameInput = z.object({ name: z.string().trim().min(1).max(80) });
 const idParam = z.object({ id: z.uuid() });
 const versionQuery = z.object({ version: z.coerce.number().int().min(1).optional() });
+const cobraInput = z.object({ ref: z.string().trim().min(1).max(300) });
 
 const count = (cards: { quantity: number }[]) => cards.reduce((n, c) => n + c.quantity, 0);
 
@@ -81,6 +83,12 @@ export async function cubeRoutes(app: FastifyInstance): Promise<void> {
       printings: await getPrintings(db, cards.map((c) => c.printingId)),
     };
   }
+
+  /** Fetches a Cube Cobra cube and returns it as a reviewable list (not saved). */
+  app.post('/cubes/import/cubecobra', async (req) => {
+    const { ref } = parse(cobraInput, req.body);
+    return importCubeCobra(db, ref, app.cubeCobraFetch);
+  });
 
   app.get('/cubes', async (req): Promise<CubeSummary[]> => {
     const rows = await db.select().from(schema.cubes).where(eq(schema.cubes.ownerId, req.user!.id)).orderBy(desc(schema.cubes.updatedAt));

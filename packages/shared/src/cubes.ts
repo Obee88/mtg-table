@@ -1,4 +1,5 @@
 import type { CardPrinting } from './cards.js';
+import type { DeckImportResponse } from './decks.js';
 
 export interface CubeCard {
   printingId: string;
@@ -41,4 +42,13 @@ export interface CubeCreateInput {
 export interface CubeVersionInput {
   cards: CubeCard[];
   note?: string;
+}
+
+/** Result of importing a Cube Cobra cube: the same review shape as a pasted list, plus its name. */
+export interface CubeCobraImportResponse extends DeckImportResponse {
+  name: string;
+  /** Cube Cobra short id that was fetched. */
+  cubeCobraId: string;
+  /** Cards matched by exact Scryfall id (the rest were resolved by name). */
+  exactMatches: number;
 }

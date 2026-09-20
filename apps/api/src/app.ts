@@ -9,6 +9,7 @@ import { cardRoutes } from './cards/public-routes.js';
 import { cardAdminRoutes } from './cards/routes.js';
 import { scryfallSource, type CardSource } from './cards/scryfall.js';
 import type { Config } from './config.js';
+import { fetchCubeCobra, type CubeCobraFetch } from './cubes/cubecobra.js';
 import { cubeRoutes } from './cubes/routes.js';
 import { deckRoutes } from './decks/routes.js';
 import type { Db, UserRow } from './db/index.js';
@@ -25,6 +26,7 @@ declare module 'fastify' {
     db: Db;
     cardIngest: CardIngestService;
     rooms: RoomService;
+    cubeCobraFetch: CubeCobraFetch;
   }
   interface FastifyRequest {
     user: UserRow | null;
@@ -35,6 +37,8 @@ declare module 'fastify' {
 export interface AppDeps {
   /** Card data source; defaults to Scryfall. Tests inject a fake. */
   cardSource?: CardSource;
+  /** Cube Cobra export fetch; defaults to the real site. Tests inject a stub. */
+  cubeCobraFetch?: CubeCobraFetch;
 }
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -49,6 +53,7 @@ export async function buildApp(config: Config, db: Db, deps: AppDeps = {}): Prom
   app.decorate('db', db);
   app.decorate('cardIngest', new CardIngestService(db, deps.cardSource ?? scryfallSource, app.log));
   app.decorate('rooms', new RoomService(db, app.log));
+  app.decorate('cubeCobraFetch', deps.cubeCobraFetch ?? fetchCubeCobra);
   app.decorateRequest('user', null);
   app.decorateRequest('sessionToken', null);
 

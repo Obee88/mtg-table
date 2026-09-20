@@ -193,3 +193,9 @@ changes; static assets are served by nginx with proper caching instead of Node; 
 can later be moved or scaled independently. If the two-origin cookie setup ever becomes a
 problem, the fallback is the guide's nginx `proxy_pass https://api…` pattern, which makes
 the app single-origin again without changing the API.
+
+## Outbound calls
+
+- Scryfall bulk data (card ingest) and image CDN (hotlinked from the browser).
+- Cube Cobra `https://cubecobra.com/cube/api/cubeJSON/<id>` for cube import (server-side fetch,
+  ~1.5 MB per cube, on demand); its `cardID` is the Scryfall id, so printings match exactly.

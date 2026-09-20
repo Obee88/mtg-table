@@ -1,4 +1,4 @@
-import type { CubeResponse, DeckImportResponse } from '@mtg/shared';
+import type { CubeCobraImportResponse, CubeResponse, DeckImportResponse } from '@mtg/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, type ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
@@ -15,6 +15,16 @@ export function CubeImportPage() {
   const [text, setText] = useState('');
   const [report, setReport] = useState<DeckImportResponse | null>(null);
   const [cards, setCards] = useState<EditableCubeCard[] | null>(null);
+  const [cobraRef, setCobraRef] = useState('');
+
+  const cobra = useMutation({
+    mutationFn: (ref: string) => api<CubeCobraImportResponse>('/cubes/import/cubecobra', { body: { ref } }),
+    onSuccess: (res) => {
+      if (!name) setName(res.name);
+      setReport(res);
+      setCards(fromImport(res));
+    },
+  });
 
   const resolve = useMutation({
     mutationFn: (text: string) => api<DeckImportResponse>('/decks/import', { body: { text } }),
@@ -46,6 +56,21 @@ export function CubeImportPage() {
         <Link to="/cubes" className="text-sm text-accent hover:underline">Cubes</Link>
       </header>
       <div className="grid gap-6 lg:grid-cols-[2fr_3fr]">
+        <div className="flex flex-col gap-6">
+        <Card title="Import from Cube Cobra">
+          <form
+            className="flex flex-wrap items-end gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              cobra.mutate(cobraRef);
+            }}
+          >
+            <Input label="Cube URL or id" value={cobraRef} onChange={(e) => setCobraRef(e.target.value)} placeholder="https://cubecobra.com/cube/overview/…" />
+            <Button type="submit" variant="ghost" disabled={cobra.isPending || cobraRef.trim().length === 0}>{cobra.isPending ? 'Fetching…' : 'Fetch cube'}</Button>
+            {cobra.data && <span className="pb-2 text-xs text-text-muted">{cobra.data.exactMatches} exact printings, {cobra.data.resolved.main.length - cobra.data.exactMatches} by name</span>}
+          </form>
+          <ErrorText error={cobra.error} />
+        </Card>
         <Card title="Card list">
           <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); resolve.mutate(text); }}>
             <Input label="Cube name" value={name} onChange={(e) => setName(e.target.value)} placeholder="House cube" />
@@ -57,6 +82,7 @@ export function CubeImportPage() {
             <ErrorText error={resolve.error} />
           </form>
         </Card>
+        </div>
         <Card title={cards ? `Cards · ${countCubeCards(cards)}` : 'Cards'}>
           {!cards && <p className="text-sm text-text-muted">Resolve a list to review it, fix printings, then save.</p>}
           {report && (report.unknown.length > 0 || report.errors.length > 0 || report.warnings.length > 0) && (
