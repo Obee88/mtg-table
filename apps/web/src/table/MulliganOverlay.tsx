@@ -50,6 +50,20 @@ export function MulliganOverlay({ state, meId, printings, run }: { state: RoomSt
           </ul>
         </div>
 
+        {/* The roll for first happened at the deal; show it so the mulligan decision is informed. */}
+        <p className="text-center text-sm">
+          <span className="text-text-muted">Rolled for first: </span>
+          {seatedPlayers(state).map((p, i) => (
+            <span key={p.id}>
+              {i > 0 && <span className="text-text-muted"> · </span>}
+              <span className={p.id === game.firstPlayerId ? 'font-semibold text-text' : 'text-text-muted'}>{p.displayName} {game.openingRoll?.[p.id] ?? '?'}</span>
+            </span>
+          ))}
+          <span className="text-text-muted"> — </span>
+          <span className="font-semibold text-accent">{game.firstPlayerId === meId ? 'you go first' : `${state.players[game.firstPlayerId]?.displayName ?? 'someone'} goes first`}</span>
+          {state.settings.mode === '2v2' && <span className="text-text-muted"> (their team's turn)</span>}
+        </p>
+
         {me && !me.kept ? (
           <>
             <div className="flex flex-wrap justify-center gap-2">
