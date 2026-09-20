@@ -9,6 +9,8 @@ import { ZONES } from './types.js';
 export const gameCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('join') }),
   z.object({ type: z.literal('leave') }),
+  /** Move to a free seat while in the lobby (arranges partners in 2v2). */
+  z.object({ type: z.literal('takeSeat'), seat: z.number().int().min(0).max(3) }),
   z.object({ type: z.literal('selectDeck'), deckId: z.string().nullable() }),
   z.object({ type: z.literal('setReady'), ready: z.boolean() }),
   z.object({ type: z.literal('updateSettings'), settings: roomSettingsSchema }),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { decide, type CommandContext } from './decide.js';
-import { activePlayer, inMulligan } from './types.js';
+import { activePlayer, inMulligan, isActive } from './types.js';
 import type { GameEvent } from './events.js';
 import { initialRoomState, reduce, reduceAll } from './reduce.js';
 import { shuffled, type RoomSettings } from './types.js';
@@ -704,5 +704,48 @@ describe('turns', () => {
     s = run(s, other, { type: 'endTurn' });
     expect(activePlayer(s.game!)).toBe(first);
     expect(s.game!.turn).toBe(3);
+  });
+});
+
+describe('2v2 seating and turns', () => {
+  const settings: RoomSettings = { playerCount: 4, mode: '2v2', startingLife: 30, commander: false };
+  const deck = { main: [{ printingId: 'x', quantity: 8 }], sideboard: [], commander: [] };
+  const decks = { a: deck, b: deck, c: deck, d: deck };
+
+  it('lets a player move to a free lobby seat and recomputes the team', () => {
+    let s = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings });
+    for (const p of ['a', 'b', 'c']) s = run(s, p, { type: 'join' });
+    expect(s.players.c?.team).toBe(0);
+    s = run(s, 'c', { type: 'takeSeat', seat: 3 });
+    expect(s.players.c).toMatchObject({ seat: 3, team: 1, ready: false });
+    expect(decide(s, { type: 'takeSeat', seat: 1 }, ctx('c'))).toEqual({ ok: false, error: 'That seat is taken' });
+    expect(decide(s, { type: 'takeSeat', seat: 4 }, ctx('c'))).toEqual({ ok: false, error: 'No such seat' });
+    expect(decide(s, { type: 'takeSeat', seat: 3 }, ctx('c'))).toEqual({ ok: true, events: [] });
+    s = run(s, 'd', { type: 'join' });
+    expect(s.players.d).toMatchObject({ seat: 2, team: 0 });
+  });
+
+  it('partners share the turn: either may end it, and it passes to the other team', () => {
+    let n = 0;
+    let r = 0;
+    let s = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings });
+    for (const p of ['a', 'b', 'c', 'd']) {
+      s = run(s, p, { type: 'join' });
+      s = run(s, p, { type: 'selectDeck', deckId: 'd' });
+      s = run(s, p, { type: 'setReady', ready: true });
+    }
+    const d = decide(s, { type: 'start' }, { ...ctx('a'), decks, random: () => ((r += 7) % 11) / 11, newId: () => `w${++n}` });
+    if (!d.ok) throw new Error(d.error);
+    s = keepAll(reduceAll(s, d.events));
+    const first = s.game!.firstPlayerId;
+    const team = s.players[first]!.team;
+    const partner = Object.values(s.players).find((p) => p.team === team && p.id !== first)!;
+    const enemy = Object.values(s.players).find((p) => p.team !== team)!;
+    expect(isActive(s, partner.id)).toBe(true);
+    expect(isActive(s, enemy.id)).toBe(false);
+    expect(decide(s, { type: 'endTurn' }, ctx(enemy.id))).toEqual({ ok: false, error: 'It is not your turn' });
+    s = run(s, partner.id, { type: 'endTurn' });
+    expect(s.players[activePlayer(s.game!)]!.team).not.toBe(team);
+    expect(isActive(s, first)).toBe(false);
   });
 });

@@ -39,6 +39,7 @@ export const gameEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('settingsChanged'), settings: roomSettingsSchema }),
   z.object({ type: z.literal('playerJoined'), playerId: z.string(), displayName: z.string(), seat: z.number().int(), team: z.number().int() }),
   z.object({ type: z.literal('playerLeft'), playerId: z.string() }),
+  z.object({ type: z.literal('seatChanged'), playerId: z.string(), seat: z.number().int(), team: z.number().int() }),
   z.object({ type: z.literal('deckSelected'), playerId: z.string(), deckId: z.string().nullable() }),
   z.object({ type: z.literal('readyChanged'), playerId: z.string(), ready: z.boolean() }),
   z.object({ type: z.literal('roomClosed') }),

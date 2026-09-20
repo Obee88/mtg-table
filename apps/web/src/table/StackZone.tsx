@@ -2,7 +2,7 @@ import type { CardInstance, CardPrinting, GameCommand, RoomState } from '@mtg/sh
 import type { DragEvent, MouseEvent } from 'react';
 import { PILE_DX, PILE_DY } from './Battlefield';
 import { useCardSize } from './cardSize';
-import { seatColor } from './PlayerStrip';
+import { playerColor } from './PlayerStrip';
 import { Chip } from '../components/Chip';
 import { TableCard } from './TableCard';
 
@@ -62,10 +62,10 @@ export function StackZone({ state, meId, printings, run, onCardMenu, onCardDragS
         <div className="relative" style={{ width: pileW, height: pileH }}>
           {cards.map((c, i) => {
             const mine = c.controllerId === meId;
-            const seat = state.players[c.ownerId]?.seat ?? 0;
+            const owner = state.players[c.ownerId];
 
             return (
-              <div key={c.id} className="absolute rounded-[4.5%] transition-[top,left] duration-150" style={{ top: i * dy, left: i * dx, zIndex: i + 1, boxShadow: `0 0 0 2px ${seatColor(seat)}` }}>
+              <div key={c.id} className="absolute rounded-[4.5%] transition-[top,left] duration-150" style={{ top: i * dy, left: i * dx, zIndex: i + 1, boxShadow: `0 0 0 2px ${owner ? playerColor(state, owner) : 'transparent'}` }}>
                 <TableCard card={c} printing={c.printingId ? printings.get(c.printingId) : undefined} mine={mine} onContextMenu={mine ? onCardMenu(c) : undefined} onDragStart={mine ? onCardDragStart(c) : undefined} />
               </div>
             );

@@ -1,5 +1,5 @@
 import type { CardInstance, CardPrinting, GameCommand, PlayerGameState, RoomEvent, RoomPlayer, RoomState, ZoneName } from '@mtg/shared';
-import { activePlayer, inMulligan, seatedPlayers } from '@mtg/shared';
+import { inMulligan, isActive, seatedPlayers } from '@mtg/shared';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent, type ReactNode } from 'react';
 import { Chip, ChipButton } from '../components/Chip';
 
@@ -538,7 +538,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
         mine={mine}
         connected={connected}
         run={run}
-        toolbar={mine ? <Toolbar run={run} onToken={onToken ?? (() => undefined)} onHelp={onHelp ?? (() => undefined)} myTurn={activePlayer(state.game!) === player.id} /> : undefined}
+        toolbar={mine ? <Toolbar run={run} onToken={onToken ?? (() => undefined)} onHelp={onHelp ?? (() => undefined)} myTurn={isActive(state, player.id)} /> : undefined}
         onFocus={onFocus}
         focused={focused}
       />
@@ -554,7 +554,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
 
   return (
     <section
-      className={`half grid min-h-0 transition-shadow duration-300 ${flipped ? 'border-b border-white/10' : ''} ${highlighted.has(player.id) ? 'shadow-[inset_0_0_0_2px_var(--color-accent)]' : activePlayer(state.game!) === player.id ? 'shadow-[inset_0_0_0_1px_var(--color-accent)]' : ''}`}
+      className={`half grid min-h-0 transition-shadow duration-300 ${flipped ? 'border-b border-white/10' : ''} ${highlighted.has(player.id) ? 'shadow-[inset_0_0_0_2px_var(--color-accent)]' : isActive(state, player.id) ? 'shadow-[inset_0_0_0_1px_var(--color-accent)]' : ''}`}
       style={{ gridTemplateRows: rowsTemplate }}
     >
       {order.map((el, i) => <div key={i} className="min-h-0 min-w-0">{el}</div>)}

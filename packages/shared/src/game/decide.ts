@@ -2,7 +2,7 @@ import type { GameCommand } from './commands.js';
 import type { GameEvent } from './events.js';
 import type { DeckContents } from '../decks.js';
 import { defaultVisibility } from './reduce.js';
-import { activePlayer, inMulligan, seatedPlayers, shuffled, teamForSeat, type CardInstance, type PlayerGameState, type RoomState } from './types.js';
+import { activePlayer, inMulligan, isActive, seatedPlayers, shuffled, teamForSeat, type CardInstance, type PlayerGameState, type RoomState } from './types.js';
 
 const HAND_SIZE = 7;
 const MAX_TIE_BREAK_ROUNDS = 20;
@@ -47,6 +47,15 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       if (!me) return reject('Not in the room');
       if (state.phase !== 'lobby') return reject('Cannot leave a running game');
       return accept({ type: 'playerLeft', playerId: ctx.actorId });
+
+    case 'takeSeat': {
+      if (!me) return reject('Not in the room');
+      if (state.phase !== 'lobby') return reject('Game already started');
+      if (command.seat >= state.settings.playerCount) return reject('No such seat');
+      if (me.seat === command.seat) return accept();
+      if (Object.values(state.players).some((p) => p.seat === command.seat)) return reject('That seat is taken');
+      return accept({ type: 'seatChanged', playerId: ctx.actorId, seat: command.seat, team: teamForSeat(command.seat, state.settings.mode) });
+    }
 
     case 'selectDeck':
       if (!me) return reject('Not in the room');
@@ -395,9 +404,9 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       const pgs = ownGame(state, ctx.actorId);
       if ('error' in pgs) return reject(pgs.error);
       const game = state.game!;
-      if (activePlayer(game) !== ctx.actorId) return reject("It is not your turn");
+      if (!isActive(state, ctx.actorId)) return reject("It is not your turn");
       const order = seatedPlayers(state).map((p) => p.id);
-      const idx = order.indexOf(ctx.actorId);
+      const idx = order.indexOf(activePlayer(game));
       const next = order[(idx + 1) % order.length]!;
       return accept({ type: 'turnEnded', playerId: ctx.actorId, nextPlayerId: next, turn: (game.turn ?? 1) + 1 });
     }

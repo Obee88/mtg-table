@@ -21,7 +21,7 @@ import { HttpError } from '../errors.js';
 const SNAPSHOT_EVERY = 50;
 const IDLE_EVICT_MS = 30 * 60 * 1000;
 /** Lobby and bookkeeping events are never undone. */
-const NOT_UNDOABLE = new Set(['roomCreated', 'settingsChanged', 'playerJoined', 'playerLeft', 'deckSelected', 'readyChanged', 'roomClosed', 'gameStarted', 'actionUndone', 'mulliganTaken', 'handKept']);
+const NOT_UNDOABLE = new Set(['roomCreated', 'settingsChanged', 'playerJoined', 'playerLeft', 'seatChanged', 'deckSelected', 'readyChanged', 'roomClosed', 'gameStarted', 'actionUndone', 'mulliganTaken', 'handKept']);
 
 export type RoomListener = (events: RoomEvent[], state: RoomState, before: RoomState) => void;
 
@@ -212,6 +212,8 @@ export class RoomService {
           await tx.insert(schema.roomPlayers).values({ roomId: room.state.id, userId: e.playerId, seat: e.seat }).onConflictDoNothing();
         } else if (e.type === 'playerLeft') {
           await tx.delete(schema.roomPlayers).where(and(eq(schema.roomPlayers.roomId, room.state.id), eq(schema.roomPlayers.userId, e.playerId)));
+        } else if (e.type === 'seatChanged') {
+          await tx.update(schema.roomPlayers).set({ seat: e.seat }).where(and(eq(schema.roomPlayers.roomId, room.state.id), eq(schema.roomPlayers.userId, e.playerId)));
         }
       }
       if (Math.floor(after.seq / SNAPSHOT_EVERY) > Math.floor(before.seq / SNAPSHOT_EVERY)) {

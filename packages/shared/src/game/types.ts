@@ -149,3 +149,19 @@ export function inMulligan(game: GameState): boolean {
 export function activePlayer(game: GameState): PlayerId {
   return game.activePlayerId ?? game.firstPlayerId;
 }
+
+/** Whether it is `playerId`'s turn: their own in 1v1/FFA, their team's in 2v2 (partners share a turn). */
+export function isActive(state: RoomState, playerId: PlayerId): boolean {
+  if (!state.game) return false;
+  const active = activePlayer(state.game);
+  if (active === playerId) return true;
+  if (state.settings.mode !== '2v2') return false;
+  const a = state.players[active];
+  const b = state.players[playerId];
+  return !!a && !!b && a.team === b.team;
+}
+
+/** Team colour in 2v2 (partners share it), seat colour otherwise. Index into the seat palette. */
+export function colorIndex(state: RoomState, player: RoomPlayer): number {
+  return state.settings.mode === '2v2' ? player.team : player.seat;
+}

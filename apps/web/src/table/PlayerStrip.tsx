@@ -1,11 +1,13 @@
 import type { GameCommand, PlayerGameState, RoomPlayer, RoomState } from '@mtg/shared';
-import { activePlayer } from '@mtg/shared';
+import { colorIndex, isActive } from '@mtg/shared';
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Chip, ChipButton } from '../components/Chip';
 
 type Run = (c: GameCommand) => Promise<void>;
 
 export const seatColor = (seat: number) => `var(--color-seat-${seat % 4})`;
+/** A player's colour: team colour in 2v2 (partners match), seat colour otherwise. */
+export const playerColor = (state: RoomState, player: RoomPlayer) => seatColor(colorIndex(state, player));
 
 /**
  * One line per player at the far edge of their half: identity, life, poison,
@@ -28,20 +30,22 @@ export function PlayerStrip({ state, player, pgs, mine, connected, run, toolbar,
   const life = shared ? (state.game!.teamLife![player.team] ?? pgs.life) : pgs.life;
   const opponents = Object.values(state.players).filter((p) => p.id !== player.id);
   const first = state.game?.firstPlayerId === player.id;
-  const myTurn = !!state.game && activePlayer(state.game) === player.id;
+  const myTurn = isActive(state, player.id);
+  const team = state.settings.mode === '2v2';
 
   return (
     <div className="flex h-9 min-w-0 items-center gap-2 px-2 text-[13px] leading-none">
-      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: connected ? seatColor(player.seat) : 'var(--color-border)' }} title={connected ? 'online' : 'offline'} />
+      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: connected ? playerColor(state, player) : 'var(--color-border)' }} title={connected ? 'online' : 'offline'} />
       {onFocus ? (
-        <button type="button" onClick={onFocus} className={`truncate font-semibold hover:underline ${focused ? 'underline' : ''}`} style={{ color: seatColor(player.seat) }} title={focused ? 'Back to all boards (Esc)' : `Focus this board (${player.seat + 1})`}>
+        <button type="button" onClick={onFocus} className={`truncate font-semibold hover:underline ${focused ? 'underline' : ''}`} style={{ color: playerColor(state, player) }} title={focused ? 'Back to all boards (Esc)' : `Focus this board (${player.seat + 1})`}>
           {player.displayName}{focused ? ' ⤢' : ''}
         </button>
       ) : (
-        <span className="truncate font-semibold" style={{ color: seatColor(player.seat) }}>{player.displayName}</span>
+        <span className="truncate font-semibold" style={{ color: playerColor(state, player) }}>{player.displayName}</span>
       )}
       {first && !myTurn && <Chip type="neutral" title="rolled highest">1st</Chip>}
-      {myTurn && <Chip type="primary" title={`turn ${state.game?.turn ?? 1}`}>{mine ? 'Your turn' : `${player.displayName}'s turn`} · {state.game?.turn ?? 1}</Chip>}
+      {team && <Chip type="neutral" title="team">team {player.team + 1}</Chip>}
+      {myTurn && <Chip type="primary" title={`turn ${state.game?.turn ?? 1}`}>{mine ? (team ? "Your team's turn" : 'Your turn') : team ? `Team ${player.team + 1}'s turn` : `${player.displayName}'s turn`} · {state.game?.turn ?? 1}</Chip>}
 
       <Stat label={shared ? `team ${player.team + 1}` : 'life'} value={life} big mine={mine} onDelta={(d) => void run({ type: 'adjustLife', delta: d })} quick={[-5, -3, 3, 5]} />
       {(pgs.poison > 0 || mine) && <Stat label="poison" value={pgs.poison} mine={mine} onDelta={(d) => void run({ type: 'adjustPoison', delta: d })} dim={pgs.poison === 0} />}

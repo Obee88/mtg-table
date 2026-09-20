@@ -82,7 +82,7 @@ export function fixtureRoom(playerCount: 2 | 4 = 2): RoomState {
     for (const [owner, land, creature] of [[OPP2, 'Mountain', 'Grizzly Bears'], [OPP3, 'Forest', 'Llanowar Elves']] as const) {
       for (let i = 0; i < 3; i++) add(card(owner, land, 'battlefield', { position: { row: 1, col: i }, tapped: i === 0 }));
       add(card(owner, creature, 'battlefield', { position: { row: 0, col: 0 } }));
-      for (let i = 0; i < 4; i++) add(card(owner, null, 'hand'));
+      for (let i = 0; i < 4; i++) add(card(owner, owner === OPP2 ? ['Counterspell', 'Island', 'Jace, the Mind Sculptor', 'Sol Ring'][i]! : null, 'hand'));
       for (let i = 0; i < 30; i++) add(card(owner, null, 'library'));
       add(card(owner, 'Lightning Bolt', 'graveyard'));
     }

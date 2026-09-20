@@ -36,6 +36,8 @@ export function describeEvent(e: RoomEvent, ctx: LogContext): string | null {
       return `${actor} changed the room settings`;
     case 'playerJoined':
       return `${ev.displayName} took seat ${ev.seat + 1}`;
+    case 'seatChanged':
+      return `${ctx.playerName(ev.playerId)} moved to seat ${ev.seat + 1}`;
     case 'playerLeft':
       return `${ctx.playerName(ev.playerId)} left`;
     case 'deckSelected':

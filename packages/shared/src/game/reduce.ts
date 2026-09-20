@@ -43,6 +43,9 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
         },
       };
 
+    case 'seatChanged':
+      return updatePlayer(state, event.playerId, (p) => ({ ...p, seat: event.seat, team: event.team, ready: false }));
+
     case 'playerLeft': {
       const players = { ...state.players };
       delete players[event.playerId];

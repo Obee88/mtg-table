@@ -1,5 +1,5 @@
 import type { DeckSummary, RoomState } from '@mtg/shared';
-import { seatedPlayers } from '@mtg/shared';
+import { seatedPlayers, teamForSeat } from '@mtg/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
@@ -70,7 +70,10 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
                     <Chip type={p.ready ? 'success' : 'neutral'} shape="pill">{p.ready ? 'ready' : p.deckId ? 'not ready' : 'no deck'}</Chip>
                   </>
                 ) : (
-                  <span className="flex-1 text-text-muted">empty</span>
+                  <span className="flex flex-1 items-center justify-between text-text-muted">
+                    <span>empty{state.settings.mode === '2v2' && ` · team ${teamForSeat(seat, state.settings.mode) + 1}`}</span>
+                    {me && <Button variant="ghost" className="!px-2 !py-0.5 text-xs" onClick={() => run({ type: 'takeSeat', seat })}>Sit here</Button>}
+                  </span>
                 )}
               </li>
             );

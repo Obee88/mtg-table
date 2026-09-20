@@ -194,3 +194,15 @@ solid/badge look is no longer used anywhere; its tokens alias the label look.
   quadrants. Focus on your own board gives it the whole screen with the opponents as strips.
 - The stack overlay and the mulligan overlay sit over whichever layout is active.
 - `/design?players=4` shows a four-player fixture.
+
+## 2v2 (M3, 2026-09-20)
+
+- **Partners share a turn**: "Your team's turn" on both strips; either partner ends it and it passes
+  to the other team (seats alternate teams, so next seat = other team).
+- **Team colours**: in 2v2 names, presence dots, stack edges and log entries use the team colour
+  (team 1 amber, team 2 sky) instead of the seat colour, so a side reads as one.
+- **Shared life** is shown on both partners' strips as `team N life`; adjusting it from either
+  strip changes the team total (engine). Poison stays per player for now.
+- **Teammate hands** are visible face-up (projection) — nothing extra in the UI.
+- **Seating in the lobby**: empty seats show their team and a *Sit here* button, so partners can
+  arrange themselves before the host starts. Seats are diagonal by construction (0/2 vs 1/3).
