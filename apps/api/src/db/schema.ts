@@ -269,3 +269,32 @@ export const draftConfigs = pgTable(
 );
 
 export type DraftConfigRow = typeof draftConfigs.$inferSelect;
+
+// ---- game results: one row per reported game, denormalised for statistics ----
+
+export const gameResults = pgTable(
+  'game_results',
+  {
+    roomId: uuid('room_id')
+      .notNull()
+      .references(() => rooms.id, { onDelete: 'cascade' }),
+    gameNumber: integer('game_number').notNull(),
+    reportedBy: uuid('reported_by')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** Winning player ids; empty for a draw. */
+    winners: jsonb('winners').$type<string[]>().notNull(),
+    mode: text('mode').notNull(),
+    playerCount: integer('player_count').notNull(),
+    commander: boolean('commander').notNull(),
+    /** Name of the draft format when the decks were drafted, null for constructed. */
+    draftName: text('draft_name'),
+    /** Every seat with the deck as it sat at the table when the result was reported. */
+    players: jsonb('players').$type<{ playerId: string; seat: number; team: number; deck: DeckContents | null }[]>().notNull(),
+    note: text('note'),
+    reportedAt: timestamp('reported_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.roomId, t.gameNumber] }), index('game_results_reported_at_idx').on(t.reportedAt)],
+);
+
+export type GameResultRow = typeof gameResults.$inferSelect;

@@ -103,6 +103,7 @@ export function fixtureRoom(playerCount: 2 | 4 = 2): RoomState {
     settings: { playerCount, mode: playerCount === 4 ? '2v2' : '1v1', startingLife: 20, commander: false },
     phase: 'playing',
     draft: null,
+    results: [],
     players: {
       [ME]: { id: ME, displayName: 'You', seat: 0, team: 0, deckId: 'd', ready: true },
       [OPP]: { id: OPP, displayName: 'Bob', seat: 1, team: 1, deckId: 'd', ready: true },
@@ -124,6 +125,7 @@ export function fixtureRoom(playerCount: 2 | 4 = 2): RoomState {
       stack: cards.filter((c) => c.zone === 'stack').map((c) => c.id),
       openingRoll: { [ME]: 9, [OPP]: 14 },
       startedAt: new Date().toISOString(),
+      gameNumber: 1,
     },
     seq: 1,
   };

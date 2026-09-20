@@ -98,6 +98,8 @@ export const gameEventSchema = z.discriminatedUnion('type', [
     openingRoll: z.record(z.string(), z.number().int()),
     players: z.record(z.string(), startedPlayer),
   }),
+  /** A seated player reported who won the current game (empty = draw). */
+  z.object({ type: z.literal('resultReported'), gameNumber: z.number().int(), reportedBy: z.string(), winners: z.array(z.string()), note: z.string().nullable(), at: z.string() }),
   // ---- draft ----
   ...draftEventSchema.options,
 ]);

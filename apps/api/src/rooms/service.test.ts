@@ -324,3 +324,41 @@ describe('deckbuilding over the service', () => {
     expect(state.game!.players[bob.id]!.zones.sideboard).toHaveLength(1);
   });
 });
+
+describe('game results', () => {
+  it('stores one denormalised row per game number, replaced on re-report', async () => {
+    const { service, roomId } = await (async () => {
+      const service = new RoomService(db, silentLog);
+      const cardId = '33333333-3333-4333-8333-333333333333';
+      await db.insert(schema.cards).values({
+        id: cardId, name: 'Forest', lang: 'en', layout: 'normal', setCode: 'lea', setName: 'Alpha', setType: 'core',
+        collectorNumber: '2', releasedAt: '1993-08-05', rarity: 'common', colorIdentity: ['G'], faces: [], oracleId: null,
+      }).onConflictDoNothing();
+      const contents = { main: [{ printingId: cardId, quantity: 9 }], sideboard: [{ printingId: cardId, quantity: 1 }], commander: [] };
+      const [deckA] = await db.insert(schema.decks).values({ ownerId: alice.id, name: 'A', contents }).returning();
+      const [deckB] = await db.insert(schema.decks).values({ ownerId: bob.id, name: 'B', contents }).returning();
+      const room = await service.create(alice, settings);
+      await service.dispatch(room.id, bob, { type: 'join' });
+      await service.dispatch(room.id, alice, { type: 'selectDeck', deckId: deckA!.id });
+      await service.dispatch(room.id, bob, { type: 'selectDeck', deckId: deckB!.id });
+      await service.dispatch(room.id, alice, { type: 'setReady', ready: true });
+      await service.dispatch(room.id, bob, { type: 'setReady', ready: true });
+      const started = await service.dispatch(room.id, alice, { type: 'start' });
+      if (!started.ok) throw new Error(started.error);
+      return { service, roomId: room.id };
+    })();
+
+    expect((await service.dispatch(roomId, bob, { type: 'reportResult', winners: [alice.id], note: 'gg' })).ok).toBe(true);
+    expect(await service.dispatch(roomId, bob, { type: 'undo' })).toEqual({ ok: false, error: 'That action cannot be undone' });
+    let rows = await db.select().from(schema.gameResults).where(eq(schema.gameResults.roomId, roomId));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ gameNumber: 1, reportedBy: bob.id, winners: [alice.id], mode: '1v1', playerCount: 2, commander: false, draftName: null, note: 'gg' });
+    expect(rows[0]!.players.map((p) => [p.seat, p.deck?.main[0]?.quantity, p.deck?.sideboard[0]?.quantity])).toEqual([[0, 9, 1], [1, 9, 1]]);
+
+    expect((await service.dispatch(roomId, alice, { type: 'reportResult', winners: [] })).ok).toBe(true);
+    rows = await db.select().from(schema.gameResults).where(eq(schema.gameResults.roomId, roomId));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ reportedBy: alice.id, winners: [], note: null });
+    expect((await service.get(roomId)).results).toHaveLength(1);
+  });
+});

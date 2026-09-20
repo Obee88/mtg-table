@@ -57,6 +57,13 @@
       "when": 1789916053462,
       "tag": "0007_clear_deadpool",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789923619570,
+      "tag": "0008_faithful_thor",
+      "breakpoints": true
     }
   ]
 }

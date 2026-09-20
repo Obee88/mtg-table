@@ -1,5 +1,6 @@
 import {
   decide,
+  decksFromGame,
   initialRoomState,
   reduce,
   reduceAll,
@@ -21,7 +22,7 @@ import { HttpError } from '../errors.js';
 const SNAPSHOT_EVERY = 50;
 const IDLE_EVICT_MS = 30 * 60 * 1000;
 /** Lobby and bookkeeping events are never undone. */
-const NOT_UNDOABLE = new Set(['roomCreated', 'settingsChanged', 'playerJoined', 'playerLeft', 'seatChanged', 'deckSelected', 'readyChanged', 'roomClosed', 'gameStarted', 'actionUndone', 'mulliganTaken', 'handKept', 'draftStarted', 'draftPicked', 'draftCardReturned', 'draftDeckSubmitted']);
+const NOT_UNDOABLE = new Set(['roomCreated', 'settingsChanged', 'playerJoined', 'playerLeft', 'seatChanged', 'deckSelected', 'readyChanged', 'roomClosed', 'gameStarted', 'actionUndone', 'mulliganTaken', 'handKept', 'draftStarted', 'draftPicked', 'draftCardReturned', 'draftDeckSubmitted', 'resultReported']);
 
 export type RoomListener = (events: RoomEvent[], state: RoomState, before: RoomState) => void;
 
@@ -249,6 +250,17 @@ export class RoomService {
         } else if (e.type === 'seatChanged') {
           await tx.update(schema.roomPlayers).set({ seat: e.seat }).where(and(eq(schema.roomPlayers.roomId, room.state.id), eq(schema.roomPlayers.userId, e.playerId)));
         }
+      }
+      // Results are denormalised for statistics with the decks as they sit at the table.
+      for (const e of events) {
+        if (e.type !== 'resultReported') continue;
+        const decks = decksFromGame(after);
+        const row = {
+          roomId: room.state.id, gameNumber: e.gameNumber, reportedBy: e.reportedBy, winners: e.winners, mode: after.settings.mode, playerCount: after.settings.playerCount,
+          commander: after.settings.commander, draftName: after.settings.draft?.name ?? null, note: e.note, reportedAt: now,
+          players: Object.values(after.players).sort((a, b) => a.seat - b.seat).map((p) => ({ playerId: p.id, seat: p.seat, team: p.team, deck: decks[p.id] ?? null })),
+        };
+        await tx.insert(schema.gameResults).values(row).onConflictDoUpdate({ target: [schema.gameResults.roomId, schema.gameResults.gameNumber], set: row });
       }
       // Picks are denormalised for statistics; the draft reducer already computed their context.
       const picked = after.draft ? after.draft.picks.slice(before.draft?.picks.length ?? 0) : [];

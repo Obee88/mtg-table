@@ -75,6 +75,17 @@ export interface GameState {
   /** d20 each player rolled for first; ties were re-rolled. */
   openingRoll: Record<PlayerId, number>;
   startedAt: string;
+  /** 1 for the first deal in the room, +1 per restart; results are reported per game number. */
+  gameNumber: number;
+}
+
+/** Outcome of one game as reported by a seated player; empty winners = draw. Re-reporting replaces the earlier entry. */
+export interface GameResult {
+  gameNumber: number;
+  reportedBy: PlayerId;
+  winners: PlayerId[];
+  note: string | null;
+  at: string;
 }
 
 export interface RoomPlayer {
@@ -97,6 +108,8 @@ export interface RoomState {
   game: GameState | null;
   /** The draft of a draft room, from `draftStarted` on; null for pre-constructed rooms. */
   draft: DraftState | null;
+  /** Reported outcomes, one per game number. */
+  results: GameResult[];
   /** Sequence number of the last event applied. */
   seq: number;
 }
@@ -172,4 +185,24 @@ export function isActive(state: RoomState, playerId: PlayerId): boolean {
 /** Team colour in 2v2 (partners share it), seat colour otherwise. Index into the seat palette. */
 export function colorIndex(state: RoomState, player: RoomPlayer): number {
   return state.settings.mode === '2v2' ? player.team : player.seat;
+}
+
+/**
+ * Each player's deck as it sits in the game: every non-token card they own,
+ * split by zone (sideboard → sideboard, command → commander, the rest main).
+ * The source for deck history and card win rates.
+ */
+export function decksFromGame(state: RoomState): Record<PlayerId, { main: { printingId: string; quantity: number }[]; sideboard: { printingId: string; quantity: number }[]; commander: { printingId: string; quantity: number }[] }> {
+  const out: ReturnType<typeof decksFromGame> = {};
+  if (!state.game) return out;
+  const tallies: Record<string, Record<'main' | 'sideboard' | 'commander', Map<string, number>>> = {};
+  for (const card of Object.values(state.game.cards)) {
+    if (card.isToken || !card.printingId) continue;
+    const t = (tallies[card.ownerId] ??= { main: new Map(), sideboard: new Map(), commander: new Map() });
+    const part = card.zone === 'sideboard' ? 'sideboard' : card.isCommander ? 'commander' : 'main';
+    t[part].set(card.printingId, (t[part].get(card.printingId) ?? 0) + 1);
+  }
+  const list = (m: Map<string, number>) => [...m].map(([printingId, quantity]) => ({ printingId, quantity })).sort((a, b) => a.printingId.localeCompare(b.printingId));
+  for (const [id, t] of Object.entries(tallies)) out[id] = { main: list(t.main), sideboard: list(t.sideboard), commander: list(t.commander) };
+  return out;
 }

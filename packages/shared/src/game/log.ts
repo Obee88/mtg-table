@@ -122,6 +122,8 @@ export function describeEvent(e: RoomEvent, ctx: LogContext): string | null {
     }
     case 'draftDeckSubmitted':
       return `${ctx.playerName(ev.playerId)} submitted their deck`;
+    case 'resultReported':
+      return `${ctx.playerName(ev.reportedBy)} reported game ${ev.gameNumber}: ${ev.winners.length === 0 ? 'a draw' : `${ev.winners.map(ctx.playerName).join(' & ')} won`}${ev.note ? ` — ${ev.note}` : ''}`;
     case 'draftCardReturned':
       return `${ctx.playerName(ev.playerId)} put ${ev.printingId ? (ctx.printingName?.(ev.printingId) ?? 'a card') : 'a card'} into the pack`;
   }

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { playerAtSeat, quadrants } from './seating';
 
 const room = (mode: '2v2' | 'ffa'): RoomState => ({
-  id: 'r', ownerId: 'a', settings: { playerCount: 4, mode, startingLife: 20, commander: false }, phase: 'playing', game: null, draft: null, seq: 0,
+  id: 'r', ownerId: 'a', settings: { playerCount: 4, mode, startingLife: 20, commander: false }, phase: 'playing', game: null, draft: null, results: [], seq: 0,
   players: {
     a: { id: 'a', displayName: 'A', seat: 0, team: 0, deckId: null, ready: true },
     b: { id: 'b', displayName: 'B', seat: 1, team: 1, deckId: null, ready: true },

@@ -434,6 +434,18 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       return accept({ type: 'turnEnded', playerId: ctx.actorId, nextPlayerId: next, turn: (game.turn ?? 1) + 1 });
     }
 
+    case 'reportResult': {
+      if (!me) return reject('Not in the room');
+      if (state.phase !== 'playing' || !state.game) return reject('Game not running');
+      const unknown = command.winners.filter((id) => !state.players[id]);
+      if (unknown.length > 0) return reject('Winners must be seated players');
+      // In 2v2 a team wins together.
+      const winners = state.settings.mode === '2v2'
+        ? Object.values(state.players).filter((p) => command.winners.some((w) => state.players[w]?.team === p.team)).map((p) => p.id)
+        : [...new Set(command.winners)];
+      return accept({ type: 'resultReported', gameNumber: state.game.gameNumber ?? 1, reportedBy: ctx.actorId, winners: winners.sort(), note: command.note?.trim() || null, at: ctx.now.toISOString() });
+    }
+
     case 'closeRoom':
       if (!isOwner) return reject('Only the owner can close the room');
       return accept({ type: 'roomClosed' });

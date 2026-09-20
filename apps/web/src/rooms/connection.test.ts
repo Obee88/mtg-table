@@ -30,7 +30,7 @@ class FakeSocket implements SocketLike {
 }
 
 const state = (seq: number): RoomState => ({
-  id: 'r', ownerId: 'a', settings: { playerCount: 2, mode: '1v1', startingLife: 20, commander: false }, phase: 'lobby', players: {}, game: null, draft: null, seq,
+  id: 'r', ownerId: 'a', settings: { playerCount: 2, mode: '1v1', startingLife: 20, commander: false }, phase: 'lobby', players: {}, game: null, draft: null, results: [], seq,
 });
 const joined = (seq: number, playerId: string): RoomEvent => ({ seq, actorId: playerId, at: 'now', event: { type: 'playerJoined', playerId, displayName: playerId, seat: 0, team: 0 } });
 

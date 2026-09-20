@@ -4,7 +4,7 @@ import { decide, type CommandContext } from './decide.js';
 import type { RoomEvent } from './events.js';
 import { usableLibrarians } from '../draft/types.js';
 import { initialRoomState, reduce } from './reduce.js';
-import type { RoomSettings, RoomState } from './types.js';
+import { decksFromGame, type RoomSettings, type RoomState } from './types.js';
 import { applyRoomEvent, projectEvents, projectState } from './visibility.js';
 
 /** The house draft as a room would carry it. */
@@ -199,5 +199,36 @@ describe('deckbuilding and the handoff to the table', () => {
     // Restart re-deals from the same submitted decks.
     room.run('a', { type: 'restart' });
     expect(room.state.game!.players.a!.zones.library.length + room.state.game!.players.a!.zones.hand.length).toBe(40);
+  });
+});
+
+describe('reporting results', () => {
+  it('records winners per game number, whole teams in 2v2, and the decks as they sit', () => {
+    const room = new Room();
+    room.state = reduce(room.state, { type: 'roomCreated', ownerId: 'a', settings: { playerCount: 4, mode: '2v2', startingLife: 30, commander: false } });
+    for (const p of ['a', 'b', 'c', 'd']) room.run(p, { type: 'join' });
+    expect(decide(room.state, { type: 'reportResult', winners: ['a'] }, ctx('a'))).toEqual({ ok: false, error: 'Game not running' });
+    const decks = Object.fromEntries(['a', 'b', 'c', 'd'].map((p) => [p, { main: [{ printingId: `${p}-main`, quantity: 9 }], sideboard: [{ printingId: `${p}-side`, quantity: 2 }], commander: [] }]));
+    for (const p of ['a', 'b', 'c', 'd']) {
+      room.run(p, { type: 'selectDeck', deckId: 'd' });
+      room.run(p, { type: 'setReady', ready: true });
+    }
+    room.run('a', { type: 'start' }, { decks });
+    expect(room.state.game?.gameNumber).toBe(1);
+    expect(decide(room.state, { type: 'reportResult', winners: ['zed'] }, ctx('a'))).toEqual({ ok: false, error: 'Winners must be seated players' });
+    expect(decide(room.state, { type: 'reportResult', winners: ['a'] }, ctx('zed'))).toEqual({ ok: false, error: 'Not in the room' });
+
+    room.run('b', { type: 'reportResult', winners: ['a'], note: '  close one ' });
+    expect(room.state.results).toEqual([{ gameNumber: 1, reportedBy: 'b', winners: ['a', 'c'], note: 'close one', at: '2026-01-01T00:00:00.000Z' }]);
+    room.run('a', { type: 'reportResult', winners: [] });
+    expect(room.state.results).toEqual([{ gameNumber: 1, reportedBy: 'a', winners: [], note: null, at: '2026-01-01T00:00:00.000Z' }]);
+
+    const snapshot = decksFromGame(room.state);
+    expect(snapshot.a).toEqual({ main: [{ printingId: 'a-main', quantity: 9 }], sideboard: [{ printingId: 'a-side', quantity: 2 }], commander: [] });
+
+    room.run('a', { type: 'restart' }, { decks });
+    expect(room.state.game?.gameNumber).toBe(2);
+    room.run('c', { type: 'reportResult', winners: ['b', 'd'] });
+    expect(room.state.results.map((r) => [r.gameNumber, r.winners])).toEqual([[1, []], [2, ['b', 'd']]]);
   });
 });

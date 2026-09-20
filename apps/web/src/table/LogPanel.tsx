@@ -11,7 +11,7 @@ import { useCards } from './useCards';
 import { draftPrintingIds } from '../draft/ids';
 
 /** Full-height log column: history backfilled once, then the live buffer. Scrolls internally only. */
-export function LogPanel({ roomId, state, live, status, leaveHref, onCloseRoom, onRestart }: { roomId: string; state: RoomState; live: RoomEvent[]; status: 'connecting' | 'open' | 'closed'; leaveHref: string; onCloseRoom?: (() => void) | undefined; onRestart?: (() => void) | undefined }) {
+export function LogPanel({ roomId, state, live, status, leaveHref, onCloseRoom, onRestart, onReport }: { roomId: string; state: RoomState; live: RoomEvent[]; status: 'connecting' | 'open' | 'closed'; leaveHref: string; onCloseRoom?: (() => void) | undefined; onRestart?: (() => void) | undefined; onReport?: (() => void) | undefined }) {
   const [open, setOpen] = useState(true);
   const history = useQuery({
     queryKey: ['rooms', roomId, 'events'],
@@ -42,6 +42,7 @@ export function LogPanel({ roomId, state, live, status, leaveHref, onCloseRoom, 
             <span className={status === 'open' ? 'text-success' : 'text-accent'}>●</span>
             <span>{status === 'open' ? 'connected' : status === 'connecting' ? 'reconnecting…' : 'offline'}</span>
             <Link to={leaveHref} className="ml-auto text-accent hover:underline">Leave</Link>
+            {onReport && <button type="button" onClick={onReport} className="text-accent hover:underline" title="Record who won this game">Report result</button>}
             {onRestart && <button type="button" onClick={onRestart} className="text-accent hover:underline" title="Deal new hands for everyone">Restart</button>}
             {onCloseRoom && <button type="button" onClick={onCloseRoom} className="text-danger hover:underline" title="End the game and close the room for everyone">Close room</button>}
           </>

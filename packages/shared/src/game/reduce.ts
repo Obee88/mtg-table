@@ -20,6 +20,7 @@ export function initialRoomState(id: string): RoomState {
     players: {},
     game: null,
     draft: null,
+    results: [],
     seq: 0,
   };
 }
@@ -89,8 +90,15 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
           mulligans: Object.fromEntries(Object.keys(event.players).map((id) => [id, { taken: 0, kept: false }])),
           activePlayerId: event.firstPlayerId,
           turn: 1,
+          gameNumber: (state.game?.gameNumber ?? 0) + 1,
         },
       };
+    }
+
+    case 'resultReported': {
+      const result = { gameNumber: event.gameNumber, reportedBy: event.reportedBy, winners: event.winners, note: event.note, at: event.at };
+      const results = (state.results ?? []).filter((r) => r.gameNumber !== event.gameNumber);
+      return { ...state, results: [...results, result].sort((a, b) => a.gameNumber - b.gameNumber) };
     }
 
     case 'cardMoved': {
