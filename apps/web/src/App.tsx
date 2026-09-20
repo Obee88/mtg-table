@@ -4,6 +4,7 @@ import { CardsPage } from './cards/CardsPage';
 import { DesignPage } from './design/DesignPage';
 import { CubeImportPage } from './cubes/CubeImportPage';
 import { CubeListPage } from './cubes/CubeListPage';
+import { CubeStatsPage } from './cubes/CubeStatsPage';
 import { DraftConfigListPage } from './drafts/DraftConfigListPage';
 import { DraftConfigPage } from './drafts/DraftConfigPage';
 import { CubePage } from './cubes/CubePage';
@@ -38,6 +39,7 @@ export function App() {
         <Route path="/cubes" element={user ? <CubeListPage /> : <Navigate to="/login" replace />} />
         <Route path="/cubes/new" element={user ? <CubeImportPage /> : <Navigate to="/login" replace />} />
         <Route path="/cubes/:id" element={user ? <CubePage /> : <Navigate to="/login" replace />} />
+        <Route path="/cubes/:id/stats" element={user ? <CubeStatsPage /> : <Navigate to="/login" replace />} />
         <Route path="/drafts" element={user ? <DraftConfigListPage /> : <Navigate to="/login" replace />} />
         <Route path="/drafts/new" element={user ? <DraftConfigPage /> : <Navigate to="/login" replace />} />
         <Route path="/drafts/:id" element={user ? <DraftConfigPage /> : <Navigate to="/login" replace />} />

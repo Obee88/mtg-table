@@ -1,0 +1,3 @@
+ALTER TABLE "draft_picks" ADD COLUMN "cube_version_id" uuid;--> statement-breakpoint
+ALTER TABLE "draft_picks" ADD CONSTRAINT "draft_picks_cube_version_id_cube_versions_id_fk" FOREIGN KEY ("cube_version_id") REFERENCES "public"."cube_versions"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "draft_picks_cube_version_id_idx" ON "draft_picks" USING btree ("cube_version_id");

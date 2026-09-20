@@ -94,7 +94,7 @@ PickAndPassSettings { packSize, packsPerPlayer, rounds, direction: 'alternate' |
 - `decks(id, owner_id, name, json)` — main / sideboard / commander as printing ids
 - `rooms(id, owner_id, settings_json, phase, created_at)` — a draft room is a room whose settings carry a `draft` config; phase runs lobby → drafting → deckbuilding → playing → ended · `room_players(room_id, user_id, seat)`
 - `room_events(room_id, seq, actor_id, type, payload, created_at)` · `room_snapshots(room_id, seq, state)`
-- `draft_picks(room_id, overall_pick, player_id, card_id, phase, round, pack_id, pick_in_pack, pack_contents, double_pick)` — denormalized from `draftPicked` events for stats (migration 0006)
+- `draft_picks(room_id, overall_pick, player_id, card_id, cube_version_id, phase, round, pack_id, pick_in_pack, pack_contents, double_pick)` — denormalized from `draftPicked` events for stats (migrations 0006, 0009)
 - `game_results(room_id, game_number, reported_by, winners, mode, player_count, commander, draft_name, players[seat, team, deck], note)` — one row per reported game, replaced on re-report; decks captured as they sat at the table (migration 0008)
 
 ---
@@ -165,7 +165,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 
 **M6 — Stats**
 - [x] Report-result step and `game_results`
-- [ ] Card stats per cube/version (avg pick, pick-rate-when-seen, first-pick rate, most-passed)
+- [x] Card stats per cube/version (avg pick, pick-rate-when-seen, first-pick rate, most-passed)
 - [ ] Player stats (W/L per format, head-to-head, draft tendencies, deck history)
 
 **M7 — Later**

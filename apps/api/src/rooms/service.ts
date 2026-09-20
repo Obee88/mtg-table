@@ -268,6 +268,7 @@ export class RoomService {
         await tx.insert(schema.draftPicks).values(picked.map((p) => ({
           roomId: room.state.id, overallPick: p.n, playerId: p.playerId, cardId: p.card.printingId, phase: p.phase, round: p.round,
           packId: p.packId, pickInPack: p.pickInPack, packContents: p.packContents, doublePick: p.double, createdAt: now,
+          cubeVersionId: after.draft!.config.phases[p.phase]?.poolCubeVersionId ?? null,
         })));
       }
       if (Math.floor(after.seq / SNAPSHOT_EVERY) > Math.floor(before.seq / SNAPSHOT_EVERY)) {

@@ -1,5 +1,5 @@
-import { diffCubeVersions, type CubeCard, type CubeDiffResponse, type CubeResponse, type CubeSummary, type CubeVersionSummary } from '@mtg/shared';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { computeCardStats, diffCubeVersions, type CubeCard, type CubeDiffResponse, type CubeResponse, type CubeStatsResponse, type CubeSummary, type CubeVersionSummary } from '@mtg/shared';
+import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { importCubeCobra } from './cubecobra.js';
@@ -19,6 +19,7 @@ const versionQuery = z.object({ version: z.coerce.number().int().min(1).optional
 const cobraInput = z.object({ ref: z.string().trim().min(1).max(300) });
 const diffQuery = z.object({ from: z.coerce.number().int().min(1).optional(), to: z.coerce.number().int().min(1).optional() });
 const restoreInput = z.object({ version: z.number().int().min(1) });
+const statsQuery = z.object({ version: z.coerce.number().int().min(1).optional(), from: z.coerce.date().optional(), to: z.coerce.date().optional() });
 
 const count = (cards: { quantity: number }[]) => cards.reduce((n, c) => n + c.quantity, 0);
 
@@ -134,6 +135,29 @@ export async function cubeRoutes(app: FastifyInstance): Promise<void> {
   });
 
   /** Diff two versions (defaults: previous → latest). */
+  /** Per-card draft statistics over every version (or one), optionally within a date range. */
+  app.get('/cubes/:id/stats', async (req): Promise<CubeStatsResponse> => {
+    const { id } = parse(idParam, req.params);
+    const { version, from, to } = parse(statsQuery, req.query);
+    const cube = await ownedCube(id, req.user!.id);
+    const all = await versionSummaries(cube.id);
+    const versions = version ? all.filter((v) => v.number === version) : all;
+    if (version && versions.length === 0) throw notFound('Version not found');
+    const conditions = [inArray(schema.draftPicks.cubeVersionId, versions.map((v) => v.id))];
+    if (from) conditions.push(gte(schema.draftPicks.createdAt, from));
+    if (to) conditions.push(lte(schema.draftPicks.createdAt, to));
+    const rows = versions.length ? await db.select().from(schema.draftPicks).where(and(...conditions)) : [];
+    const stats = computeCardStats(rows.map((r) => ({ printingId: r.cardId, pickInPack: r.pickInPack, packContents: r.packContents, double: r.doublePick })));
+    return {
+      cube: { id: cube.id, name: cube.name },
+      versions,
+      drafts: new Set(rows.map((r) => r.roomId)).size,
+      picks: rows.length,
+      stats,
+      printings: await getPrintings(db, stats.map((s) => s.printingId)),
+    };
+  });
+
   app.get('/cubes/:id/diff', async (req): Promise<CubeDiffResponse> => {
     const { id } = parse(idParam, req.params);
     const q = parse(diffQuery, req.query);

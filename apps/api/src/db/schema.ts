@@ -239,6 +239,8 @@ export const draftPicks = pgTable(
     phase: integer('phase').notNull(),
     round: integer('round').notNull(),
     packId: text('pack_id').notNull(),
+    /** Cube version the pack was dealt from (null for picks recorded before this column existed). */
+    cubeVersionId: uuid('cube_version_id').references(() => cubeVersions.id, { onDelete: 'set null' }),
     /** 1-based position within the pack (how many cards had already left it + 1). */
     pickInPack: integer('pick_in_pack').notNull(),
     /** Printing ids the pack held when the pick was made, including the chosen one. */
@@ -246,7 +248,7 @@ export const draftPicks = pgTable(
     doublePick: boolean('double_pick').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [primaryKey({ columns: [t.roomId, t.overallPick] }), index('draft_picks_player_id_idx').on(t.playerId), index('draft_picks_card_id_idx').on(t.cardId)],
+  (t) => [primaryKey({ columns: [t.roomId, t.overallPick] }), index('draft_picks_player_id_idx').on(t.playerId), index('draft_picks_card_id_idx').on(t.cardId), index('draft_picks_cube_version_id_idx').on(t.cubeVersionId)],
 );
 
 export type DraftPickRow = typeof draftPicks.$inferSelect;

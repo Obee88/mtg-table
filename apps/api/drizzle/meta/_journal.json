@@ -64,6 +64,13 @@
       "when": 1789923619570,
       "tag": "0008_faithful_thor",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789923984171,
+      "tag": "0009_fat_christian_walker",
+      "breakpoints": true
     }
   ]
 }

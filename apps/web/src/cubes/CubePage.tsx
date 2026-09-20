@@ -85,7 +85,10 @@ export function CubePage() {
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
       <header className="flex items-center justify-between gap-3">
         <h1 className="truncate text-2xl font-semibold">{cube.name}</h1>
-        <Link to="/cubes" className="shrink-0 text-sm text-accent hover:underline">Cubes</Link>
+        <span className="flex shrink-0 items-center gap-3 text-sm">
+          <Link to={`/cubes/${cube.id}/stats`} className="text-accent hover:underline">Draft stats</Link>
+          <Link to="/cubes" className="text-accent hover:underline">Cubes</Link>
+        </span>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">

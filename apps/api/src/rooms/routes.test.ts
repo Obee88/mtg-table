@@ -130,3 +130,48 @@ describe('draft rooms over HTTP', () => {
     expect((await call('GET', `/rooms/${id}/draft/picks`, alice)).json()).toHaveLength(4);
   });
 });
+
+describe('cube draft statistics', () => {
+  it('aggregates the picks of every draft that dealt from the cube', async () => {
+    const db = ctx.app.db;
+    const { schema } = await import('../db/index.js');
+    const cardIds = [0, 1, 2, 3].map((i) => `77777777-7777-4777-8777-77777777777${i}`);
+    await db.insert(schema.cards).values(cardIds.map((id, i) => ({
+      id, name: `Stat ${i}`, lang: 'en', layout: 'normal', setCode: 'lea', setName: 'Alpha', setType: 'core',
+      collectorNumber: String(20 + i), releasedAt: '1993-08-05', rarity: 'common', colorIdentity: [], faces: [], oracleId: null,
+    })));
+    const cube = await call('POST', '/cubes', alice, { name: 'Stats', cards: cardIds.map((printingId) => ({ printingId, quantity: 1 })) });
+    const cubeId = cube.json().cube.id as string;
+    const versionId = cube.json().version.id as string;
+    expect((await call('GET', `/cubes/${cubeId}/stats`, alice)).json()).toMatchObject({ drafts: 0, picks: 0, stats: [] });
+
+    const draft = { name: 'Tiny', seats: 2, startDirection: 'left', phases: [{ type: 'pickAndPass', name: 'Only', poolCubeVersionId: versionId, packSize: 2, packsPerPlayer: 1, rounds: 1, direction: 'alternate' }] };
+    const room = (await call('POST', '/rooms', alice, { settings: { playerCount: 2, mode: '1v1', startingLife: 20, commander: false, draft } })).json().id as string;
+    await call('POST', `/rooms/${room}/commands`, bob, { type: 'join' });
+    await call('POST', `/rooms/${room}/commands`, alice, { type: 'setReady', ready: true });
+    await call('POST', `/rooms/${room}/commands`, bob, { type: 'setReady', ready: true });
+    expect((await call('POST', `/rooms/${room}/commands`, alice, { type: 'start' })).statusCode).toBe(200);
+    for (const cookie of [alice, bob, alice, bob]) {
+      const s = (await call('GET', `/rooms/${room}`, cookie)).json();
+      const meId = Object.keys(s.draft.players).find((p) => s.draft.packs[s.draft.players[p].queue[0]]?.cards[0]?.printingId)!;
+      const pack = s.draft.packs[s.draft.players[meId].queue[0]];
+      expect((await call('POST', `/rooms/${room}/commands`, cookie, { type: 'draftPick', cardId: pack.cards[0].id })).statusCode).toBe(200);
+    }
+
+    const res = await call('GET', `/cubes/${cubeId}/stats`, alice);
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body).toMatchObject({ drafts: 1, picks: 4 });
+    expect(body.versions).toHaveLength(1);
+    expect(body.stats).toHaveLength(4);
+    expect(body.stats.reduce((n: number, s: { taken: number }) => n + s.taken, 0)).toBe(4);
+    // Two first picks out of two untouched packs; two cards seen twice and passed once.
+    expect(body.stats.filter((s: { firstPicks: number }) => s.firstPicks === 1)).toHaveLength(2);
+    expect(body.stats.filter((s: { passed: number }) => s.passed === 1)).toHaveLength(2);
+    expect(body.printings).toHaveLength(4);
+    expect((await call('GET', `/cubes/${cubeId}/stats?version=1`, alice)).json().picks).toBe(4);
+    expect((await call('GET', `/cubes/${cubeId}/stats?version=9`, alice)).statusCode).toBe(404);
+    expect((await call('GET', `/cubes/${cubeId}/stats?to=2000-01-01`, alice)).json().picks).toBe(0);
+    expect((await call('GET', `/cubes/${cubeId}/stats`, bob)).statusCode).toBe(404);
+  });
+});

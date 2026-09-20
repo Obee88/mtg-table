@@ -1,4 +1,5 @@
 import type { CardPrinting } from './cards.js';
+import type { CardStat } from './draft/stats.js';
 import type { DeckImportResponse } from './decks.js';
 
 export interface CubeCard {
@@ -119,4 +120,17 @@ export function diffCubeVersions(from: CubeCard[], to: CubeCard[], printings: Ma
 
   const byName = (x: { printing: CardPrinting }, y: { printing: CardPrinting }) => x.printing.name.localeCompare(y.printing.name);
   return { added: added.sort(byName), removed: removed.sort(byName), swapped: swapped.sort((x, y) => x.from.name.localeCompare(y.from.name)), quantity: quantity.sort(byName) };
+}
+
+// ---- draft statistics ----
+
+export interface CubeStatsResponse {
+  cube: { id: string; name: string };
+  /** Versions covered by the numbers (all of them, or the one requested). */
+  versions: CubeVersionSummary[];
+  /** Drafts (rooms) that dealt from those versions. */
+  drafts: number;
+  picks: number;
+  stats: CardStat[];
+  printings: CardPrinting[];
 }
