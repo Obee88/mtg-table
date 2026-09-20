@@ -8,6 +8,7 @@ import { api } from '../lib/api';
 import { mergeEvents } from './log';
 import { playerColor } from './PlayerStrip';
 import { useCards } from './useCards';
+import { draftPrintingIds } from '../draft/ids';
 
 /** Full-height log column: history backfilled once, then the live buffer. Scrolls internally only. */
 export function LogPanel({ roomId, state, live, status, leaveHref, onCloseRoom, onRestart }: { roomId: string; state: RoomState; live: RoomEvent[]; status: 'connecting' | 'open' | 'closed'; leaveHref: string; onCloseRoom?: (() => void) | undefined; onRestart?: (() => void) | undefined }) {
@@ -19,7 +20,7 @@ export function LogPanel({ roomId, state, live, status, leaveHref, onCloseRoom, 
     enabled: roomId !== 'design',
   });
   const events = useMemo(() => mergeEvents(history.data ?? [], live), [history.data, live]);
-  const printings = useCards(Object.values(state.game?.cards ?? {}).map((c) => c.printingId));
+  const printings = useCards([...Object.values(state.game?.cards ?? {}).map((c) => c.printingId), ...draftPrintingIds(state.draft)]);
   const ctx = useMemo(() => logContextFor(state, (id) => printings.get(id)?.name), [state, printings]);
   const lines = useMemo(
     () => events.map((e) => ({ seq: e.seq, at: e.at, actorId: e.actorId, text: describeEvent(e, ctx) })).filter((l): l is typeof l & { text: string } => l.text !== null),
