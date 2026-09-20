@@ -89,7 +89,7 @@ PickAndPassSettings { packSize, packsPerPlayer, rounds, direction: 'alternate' |
 
 - `users`, `invites`, `sessions`
 - `cards` (Scryfall printings cache)
-- `cubes(id, owner_id, name)` · `cube_versions(id, cube_id, number, note, created_by, created_at)` · `cube_version_cards(cube_version_id, card_id, qty)`
+- `cubes(id, owner_id, name)` · `cube_versions(id, cube_id, number, note, created_by, created_at)` · `cube_version_cards(version_id, card_id, quantity)` — every save is a full snapshot (migration 0005)
 - `draft_configs(id, owner_id, name, json)`
 - `decks(id, owner_id, name, json)` — main / sideboard / commander as printing ids
 - `rooms(id, owner_id, kind, settings_json, status, created_at)` · `room_players(room_id, user_id, seat, team)`
@@ -150,7 +150,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] Battlefield rows (lands / creatures / other) and grouping of identical tokens
 
 **M4 — Cubes**
-- [ ] Cube model with versions; create/edit as printings; paste-list import
+- [x] Cube model with versions; create/edit as printings; paste-list import
 - [ ] Cube Cobra import
 - [ ] Printing picker per cube card
 - [ ] Version history: diff any two versions, restore

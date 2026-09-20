@@ -25,6 +25,7 @@ export function HomePage({ user }: { user: User }) {
         <div className="mt-3 flex gap-4 text-sm">
           <Link to="/rooms" className="text-accent hover:underline">Rooms</Link>
           <Link to="/decks" className="text-accent hover:underline">My decks</Link>
+          <Link to="/cubes" className="text-accent hover:underline">Cubes</Link>
           <Link to="/cards" className="text-accent hover:underline">Browse cards</Link>
         </div>
       </Card>

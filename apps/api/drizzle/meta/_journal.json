@@ -36,6 +36,13 @@
       "when": 1789762935612,
       "tag": "0004_gifted_zodiak",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789904011325,
+      "tag": "0005_spotty_stick",
+      "breakpoints": true
     }
   ]
 }

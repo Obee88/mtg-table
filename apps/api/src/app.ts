@@ -9,6 +9,7 @@ import { cardRoutes } from './cards/public-routes.js';
 import { cardAdminRoutes } from './cards/routes.js';
 import { scryfallSource, type CardSource } from './cards/scryfall.js';
 import type { Config } from './config.js';
+import { cubeRoutes } from './cubes/routes.js';
 import { deckRoutes } from './decks/routes.js';
 import type { Db, UserRow } from './db/index.js';
 import { HttpError } from './errors.js';
@@ -94,6 +95,7 @@ export async function buildApp(config: Config, db: Db, deps: AppDeps = {}): Prom
   await app.register(cardAdminRoutes);
   await app.register(cardRoutes);
   await app.register(deckRoutes);
+  await app.register(cubeRoutes);
   await app.register(roomRoutes);
   await app.register(roomSocketRoutes);
 

@@ -168,3 +168,54 @@ export const roomSnapshots = pgTable('room_snapshots', {
 });
 
 export type RoomRow = typeof rooms.$inferSelect;
+
+// ---- cubes: versioned lists of printings ----
+
+export const cubes = pgTable(
+  'cubes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    ownerId: uuid('owner_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('cubes_owner_id_idx').on(t.ownerId)],
+);
+
+/** Every save is a full snapshot; `number` increases per cube. */
+export const cubeVersions = pgTable(
+  'cube_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    cubeId: uuid('cube_id')
+      .notNull()
+      .references(() => cubes.id, { onDelete: 'cascade' }),
+    number: integer('number').notNull(),
+    note: text('note'),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('cube_versions_cube_id_idx').on(t.cubeId)],
+);
+
+export const cubeVersionCards = pgTable(
+  'cube_version_cards',
+  {
+    versionId: uuid('version_id')
+      .notNull()
+      .references(() => cubeVersions.id, { onDelete: 'cascade' }),
+    cardId: uuid('card_id')
+      .notNull()
+      .references(() => cards.id),
+    quantity: integer('quantity').notNull().default(1),
+  },
+  (t) => [primaryKey({ columns: [t.versionId, t.cardId] })],
+);
+
+export type CubeRow = typeof cubes.$inferSelect;
+export type CubeVersionRow = typeof cubeVersions.$inferSelect;

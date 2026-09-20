@@ -2,6 +2,9 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { CardPreviewProvider } from './cards/CardPreview';
 import { CardsPage } from './cards/CardsPage';
 import { DesignPage } from './design/DesignPage';
+import { CubeImportPage } from './cubes/CubeImportPage';
+import { CubeListPage } from './cubes/CubeListPage';
+import { CubePage } from './cubes/CubePage';
 import { DeckImportPage } from './decks/DeckImportPage';
 import { DeckListPage } from './decks/DeckListPage';
 import { DeckPage } from './decks/DeckPage';
@@ -30,6 +33,9 @@ export function App() {
         <Route path="/decks" element={user ? <DeckListPage /> : <Navigate to="/login" replace />} />
         <Route path="/decks/new" element={user ? <DeckImportPage /> : <Navigate to="/login" replace />} />
         <Route path="/decks/:id" element={user ? <DeckPage /> : <Navigate to="/login" replace />} />
+        <Route path="/cubes" element={user ? <CubeListPage /> : <Navigate to="/login" replace />} />
+        <Route path="/cubes/new" element={user ? <CubeImportPage /> : <Navigate to="/login" replace />} />
+        <Route path="/cubes/:id" element={user ? <CubePage /> : <Navigate to="/login" replace />} />
         <Route path="/rooms" element={user ? <RoomListPage /> : <Navigate to="/login" replace />} />
         <Route path="/rooms/:id" element={user ? <RoomPage /> : <Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
