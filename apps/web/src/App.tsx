@@ -5,6 +5,7 @@ import { DesignPage } from './design/DesignPage';
 import { CubeImportPage } from './cubes/CubeImportPage';
 import { CubeListPage } from './cubes/CubeListPage';
 import { CubeStatsPage } from './cubes/CubeStatsPage';
+import { PlayerStatsPage } from './stats/PlayerStatsPage';
 import { DraftConfigListPage } from './drafts/DraftConfigListPage';
 import { DraftConfigPage } from './drafts/DraftConfigPage';
 import { CubePage } from './cubes/CubePage';
@@ -43,6 +44,7 @@ export function App() {
         <Route path="/drafts" element={user ? <DraftConfigListPage /> : <Navigate to="/login" replace />} />
         <Route path="/drafts/new" element={user ? <DraftConfigPage /> : <Navigate to="/login" replace />} />
         <Route path="/drafts/:id" element={user ? <DraftConfigPage /> : <Navigate to="/login" replace />} />
+        <Route path="/players/:id/stats" element={user ? <PlayerStatsPage /> : <Navigate to="/login" replace />} />
         <Route path="/rooms" element={user ? <RoomListPage /> : <Navigate to="/login" replace />} />
         <Route path="/rooms/:id" element={user ? <RoomPage /> : <Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />

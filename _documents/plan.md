@@ -166,7 +166,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 **M6 — Stats**
 - [x] Report-result step and `game_results`
 - [x] Card stats per cube/version (avg pick, pick-rate-when-seen, first-pick rate, most-passed)
-- [ ] Player stats (W/L per format, head-to-head, draft tendencies, deck history)
+- [x] Player stats (W/L per format, head-to-head, draft tendencies, deck history)
 
 **M7 — Later**
 - [ ] Rotisserie / Winston / Grid / Winchester phase types
