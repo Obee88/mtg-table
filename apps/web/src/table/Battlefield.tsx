@@ -64,7 +64,8 @@ export function BattlefieldRow({ row, slots, renderCard, onDrop, onDragOver, chi
   /** Row index, exposed as data-row for the battlefield drop handler. */
   row?: number;
   slots: Slot[];
-  renderCard: (card: CardInstance, opts: { inPile: boolean; index: number }) => ReactNode;
+  /** `group` lists every card of an identical-token pile rendered as one card. */
+  renderCard: (card: CardInstance, opts: { inPile: boolean; index: number; group?: CardInstance[] }) => ReactNode;
   onDrop?: ((e: DragEvent<HTMLDivElement>, geometry: { step: number }) => void) | undefined;
   onDragOver?: ((e: DragEvent) => void) | undefined;
   children?: ReactNode;
@@ -84,7 +85,7 @@ export function BattlefieldRow({ row, slots, renderCard, onDrop, onDragOver, chi
   const step = columnStep(slots, width - 16, w);
   const dx = Math.round(w * PILE_DX);
   const dy = Math.round(h * PILE_DY);
-  const tallest = Math.max(1, ...slots.map((s) => s.cards.length));
+  const tallest = Math.max(1, ...slots.map((s) => (tokenGroup(s) ? 1 : s.cards.length)));
 
   return (
     <div
@@ -96,12 +97,22 @@ export function BattlefieldRow({ row, slots, renderCard, onDrop, onDragOver, chi
       onDrop={onDrop ? (e) => onDrop(e, { step }) : undefined}
     >
       {slots.map((slot) => (
-        <div key={slot.col} className="absolute top-1 transition-[left] duration-150" style={{ left: 8 + slot.col * step, width: w + (slot.cards.length - 1) * dx, height: h + (slot.cards.length - 1) * dy, zIndex: slot.col }}>
-          {slot.cards.map((c, k) => (
-            <div key={c.id} className="absolute" style={{ left: k * dx, top: k * dy, zIndex: k + 1 }}>
-              {renderCard(c, { inPile: slot.cards.length > 1, index: k })}
-            </div>
-          ))}
+        <div key={slot.col} className="absolute top-1 transition-[left] duration-150" style={{ left: 8 + slot.col * step, width: tokenGroup(slot) ? w : w + (slot.cards.length - 1) * dx, height: tokenGroup(slot) ? h : h + (slot.cards.length - 1) * dy, zIndex: slot.col }}>
+          {(() => {
+            const group = tokenGroup(slot);
+            if (group) {
+              return (
+                <div className="absolute" style={{ left: 0, top: 0, zIndex: 1 }}>
+                  {renderCard(group[group.length - 1]!, { inPile: false, index: 0, group })}
+                </div>
+              );
+            }
+            return slot.cards.map((c, k) => (
+              <div key={c.id} className="absolute" style={{ left: k * dx, top: k * dy, zIndex: k + 1 }}>
+                {renderCard(c, { inPile: slot.cards.length > 1, index: k })}
+              </div>
+            ));
+          })()}
         </div>
       ))}
       {children}
@@ -122,4 +133,24 @@ export function normalizePosition(pos: unknown): { row: number; col: number } {
     return { row: p.y >= 50 ? 1 : 0, col: Math.max(0, Math.round(p.x / 12)) };
   }
   return { row: 0, col: 0 };
+}
+
+/** Lands go to the back row (1); everything else to the front row (0). */
+export function defaultRow(printing: { typeLine: string | null } | undefined): number {
+  return printing?.typeLine?.split('—')[0]?.includes('Land') ? 1 : 0;
+}
+
+/** Identity for grouping: identical tokens in one slot render as one card with a ×N badge. */
+export function tokenGroupKey(card: CardInstance): string | null {
+  if (!card.isToken) return null;
+  const counters = Object.entries(card.counters).sort().map(([k, v]) => `${k}=${v}`).join(',');
+  return [card.printingId ?? `custom:${card.customName ?? ''}`, card.tapped ? 'T' : 'U', card.faceDown ? 'D' : '', card.transformed ? 'X' : '', card.flipped ? 'F' : '', card.note ?? '', counters].join('|');
+}
+
+/** All cards of a slot when they are interchangeable tokens, else null. */
+export function tokenGroup(slot: Slot): CardInstance[] | null {
+  if (slot.cards.length < 2) return null;
+  const key = tokenGroupKey(slot.cards[0]!);
+  if (key === null) return null;
+  return slot.cards.every((c) => tokenGroupKey(c) === key) ? slot.cards : null;
 }

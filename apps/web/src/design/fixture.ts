@@ -55,7 +55,8 @@ export function fixtureRoom(playerCount: 2 | 4 = 2): RoomState {
   add(card(ME, 'Llanowar Elves', 'battlefield', { position: { row: 0, col: 1 }, tapped: true, counters: { '+1/+1': 1, '-1/-1': 3 } }));
   add(card(ME, 'Sol Ring', 'battlefield', { position: { row: 1, col: 4 }, note: "doesn't untap", counters: { counter: 3 } }));
   add(card(ME, 'Soldier', 'battlefield', { position: { row: 0, col: 2 }, isToken: true }));
-  add(card(ME, 'Soldier', 'battlefield', { position: { row: 0, col: 2 }, isToken: true, tapped: true }));
+  add(card(ME, 'Soldier', 'battlefield', { position: { row: 0, col: 2 }, isToken: true }));
+  add(card(ME, 'Soldier', 'battlefield', { position: { row: 0, col: 2 }, isToken: true }));
   add(card(ME, null, 'battlefield', { position: { row: 0, col: 3 }, isToken: true, customName: 'Zombie 2/2' }));
   add(card(ME, 'Delver of Secrets', 'battlefield', { position: { row: 0, col: 4 }, transformed: true }));
   add(card(ME, 'Serra Angel', 'battlefield', { position: { row: 0, col: 5 }, faceDown: true, visibleTo: 'owner' }));

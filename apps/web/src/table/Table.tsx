@@ -14,7 +14,7 @@ import { LibraryDialog } from './LibraryDialog';
 import { PlayerStrip } from './PlayerStrip';
 import { Toolbar } from './Toolbar';
 import { ShortcutsDialog } from './ShortcutsDialog';
-import { BattlefieldRow, columnStep, dropSlot, freeColumns, layoutRows } from './Battlefield';
+import { BattlefieldRow, columnStep, defaultRow, dropSlot, freeColumns, layoutRows } from './Battlefield';
 import { StackZone } from './StackZone';
 import { CardBack, TableCard } from './TableCard';
 import { TokenDialog } from './TokenDialog';
@@ -71,13 +71,47 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
   const isSelected = (id: string) => liveSelected.has(id);
   const selectedIds = () => [...liveSelected];
 
+  /** Cards sent to the battlefield without a spot: lands to the back row, others to the front, after the last used column. */
+  const place = useCallback(
+    (command: GameCommand): GameCommand => {
+      const nextCol = (playerId: string, row: number, extra: number[]) => {
+        const cols = Object.values(game.cards)
+          .filter((c) => c.controllerId === playerId && c.zone === 'battlefield' && c.position && Math.round(c.position.row) === row)
+          .map((c) => Math.round(c.position!.col));
+        return Math.max(-1, ...cols, ...extra) + 1;
+      };
+      if (command.type === 'moveCard' && command.to === 'battlefield' && !command.position) {
+        const c = game.cards[command.instanceId];
+        if (!c || c.zone === 'battlefield') return command;
+        const row = defaultRow(c.printingId ? printings.get(c.printingId) : undefined);
+        return { ...command, position: { row, col: nextCol(c.controllerId, row, []) } };
+      }
+      if (command.type === 'moveCards' && command.to === 'battlefield' && !command.positions) {
+        const positions: Record<string, { row: number; col: number }> = {};
+        const used: Record<number, number[]> = { 0: [], 1: [] };
+        for (const id of command.instanceIds) {
+          const c = game.cards[id];
+          if (!c) continue;
+          if (c.zone === 'battlefield' && c.position) continue; // already placed: keep
+          const row = defaultRow(c.printingId ? printings.get(c.printingId) : undefined);
+          const col = nextCol(c.controllerId, row, used[row] ?? []);
+          (used[row] ??= []).push(col);
+          positions[id] = { row, col };
+        }
+        return { ...command, positions };
+      }
+      return command;
+    },
+    [game.cards, printings],
+  );
+
   const run = useCallback<Run>(
     async (command) => {
       setError(null);
-      const r = await send(command);
+      const r = await send(place(command));
       if (!r.ok) setError(r.error);
     },
-    [send],
+    [send, place],
   );
 
   const moveSelection = useCallback(
@@ -272,6 +306,12 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
     setMenu({ x: e.clientX, y: e.clientY, card });
   };
 
+  const openGroupMenu = (cards: CardInstance[]) => (e: MouseEvent) => {
+    e.preventDefault();
+    setSelected(new Set(cards.map((c) => c.id)));
+    setMenu({ x: e.clientX, y: e.clientY, card: cards[cards.length - 1]! });
+  };
+
   const onMarquee = useCallback((ids: string[], additive: boolean) => {
     setSelected((prev) => (additive ? new Set([...prev, ...ids]) : new Set(ids)));
   }, []);
@@ -294,6 +334,7 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
           collapsed={opts.collapsed ?? false}
           connected={connectedSet.has(p.id)}
           onCardMenu={openMenu}
+          onGroupMenu={isMe ? openGroupMenu : undefined}
           onCardDragStart={isMe ? onCardDragStart : undefined}
           onLibraryMenu={isMe ? (e) => { e.preventDefault(); setPileMenu({ x: e.clientX, y: e.clientY }); } : undefined}
           onToken={isMe ? () => setTokenDialog(true) : undefined}
@@ -384,7 +425,7 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
   );
 }
 
-function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run, flipped = false, collapsed = false, onCardClick, onCardMenu, onCardDragStart, onToken, onHelp, onLibraryMenu, isSelected, highlighted, onMarquee, selectedCount = 0, banner, bannerKind = 'error', onFocus, focused = false }: {
+function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run, flipped = false, collapsed = false, onCardClick, onCardMenu, onGroupMenu, onCardDragStart, onToken, onHelp, onLibraryMenu, isSelected, highlighted, onMarquee, selectedCount = 0, banner, bannerKind = 'error', onFocus, focused = false }: {
   /** Strip only (other opponents while focused on one board). */
   collapsed?: boolean;
   /** Toggle focus on this board (name click); present on 3+ player tables. */
@@ -401,6 +442,8 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
   flipped?: boolean;
   onCardClick: (card: CardInstance, e: MouseEvent) => void;
   onCardMenu?: ((card: CardInstance) => (e: MouseEvent) => void) | undefined;
+  /** Right-click on a grouped token pile: selects the group and opens the selection menu. */
+  onGroupMenu?: ((cards: CardInstance[]) => (e: MouseEvent) => void) | undefined;
   onCardDragStart?: ((card: CardInstance) => (e: DragEvent) => void) | undefined;
   onToken?: (() => void) | undefined;
   onHelp?: (() => void) | undefined;
@@ -473,18 +516,33 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
   };
   const allowDrop = mine ? (e: DragEvent) => e.preventDefault() : undefined;
 
-  const cardEl = (c: CardInstance, extra: { onClick?: boolean } = {}) => (
-    <TableCard
-      card={c}
-      printing={c.printingId ? printings.get(c.printingId) : undefined}
-      mine={mine}
-      selected={isSelected(c.id)}
-      onClick={extra.onClick === false ? undefined : (e) => onCardClick(c, e)}
-      onContextMenu={onCardMenu && (mine || c.printingId !== null) ? onCardMenu(c) : undefined}
-      onDragStart={mine && onCardDragStart ? onCardDragStart(c) : undefined}
-      onAdjustCounter={mine ? (kind, delta) => void run({ type: 'addCounter', instanceId: c.id, kind, delta }) : undefined}
-    />
-  );
+  const cardEl = (c: CardInstance, extra: { onClick?: boolean; group?: CardInstance[] | undefined } = {}) => {
+    const group = extra.group;
+    const ids = group ? group.map((g) => g.id) : null;
+    return (
+      <TableCard
+        card={c}
+        printing={c.printingId ? printings.get(c.printingId) : undefined}
+        mine={mine}
+        selected={isSelected(c.id)}
+        groupCount={group?.length}
+        onClick={extra.onClick === false ? undefined : ids && mine ? () => void run({ type: 'tapCards', instanceIds: ids, tapped: !c.tapped }) : (e) => onCardClick(c, e)}
+        onContextMenu={ids && mine && onGroupMenu ? onGroupMenu(group!) : onCardMenu && (mine || c.printingId !== null) ? onCardMenu(c) : undefined}
+        onDragStart={
+          ids && mine
+            ? (e) => {
+                e.dataTransfer.setData(DRAG_MIME, JSON.stringify(ids));
+                e.dataTransfer.setData('text/dragged-id', c.id);
+                e.dataTransfer.effectAllowed = 'move';
+              }
+            : mine && onCardDragStart
+              ? onCardDragStart(c)
+              : undefined
+        }
+        onAdjustCounter={mine ? (kind, delta) => void run({ type: 'addCounter', instanceId: c.id, kind, delta }) : undefined}
+      />
+    );
+  };
 
   const rowOrder = flipped ? [1, 0] : [0, 1];
   const battlefield = (
@@ -495,7 +553,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
       {...(mine ? marquee.handlers : {})}
     >
       {rowOrder.map((r) => (
-        <BattlefieldRow key={r} row={r} slots={rows[r] ?? []} renderCard={(c) => cardEl(c, { onClick: mine })} />
+        <BattlefieldRow key={r} row={r} slots={rows[r] ?? []} renderCard={(c, o) => cardEl(c, { onClick: mine, group: o.group })} />
       ))}
       {marquee.rect && <div className="pointer-events-none absolute z-30 border border-accent bg-accent/10" style={marquee.rect} />}
       {pgs.zones.battlefield.length === 0 && mine && (

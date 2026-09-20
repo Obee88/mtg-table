@@ -1,6 +1,6 @@
 import type { CardInstance } from '@mtg/shared';
 import { describe, expect, it } from 'vitest';
-import { columnStep, dropSlot, freeColumns, gapFor, layoutRows, normalizePosition } from './Battlefield';
+import { columnStep, defaultRow, dropSlot, freeColumns, gapFor, layoutRows, normalizePosition, tokenGroup } from './Battlefield';
 
 const card = (id: string, row: number, col: number, attachedTo: string | null = null): CardInstance => ({
   id, printingId: 'p', ownerId: 'a', controllerId: 'a', zone: 'battlefield', tapped: false, transformed: false, flipped: false, faceDown: false,
@@ -45,5 +45,25 @@ describe('normalizePosition', () => {
     expect(normalizePosition({ row: Number.NaN, col: 1 })).toEqual({ row: 0, col: 0 });
     const rows = layoutRows([{ ...card('a', 0, 0), position: { x: 30, y: 70 } as never }], {});
     expect(rows[1]!.map((s) => s.col)).toEqual([3]);
+  });
+});
+
+describe('defaultRow / tokenGroup', () => {
+  const tok = (id: string, extra: Partial<CardInstance> = {}): CardInstance => ({ ...card(id, 0, 0), isToken: true, printingId: 'soldier', ...extra });
+  it('sends lands to the back row and everything else to the front', () => {
+    expect(defaultRow({ typeLine: 'Basic Land — Forest' })).toBe(1);
+    expect(defaultRow({ typeLine: 'Legendary Land' })).toBe(1);
+    expect(defaultRow({ typeLine: 'Creature — Elf Druid' })).toBe(0);
+    expect(defaultRow({ typeLine: 'Artifact — Equipment' })).toBe(0);
+    expect(defaultRow({ typeLine: 'Enchantment — Aura' })).toBe(0); // "Landfall" style text is not in the type line
+    expect(defaultRow(undefined)).toBe(0);
+  });
+  it('groups only identical tokens in a slot', () => {
+    expect(tokenGroup({ col: 0, cards: [tok('a'), tok('b'), tok('c')] })?.length).toBe(3);
+    expect(tokenGroup({ col: 0, cards: [tok('a'), tok('b', { tapped: true })] })).toBeNull();
+    expect(tokenGroup({ col: 0, cards: [tok('a'), tok('b', { counters: { '+1/+1': 1 } })] })).toBeNull();
+    expect(tokenGroup({ col: 0, cards: [tok('a'), card('x', 0, 0)] })).toBeNull();
+    expect(tokenGroup({ col: 0, cards: [tok('a')] })).toBeNull();
+    expect(tokenGroup({ col: 0, cards: [tok('a', { printingId: null, customName: 'Zombie 2/2' }), tok('b', { printingId: null, customName: 'Zombie 2/2' })] })?.length).toBe(2);
   });
 });

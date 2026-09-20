@@ -217,3 +217,14 @@ solid/badge look is no longer used anywhere; its tokens alias the label look.
 - **Format settings** (`SettingsForm`): players 2/4, mode (1v1 / FFA / 2v2), starting life 20/30/40
   or custom, commander toggle — on the room creation card (with quick presets) and in the lobby for
   the host via `updateSettings` (clears ready states).
+
+## Rows by type, token groups (M3, 2026-09-20)
+
+- A card sent to the battlefield **without an explicit spot** (menu, shortcuts, library dialog,
+  resolving from the stack) lands in the back row if it is a land, the front row otherwise, in the
+  column after the last used one. Dropping still places exactly where you drop.
+- **Identical tokens in one slot** (same printing/name, tap state, counters, note, face) render as a
+  single card with a **×N** badge; click taps them all, drag moves them all, right-click acts on the
+  group (selection menu). Tokens created together already share a slot, so a "make 5 Soldiers"
+  shows as one card ×5. Any difference (one tapped, one with a counter) splits the group back into
+  a pile.
