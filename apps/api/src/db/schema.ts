@@ -1,4 +1,4 @@
-import type { CardFace, DeckContents, GameEvent, RoomSettings, RoomState } from '@mtg/shared';
+import type { CardFace, DeckContents, DraftConfig, GameEvent, RoomSettings, RoomState } from '@mtg/shared';
 import { sql } from 'drizzle-orm';
 import { boolean, date, index, integer, jsonb, pgTable, primaryKey, real, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
@@ -250,3 +250,22 @@ export const draftPicks = pgTable(
 );
 
 export type DraftPickRow = typeof draftPicks.$inferSelect;
+
+// ---- draft configs: saved, user-owned draft recipes ----
+
+export const draftConfigs = pgTable(
+  'draft_configs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    ownerId: uuid('owner_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    config: jsonb('config').$type<DraftConfig>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('draft_configs_owner_id_idx').on(t.ownerId)],
+);
+
+export type DraftConfigRow = typeof draftConfigs.$inferSelect;

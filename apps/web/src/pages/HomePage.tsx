@@ -26,6 +26,7 @@ export function HomePage({ user }: { user: User }) {
           <Link to="/rooms" className="text-accent hover:underline">Rooms</Link>
           <Link to="/decks" className="text-accent hover:underline">My decks</Link>
           <Link to="/cubes" className="text-accent hover:underline">Cubes</Link>
+          <Link to="/drafts" className="text-accent hover:underline">Draft formats</Link>
           <Link to="/cards" className="text-accent hover:underline">Browse cards</Link>
         </div>
       </Card>

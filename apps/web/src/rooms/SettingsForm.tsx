@@ -19,7 +19,7 @@ export function SettingsForm({ value, onChange, disabled = false }: { value: Roo
     <div className="flex flex-wrap items-end gap-3 text-sm">
       <label>
         <span className="mb-1 block text-text-muted">Players</span>
-        <select className={select} value={value.playerCount} disabled={disabled} onChange={(e) => set({ playerCount: Number(e.target.value) as 2 | 4 })}>
+        <select className={select} value={value.playerCount} disabled={disabled || !!value.draft} title={value.draft ? 'Fixed by the draft format' : undefined} onChange={(e) => set({ playerCount: Number(e.target.value) as 2 | 4 })}>
           <option value={2}>2</option>
           <option value={4}>4</option>
         </select>

@@ -50,6 +50,13 @@
       "when": 1789915335606,
       "tag": "0006_flippant_slayback",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789916053462,
+      "tag": "0007_clear_deadpool",
+      "breakpoints": true
     }
   ]
 }

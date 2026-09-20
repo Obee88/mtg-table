@@ -90,7 +90,7 @@ PickAndPassSettings { packSize, packsPerPlayer, rounds, direction: 'alternate' |
 - `users`, `invites`, `sessions`
 - `cards` (Scryfall printings cache)
 - `cubes(id, owner_id, name)` · `cube_versions(id, cube_id, number, note, created_by, created_at)` · `cube_version_cards(version_id, card_id, quantity)` — every save is a full snapshot (migration 0005)
-- `draft_configs(id, owner_id, name, json)`
+- `draft_configs(id, owner_id, name, config)` — saved recipes; a room copies the config into its settings at creation (migration 0007)
 - `decks(id, owner_id, name, json)` — main / sideboard / commander as printing ids
 - `rooms(id, owner_id, settings_json, phase, created_at)` — a draft room is a room whose settings carry a `draft` config; phase runs lobby → drafting → deckbuilding → playing → ended · `room_players(room_id, user_id, seat)`
 - `room_events(room_id, seq, actor_id, type, payload, created_at)` · `room_snapshots(room_id, seq, state)`
@@ -158,7 +158,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 **M5 — Draft**
 - [x] Draft engine core (a): pure model in shared — config, pick-and-pass phase, dealing, pass-direction rule, pick log with pack context, projection
 - [x] Draft engine core (b): server integration — draft rooms over the event stream, pools from cube versions, draft_picks table, routes, socket, tests
-- [ ] Draft config editor and the house-rules preset (phase 1 tri-color pool + phase 2 main cube)
+- [x] Draft config editor and the house-rules preset (phase 1 tri-color pool + phase 2 main cube)
 - [ ] Draft ability hooks with Cogwork Librarian
 - [ ] Draft UI: packs, pass direction / pick counter, face-up picks per seat, sortable pool
 - [ ] Deckbuilding step (main / sideboard / free basics) and handoff to the table with fixed seats

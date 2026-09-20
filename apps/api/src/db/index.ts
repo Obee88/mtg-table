@@ -6,7 +6,7 @@ import postgres from 'postgres';
 import * as schema from './schema.js';
 
 export { schema };
-export type { CardIngestRow, CardRow, CubeRow, CubeVersionRow, DeckRow, InviteRow, NewCardRow, RoomRow, UserRow } from './schema.js';
+export type { CardIngestRow, CardRow, CubeRow, CubeVersionRow, DeckRow, DraftConfigRow, DraftPickRow, InviteRow, NewCardRow, RoomRow, UserRow } from './schema.js';
 
 /** Driver-agnostic handle: production uses postgres-js, tests use PGlite. */
 export type Db = PgDatabase<PgQueryResultHKT, typeof schema>;

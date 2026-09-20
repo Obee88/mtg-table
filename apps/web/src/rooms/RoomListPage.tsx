@@ -1,4 +1,5 @@
-import type { RoomListItem, RoomSettings, RoomState } from '@mtg/shared';
+import type { DraftConfigResponse, DraftConfigSummary, RoomListItem, RoomSettings, RoomState } from '@mtg/shared';
+import { describeDraftConfig } from '@mtg/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
@@ -18,6 +19,38 @@ const PRESETS: { label: string; settings: RoomSettings }[] = [
 
 export const describeSettings = (s: RoomSettings) =>
   `${s.draft ? `Draft: ${s.draft.name} · ` : ''}${s.mode === '1v1' ? '1v1' : s.mode === 'ffa' ? `${s.playerCount}-player FFA` : '2v2'} · ${s.startingLife} life${s.commander ? ' · commander' : ''}`;
+
+/** Optional saved draft format; choosing one fixes the player count to its seats. */
+function DraftFormatPicker({ value, onChange }: { value: RoomSettings; onChange: (s: RoomSettings) => void }) {
+  const formats = useQuery({ queryKey: ['draft-configs'], queryFn: () => api<DraftConfigSummary[]>('/draft-configs') });
+  const [chosen, setChosen] = useState('');
+  const load = useMutation({
+    mutationFn: (id: string) => api<DraftConfigResponse>(`/draft-configs/${id}`),
+    onSuccess: ({ config }) => {
+      const mode = config.seats === 2 ? '1v1' : value.mode === '1v1' ? 'ffa' : value.mode;
+      onChange({ ...value, draft: config, playerCount: config.seats, mode });
+    },
+  });
+  const pick = (id: string) => {
+    setChosen(id);
+    if (id) load.mutate(id);
+    else onChange({ ...value, draft: null });
+  };
+  return (
+    <div className="flex flex-wrap items-end gap-3 text-sm">
+      <label>
+        <span className="mb-1 block text-text-muted">Draft</span>
+        <select className="rounded-md border border-border bg-surface px-2 py-1.5 text-sm text-text" value={value.draft ? chosen : ''} onChange={(e) => pick(e.target.value)}>
+          <option value="">none — bring your own decks</option>
+          {formats.data?.map((f) => <option key={f.id} value={f.id}>{f.name} · {f.seats} players</option>)}
+        </select>
+      </label>
+      {value.draft && <Chip type="primary" className="mb-1.5">{describeDraftConfig(value.draft)}</Chip>}
+      {formats.data?.length === 0 && <Link to="/drafts/new" className="mb-2 text-accent hover:underline">Create a draft format</Link>}
+      <ErrorText error={load.error} />
+    </div>
+  );
+}
 
 export function RoomListPage() {
   const me = useMe();
@@ -51,6 +84,7 @@ export function RoomListPage() {
               <Button key={p.label} variant="ghost" className="!py-1 text-xs" onClick={() => setSettings(p.settings)}>{p.label}</Button>
             ))}
           </div>
+          <DraftFormatPicker value={settings} onChange={setSettings} />
           <SettingsForm value={settings} onChange={setSettings} />
           <div>
             <Button onClick={() => create.mutate(settings)} disabled={create.isPending}>Create room · {describeSettings(settings)}</Button>
