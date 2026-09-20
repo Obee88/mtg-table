@@ -11,6 +11,8 @@ export const draftCommandSchema = z.discriminatedUnion('type', [
   }),
   /** Winston: take the pile being looked at, or pass on it. */
   z.object({ type: z.literal('winstonDecide'), take: z.boolean() }),
+  /** Grid: take a row or column of the current grid. */
+  z.object({ type: z.literal('gridPick'), line: z.enum(['row', 'col']), index: z.number().int().min(0).max(3) }),
   /** Deckbuilding: main deck as draft card ids from the own pool, plus any number of free basic lands. May be re-submitted until the game starts. */
   z.object({
     type: z.literal('submitDraftDeck'),

@@ -22,7 +22,7 @@ import { HttpError } from '../errors.js';
 const SNAPSHOT_EVERY = 50;
 const IDLE_EVICT_MS = 30 * 60 * 1000;
 /** Lobby and bookkeeping events are never undone. */
-const NOT_UNDOABLE = new Set(['roomCreated', 'settingsChanged', 'playerJoined', 'playerLeft', 'seatChanged', 'deckSelected', 'readyChanged', 'roomClosed', 'gameStarted', 'actionUndone', 'mulliganTaken', 'handKept', 'draftStarted', 'draftPicked', 'draftCardReturned', 'draftDeckSubmitted', 'winstonTaken', 'winstonPassed', 'resultReported']);
+const NOT_UNDOABLE = new Set(['roomCreated', 'settingsChanged', 'playerJoined', 'playerLeft', 'seatChanged', 'deckSelected', 'readyChanged', 'roomClosed', 'gameStarted', 'actionUndone', 'mulliganTaken', 'handKept', 'draftStarted', 'draftPicked', 'draftCardReturned', 'draftDeckSubmitted', 'winstonTaken', 'winstonPassed', 'gridTaken', 'resultReported']);
 
 export type RoomListener = (events: RoomEvent[], state: RoomState, before: RoomState) => void;
 

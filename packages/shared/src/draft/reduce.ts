@@ -12,7 +12,7 @@ export function reduceDraft(state: DraftState | null, event: DraftEvent): DraftS
     case 'draftStarted': {
       const packs = Object.fromEntries(event.packs.map((p) => [p.id, { ...p, cards: p.cards.map((c) => cardFrom(c)), taken: 0 }]));
       const players: Record<string, DraftPlayer> = Object.fromEntries(event.seats.map((id) => [id, { queue: [], pool: [], faceUp: [], picks: 0 }]));
-      const s: DraftState = { config: event.config, seats: event.seats, phase: 0, round: 0, globalRound: 0, direction: event.config.startDirection, packs, dealt: event.dealt, players, picks: [], status: 'running', winston: null, decks: {} };
+      const s: DraftState = { config: event.config, seats: event.seats, phase: 0, round: 0, globalRound: 0, direction: event.config.startDirection, packs, dealt: event.dealt, players, picks: [], status: 'running', winston: null, grid: null, decks: {} };
       return openRound(s);
     }
     case 'draftPicked': {
@@ -104,6 +104,26 @@ export function reduceDraft(state: DraftState | null, event: DraftEvent): DraftS
       }
       return { ...state, packs: { ...state.packs, [pack.id]: { ...pack, cards: stack } }, winston: { ...w, piles, activeSeat, pileIndex } };
     }
+    case 'gridTaken': {
+      if (!state?.grid) return state;
+      const g = state.grid;
+      const pack = state.packs[event.packId];
+      const player = state.players[event.playerId];
+      if (!pack || !player) return state;
+      const known = new Map(g.cells.filter((c): c is DraftCard => c !== null).map((c) => [c.id, c]));
+      const cards = event.cards.map((c) => cardFrom({ id: c.id, printingId: c.printingId ?? known.get(c.id)?.printingId ?? null, ability: c.ability ?? known.get(c.id)?.ability }));
+      const taken = new Set(cards.map((c) => c.id));
+      const cells = g.cells.map((c) => (c && taken.has(c.id) ? null : c));
+      const contents = g.cells.filter((c): c is DraftCard => c !== null).map((c) => c.printingId);
+      const records: PickRecord[] = cards.map((card, i) => ({
+        n: state.picks.length + 1 + i, phase: pack.phase, round: pack.round, packId: pack.id, playerId: event.playerId, card,
+        pickInPack: g.picksThisGrid + 1, packContents: contents, double: i > 0, faceUp: true,
+      }));
+      const players = { ...state.players, [event.playerId]: { ...player, pool: [...player.pool, ...cards], picks: player.picks + cards.length } };
+      const packs = { ...state.packs, [pack.id]: { ...pack, cards: pack.cards.filter((c) => !taken.has(c.id)), taken: pack.taken + cards.length } };
+      const activeSeat = nextSeat(state.seats.length, state.seats.indexOf(event.playerId), 'left');
+      return advance({ ...state, packs, players, picks: [...state.picks, ...records], grid: { ...g, cells, activeSeat, picksThisGrid: g.picksThisGrid + 1 } });
+    }
     case 'draftDeckSubmitted':
       if (!state) return state;
       return { ...state, decks: { ...(state.decks ?? {}), [event.playerId]: { main: event.main, basics: event.basics } } };
@@ -127,6 +147,8 @@ function advance(s: DraftState): DraftState {
   const phaseCfg = s.config.phases[s.phase]!;
   const live = phaseCfg.type === 'winston'
     ? (s.packs[s.winston?.packId ?? '']?.cards.length ?? 0) > 0 || (s.winston?.piles.some((p) => p.length > 0) ?? false)
+    : phaseCfg.type === 'grid'
+    ? !!s.grid && s.grid.picksThisGrid < s.seats.length && s.grid.cells.some((c) => c !== null)
     : Object.values(s.players).some((p) => p.queue.some((id) => (s.packs[id]?.cards.length ?? 0) > 0));
   if (live) return s;
   let phase = s.phase;
@@ -135,7 +157,7 @@ function advance(s: DraftState): DraftState {
     phase += 1;
     round = 0;
   }
-  if (phase >= s.config.phases.length) return { ...s, status: 'finished', winston: null, players: clearQueues(s.players) };
+  if (phase >= s.config.phases.length) return { ...s, status: 'finished', winston: null, grid: null, players: clearQueues(s.players) };
   return openRound({ ...s, phase, round, globalRound: s.globalRound + 1, players: clearQueues(s.players) });
 }
 
@@ -155,12 +177,20 @@ function openRound(s: DraftState): DraftState {
     const stack = pack.cards.slice(phaseCfg.piles);
     // The first Winston phase starts with seat 0; later ones with whoever did not start the previous.
     const activeSeat = s.globalRound % s.seats.length;
-    return { ...s, direction, packs: { ...s.packs, [packId]: { ...pack, cards: stack } }, winston: { packId, piles, activeSeat, pileIndex: Math.max(0, nextPile(piles, 0)) } };
+    return { ...s, direction, grid: null, packs: { ...s.packs, [packId]: { ...pack, cards: stack } }, winston: { packId, piles, activeSeat, pileIndex: Math.max(0, nextPile(piles, 0)) } };
+  }
+  if (phaseCfg.type === 'grid') {
+    const packId = s.dealt[s.phase]?.[s.round]?.[0]?.[0];
+    const pack = packId ? s.packs[packId] : undefined;
+    if (!packId || !pack) return { ...s, direction, winston: null, grid: null };
+    // Whoever picks first rotates with every grid.
+    const activeSeat = s.round % s.seats.length;
+    return { ...s, direction, winston: null, grid: { packId, size: phaseCfg.size, cells: pack.cards.slice(0, phaseCfg.size * phaseCfg.size), activeSeat, picksThisGrid: 0 } };
   }
   const seatsPacks = s.dealt[s.phase]?.[s.round] ?? [];
   const players = { ...s.players };
   s.seats.forEach((id, seat) => {
     players[id] = { ...players[id]!, queue: [...(seatsPacks[seat] ?? [])] };
   });
-  return { ...s, direction, players, winston: null };
+  return { ...s, direction, players, winston: null, grid: null };
 }

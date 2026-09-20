@@ -20,7 +20,15 @@ export const winstonConfigSchema = z.object({
   piles: z.number().int().min(2).max(5),
 });
 
-export const draftPhaseConfigSchema = z.discriminatedUnion('type', [pickAndPassConfigSchema, winstonConfigSchema]);
+export const gridConfigSchema = z.object({
+  type: z.literal('grid'),
+  name: z.string().trim().min(1).max(60),
+  poolCubeVersionId: z.string(),
+  grids: z.number().int().min(1).max(60),
+  size: z.number().int().min(2).max(4),
+});
+
+export const draftPhaseConfigSchema = z.discriminatedUnion('type', [pickAndPassConfigSchema, winstonConfigSchema, gridConfigSchema]);
 
 export const draftConfigSchema = z.object({
   name: z.string().trim().min(1).max(60),
@@ -70,6 +78,8 @@ export const draftEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('winstonTaken'), playerId: z.string(), packId: z.string(), pileIndex: z.number().int(), cards: z.array(draftCardSchema) }),
   /** Winston: the active player passed on a pile; the top card of the stack (if any) joined it face down. */
   z.object({ type: z.literal('winstonPassed'), playerId: z.string(), packId: z.string(), pileIndex: z.number().int(), addedCardId: z.string().nullable() }),
+  /** Grid: the active player took a row or column of the current grid (public). */
+  z.object({ type: z.literal('gridTaken'), playerId: z.string(), packId: z.string(), line: z.enum(['row', 'col']), index: z.number().int(), cards: z.array(draftCardSchema) }),
   /** A drafter's deck for the table; others only learn that it was submitted. */
   z.object({
     type: z.literal('draftDeckSubmitted'),

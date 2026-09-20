@@ -1,6 +1,6 @@
 import type { DraftCommand } from './commands.js';
 import type { DraftEvent } from './events.js';
-import { cardsNeeded, nextPile, usableLibrarians, type DraftCard, type DraftConfig, type DraftState } from './types.js';
+import { cardsNeeded, gridLine, nextPile, usableLibrarians, type DraftCard, type DraftConfig, type DraftState } from './types.js';
 
 export type DraftDecision = { ok: true; events: DraftEvent[] } | { ok: false; error: string };
 const reject = (error: string): DraftDecision => ({ ok: false, error });
@@ -21,6 +21,18 @@ export function dealDraft(config: DraftConfig, seats: string[], ctx: DealContext
     const pool = shuffle(ctx.pools[pi] ?? [], ctx.random);
     const needed = cardsNeeded(config, phase);
     if (pool.length < needed) return reject(`Phase ${pi + 1} (${phase.name}) needs ${needed} cards but the pool has ${pool.length}`);
+    if (phase.type === 'grid') {
+      // One pack per grid, at seat 0 of its round.
+      const rounds: string[][][] = [];
+      for (let g = 0; g < phase.grids; g++) {
+        const id = ctx.newId();
+        const n = phase.size * phase.size;
+        packs.push({ id, phase: pi, round: g, cards: pool.slice(g * n, (g + 1) * n) });
+        rounds.push([[id], ...Array.from({ length: config.seats - 1 }, () => [] as string[])]);
+      }
+      dealt.push(rounds);
+      continue;
+    }
     if (phase.type === 'winston') {
       // One face-down stack, kept as a pack at seat 0; piles are seeded when the phase opens.
       const id = ctx.newId();
@@ -80,6 +92,16 @@ export function decideDraft(state: DraftState | null, command: DraftCommand, act
       const blind = pack.cards[1];
       if (nextPile(w.piles, w.pileIndex + 1) < 0 && blind) events.push({ type: 'winstonTaken', playerId: actorId, packId: pack.id, pileIndex: -1, cards: [withIdentity(blind)] });
       return { ok: true, events };
+    }
+    case 'gridPick': {
+      if (state.status !== 'running') return reject('Draft is not running');
+      const g = state.grid;
+      if (!g) return reject('This is not a Grid phase');
+      if (state.seats[g.activeSeat] !== actorId) return reject('Not your turn');
+      if (command.index >= g.size) return reject('No such line');
+      const cards = gridLine(g.size, command.line, command.index).map((i) => g.cells[i]).filter((c): c is DraftCard => !!c);
+      if (cards.length === 0) return reject('That line is empty');
+      return { ok: true, events: [{ type: 'gridTaken', playerId: actorId, packId: g.packId, line: command.line, index: command.index, cards: cards.map(withIdentity) }] };
     }
     case 'draftPick': {
       if (state.status !== 'running') return reject('Draft is not running');

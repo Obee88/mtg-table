@@ -1,5 +1,5 @@
 import type { CardPrinting, DraftCard, DraftState, RoomState } from '@mtg/shared';
-import { allDecksSubmitted, nextPile, nextSeat, usableLibrarians } from '@mtg/shared';
+import { allDecksSubmitted, gridLine, nextPile, nextSeat, usableLibrarians } from '@mtg/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
@@ -42,6 +42,8 @@ export function DraftScreen({ room, meId, leaveHref = '/rooms' }: { room: GameRo
               <Notice title="Drafting" text="You are watching; picks are private until the draft ends." />
             ) : draft.winston ? (
               <WinstonView state={state} draft={draft} meId={meId} printings={printings} send={room.send} />
+            ) : draft.grid ? (
+              <GridView state={state} draft={draft} meId={meId} printings={printings} send={room.send} />
             ) : pack ? (
               <PackView key={pack.id} draft={draft} pack={pack} meId={meId} printings={printings} send={room.send} />
             ) : (
@@ -86,6 +88,7 @@ function SeatStrip({ state, draft, meId, printings, connected }: { state: RoomSt
       <span className="font-semibold text-white/90">{draft.config.name}</span>
       {running && phase && phase.type === 'pickAndPass' && <Chip type="primary">{phase.name} · round {draft.round + 1}/{phase.rounds}</Chip>}
       {running && phase && phase.type === 'winston' && <Chip type="primary">{phase.name} · Winston · {draft.packs[draft.winston?.packId ?? '']?.cards.length ?? 0} in the stack</Chip>}
+      {running && phase && phase.type === 'grid' && <Chip type="primary">{phase.name} · grid {draft.round + 1}/{phase.grids}</Chip>}
       {running && phase?.type === 'pickAndPass' && <Chip type="neutral" title={`Packs pass ${draft.direction}`}>passing {draft.direction} {arrow}</Chip>}
       {!running && <Chip type="success">finished</Chip>}
       <span className="flex flex-wrap items-center gap-2">
@@ -403,6 +406,88 @@ function WinstonView({ state, draft, meId, printings, send }: { state: RoomState
       </div>
       <div ref={ref} className="grid min-h-0 flex-1 content-start justify-center gap-2" style={{ gridTemplateColumns: `repeat(${Math.max(1, layout.cols)}, ${Math.max(layout.cardW, 1)}px)` }}>
         {mine && pile.map((c) => <PackCard key={c.id} card={c} printing={printings.get(c.printingId)} w={layout.cardW} selected={false} onClick={() => undefined} onDoubleClick={() => undefined} />)}
+      </div>
+    </div>
+  );
+}
+
+/** Grid: the current grid face up; the active player takes a whole row or column via the headers (hover previews the line). */
+function GridView({ state, draft, meId, printings, send }: { state: RoomState; draft: DraftState; meId: string; printings: Map<string, CardPrinting>; send: GameRoom['send'] }) {
+  const g = draft.grid!;
+  const active = draft.seats[g.activeSeat] ?? '';
+  const mine = active === meId;
+  const ref = useRef<HTMLDivElement>(null);
+  const [area, setArea] = useState({ w: 0, h: 0 });
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => entry && setArea({ w: entry.contentRect.width, h: entry.contentRect.height }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const [hover, setHover] = useState<{ line: 'row' | 'col'; index: number } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const header = 28;
+  const gap = 8;
+  const cardW = Math.max(1, Math.floor(Math.min((area.w - header - gap * g.size) / g.size, ((area.h - 44 - header - gap * g.size) / g.size) * (5 / 7))));
+  const cardH = Math.round(cardW * 1.4);
+  const inLine = (i: number) => hover && (hover.line === 'row' ? Math.floor(i / g.size) === hover.index : i % g.size === hover.index);
+  const lineCount = (line: 'row' | 'col', index: number) => gridLine(g.size, line, index).filter((i) => g.cells[i]).length;
+  const take = async (line: 'row' | 'col', index: number) => {
+    if (!mine || busy || lineCount(line, index) === 0) return;
+    setBusy(true);
+    const r = await send({ type: 'gridPick', line, index });
+    setBusy(false);
+    setHover(null);
+    if (!r.ok) setError(r.error);
+  };
+  const headerButton = (line: 'row' | 'col', index: number) => {
+    const n = lineCount(line, index);
+    return (
+      <button
+        key={`${line}${index}`}
+        type="button"
+        disabled={!mine || n === 0 || busy}
+        onMouseEnter={() => setHover({ line, index })}
+        onMouseLeave={() => setHover(null)}
+        onClick={() => void take(line, index)}
+        className={`flex items-center justify-center rounded text-[11px] font-medium ${mine && n > 0 ? 'bg-white/10 text-white hover:bg-accent hover:text-bg' : 'text-white/30'}`}
+        style={line === 'row' ? { width: header, height: cardH } : { width: cardW, height: header }}
+        title={n === 0 ? 'empty' : `Take ${line === 'row' ? 'row' : 'column'} ${index + 1} · ${n} card${n === 1 ? '' : 's'}`}
+      >
+        {line === 'row' ? `R${index + 1}` : `C${index + 1}`}
+      </button>
+    );
+  };
+
+  return (
+    <div ref={ref} className="flex h-full min-h-0 flex-col px-3">
+      <div className="flex h-11 shrink-0 items-center gap-2 text-[13px]">
+        <span className="font-semibold text-white/90">Pick {g.picksThisGrid + 1} of {draft.seats.length}</span>
+        <span className="text-white/50">· {g.cells.filter(Boolean).length} cards left in this grid</span>
+        {error && <Chip type="error">{error}</Chip>}
+        <span className={`ml-auto ${mine ? 'text-white/80' : 'animate-pulse text-white/60'}`}>{mine ? 'Take a row or a column' : `${state.players[active]?.displayName ?? 'Someone'} is picking…`}</span>
+      </div>
+      <div className="flex min-h-0 flex-1 items-start justify-center">
+        <div className="grid" style={{ gridTemplateColumns: `${header}px repeat(${g.size}, ${cardW}px)`, gap }}>
+          <span />
+          {Array.from({ length: g.size }, (_, c) => headerButton('col', c))}
+          {Array.from({ length: g.size }, (_, r) => [
+            headerButton('row', r),
+            ...Array.from({ length: g.size }, (_, c) => {
+              const i = r * g.size + c;
+              const card = g.cells[i];
+              return card ? (
+                <span key={card.id} className={`rounded-[4.5%] transition-shadow ${inLine(i) ? 'ring-2 ring-accent' : ''}`}>
+                  <PackCard card={card} printing={printings.get(card.printingId)} w={cardW} selected={false} onClick={() => undefined} onDoubleClick={() => undefined} />
+                </span>
+              ) : (
+                <span key={`empty-${i}`} className="rounded-[4.5%] border border-dashed border-white/15" style={{ width: cardW, height: cardH }} />
+              );
+            }),
+          ])}
+        </div>
       </div>
     </div>
   );

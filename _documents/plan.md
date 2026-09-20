@@ -170,7 +170,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 
 **M7 — Later**
 - [x] Winston phase type (stack + piles, take or pass, blind take from the stack)
-- [ ] Grid phase type
+- [x] Grid phase type (face-up square grids, take a row or column, first pick rotates)
 - [ ] Winchester phase type
 - [ ] Rotisserie phase type
 - [ ] Moxfield / Archidekt import

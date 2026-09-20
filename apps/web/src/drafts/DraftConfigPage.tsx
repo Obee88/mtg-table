@@ -1,5 +1,5 @@
 import type { CubeResponse, CubeSummary, DraftConfig, DraftConfigResponse, DraftPhaseConfig, PickAndPassConfig } from '@mtg/shared';
-import { cardsNeeded, cardsPerDrafter, cardsPerDrafterIn, draftConfigProblems, emptyPhase, emptyWinstonPhase, houseRulesPreset } from '@mtg/shared';
+import { cardsNeeded, cardsPerDrafter, cardsPerDrafterIn, draftConfigProblems, emptyGridPhase, emptyPhase, emptyWinstonPhase, houseRulesPreset } from '@mtg/shared';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -46,7 +46,7 @@ export function DraftConfigPage() {
   const problems = draftConfigProblems(config, poolSizes);
 
   const set = (patch: Partial<DraftConfig>) => setConfig((c) => ({ ...c, ...patch }));
-  const setPhase = (i: number, patch: Partial<PickAndPassConfig> | Partial<Extract<DraftPhaseConfig, { type: 'winston' }>>) =>
+  const setPhase = (i: number, patch: Partial<PickAndPassConfig> | Partial<Extract<DraftPhaseConfig, { type: 'winston' }>> | Partial<Extract<DraftPhaseConfig, { type: 'grid' }>>) =>
     setConfig((c) => ({ ...c, phases: c.phases.map((p, j) => (j === i ? ({ ...p, ...patch } as DraftPhaseConfig) : p)) }));
   const setPhases = (phases: DraftPhaseConfig[], cubesFor: string[]) => {
     setConfig((c) => ({ ...c, phases }));
@@ -114,7 +114,7 @@ export function DraftConfigPage() {
         const list = versionsByCube.get(cubeId) ?? [];
         const size = poolSizes[phase.poolCubeVersionId];
         return (
-          <Card key={i} title={`Phase ${i + 1} · ${phase.type === 'winston' ? 'Winston' : 'pick and pass'}`}>
+          <Card key={i} title={`Phase ${i + 1} · ${phase.type === 'winston' ? 'Winston' : phase.type === 'grid' ? 'Grid' : 'pick and pass'}`}>
             <div className="flex flex-wrap items-end gap-3 text-sm">
               <label>
                 <span className="mb-1 block text-text-muted">Type</span>
@@ -122,12 +122,13 @@ export function DraftConfigPage() {
                   className={select}
                   value={phase.type}
                   onChange={(e) => {
-                    const next = e.target.value === 'winston' ? emptyWinstonPhase(phase.poolCubeVersionId) : emptyPhase(phase.poolCubeVersionId);
-                    setConfig((c) => ({ ...c, phases: c.phases.map((p, j) => (j === i ? { ...next, name: p.name === 'Pack draft' || p.name === 'Winston' ? next.name : p.name } : p)) }));
+                    const next = e.target.value === 'winston' ? emptyWinstonPhase(phase.poolCubeVersionId) : e.target.value === 'grid' ? emptyGridPhase(phase.poolCubeVersionId) : emptyPhase(phase.poolCubeVersionId);
+                    setConfig((c) => ({ ...c, phases: c.phases.map((p, j) => (j === i ? { ...next, name: ['Pack draft', 'Winston', 'Grid'].includes(p.name) ? next.name : p.name } : p)) }));
                   }}
                 >
                   <option value="pickAndPass">pick and pass</option>
                   <option value="winston">Winston</option>
+                  <option value="grid">Grid</option>
                 </select>
               </label>
               <label>
@@ -180,6 +181,19 @@ export function DraftConfigPage() {
                     </select>
                   </label>
                 </>
+              ) : phase.type === 'grid' ? (
+                <>
+                  <label>
+                    <span className="mb-1 block text-text-muted">Grids</span>
+                    <input type="number" min={1} max={60} className={number} value={phase.grids} onChange={(e) => setPhase(i, { grids: clamp(e.target.value, 1, 60) })} />
+                  </label>
+                  <label>
+                    <span className="mb-1 block text-text-muted">Size</span>
+                    <select className={select} value={phase.size} onChange={(e) => setPhase(i, { size: Number(e.target.value) })}>
+                      {[2, 3, 4].map((n) => <option key={n} value={n}>{n}×{n}</option>)}
+                    </select>
+                  </label>
+                </>
               ) : (
                 <>
                   <label>
@@ -194,7 +208,7 @@ export function DraftConfigPage() {
               )}
             </div>
             <div className="mt-3 flex items-center gap-2 text-xs text-text-muted">
-              <span>Deals {cardsNeeded(config, phase)} cards{size !== undefined ? ` of ${size}` : ''}; {phase.type === 'winston' ? '~' : ''}{cardsPerDrafterIn(config, phase)} per drafter.</span>
+              <span>Deals {cardsNeeded(config, phase)} cards{size !== undefined ? ` of ${size}` : ''}; {phase.type === 'pickAndPass' ? '' : '~'}{cardsPerDrafterIn(config, phase)} per drafter.</span>
               <span className="ml-auto flex gap-1">
                 <Button variant="ghost" className="!px-2 !py-0.5" disabled={i === 0} onClick={() => movePhase(i, -1)} aria-label="move up">↑</Button>
                 <Button variant="ghost" className="!px-2 !py-0.5" disabled={i === config.phases.length - 1} onClick={() => movePhase(i, 1)} aria-label="move down">↓</Button>

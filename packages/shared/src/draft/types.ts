@@ -26,7 +26,28 @@ export interface WinstonConfig {
   piles: number;
 }
 
-export type DraftPhaseConfig = PickAndPassConfig | WinstonConfig;
+/** Grid: face-up square grids; each player in turn takes a whole row or column, leftovers are discarded. */
+export interface GridConfig {
+  type: 'grid';
+  name: string;
+  poolCubeVersionId: string;
+  /** Number of grids dealt (one per round). */
+  grids: number;
+  /** Side length (3 = the classic 3×3). */
+  size: number;
+}
+
+export type DraftPhaseConfig = PickAndPassConfig | WinstonConfig | GridConfig;
+
+/** Live state of a Grid phase: the current grid's cells (row-major, null once taken) and whose pick it is. */
+export interface GridState {
+  packId: string;
+  size: number;
+  cells: (DraftCard | null)[];
+  activeSeat: number;
+  /** Picks made from this grid so far (every seat picks once per grid). */
+  picksThisGrid: number;
+}
 
 /** Live state of a Winston phase. The stack lives in `packs[packId].cards` (top first). */
 export interface WinstonState {
@@ -124,6 +145,8 @@ export interface DraftState {
   status: DraftStatus;
   /** Set while the current phase is a Winston phase. */
   winston: WinstonState | null;
+  /** Set while the current phase is a Grid phase. */
+  grid: GridState | null;
   /** Decks submitted during deckbuilding, by player. */
   decks: Record<PlayerId, DraftDeck>;
 }
@@ -143,12 +166,20 @@ export function nextSeat(seatCount: number, seat: number, direction: PassDirecti
 /** Total cards a config draws from each phase's pool. */
 export function cardsNeeded(config: DraftConfig, phase: DraftPhaseConfig): number {
   if (phase.type === 'winston') return phase.stackSize;
+  if (phase.type === 'grid') return phase.grids * phase.size * phase.size;
   return phase.packSize * phase.packsPerPlayer * phase.rounds * config.seats;
 }
 
 /** Rounds a phase runs; Winston is a single continuous round. */
 export function roundsOf(phase: DraftPhaseConfig): number {
-  return phase.type === 'pickAndPass' ? phase.rounds : 1;
+  if (phase.type === 'pickAndPass') return phase.rounds;
+  if (phase.type === 'grid') return phase.grids;
+  return 1;
+}
+
+/** Cell indexes of a row or column of a square grid. */
+export function gridLine(size: number, line: 'row' | 'col', index: number): number[] {
+  return Array.from({ length: size }, (_, i) => (line === 'row' ? index * size + i : i * size + index));
 }
 
 /** Index of the first non-empty pile at or after `from`, or -1. */

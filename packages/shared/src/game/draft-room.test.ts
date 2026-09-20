@@ -278,3 +278,42 @@ describe('winston rooms', () => {
     expect(room.state.draft!.picks).toHaveLength(24);
   });
 });
+
+describe('grid rooms', () => {
+  it('runs a Grid phase with every replica matching its projection', () => {
+    const grid: DraftConfig = { name: 'Grid', seats: 2, startDirection: 'left', phases: [{ type: 'grid', name: 'Grid', poolCubeVersionId: 'main', grids: 4, size: 3 }] };
+    const room = new Room();
+    room.state = reduce(room.state, { type: 'roomCreated', ownerId: 'a', settings: { playerCount: 2, mode: '1v1', startingLife: 20, commander: false, draft: grid } });
+    for (const p of ['a', 'b']) {
+      room.run(p, { type: 'join' });
+      room.run(p, { type: 'setReady', ready: true });
+    }
+    room.run('a', { type: 'start' }, { draftPools: { main: pools.main } });
+    const viewers = ['a', 'b', 'zed'];
+    const clients = Object.fromEntries(viewers.map((v) => [v, projectState({ ...initialRoomState('r'), ownerId: 'a', settings: room.state.settings }, v)]));
+    let applied = 0;
+    const sync = () => {
+      const fresh = room.log.slice(applied);
+      const base = room.log.slice(0, applied).reduce((s, e) => ({ ...reduce(s, e.event), seq: e.seq }), initialRoomState('r'));
+      for (const v of viewers) {
+        for (const e of projectEvents(fresh, v, base)) clients[v] = applyRoomEvent(clients[v]!, e);
+        expect(clients[v]).toEqual(projectState(room.state, v));
+      }
+      applied = room.log.length;
+    };
+    sync();
+    let n = 0;
+    while (room.state.phase === 'drafting') {
+      const g = room.state.draft!.grid!;
+      const who = room.state.draft!.seats[g.activeSeat]!;
+      const line = n % 2 === 0 ? 'row' : 'col';
+      const index = [0, 2, 1][n % 3]!;
+      const d = decide(room.state, { type: 'gridPick', line, index }, ctx(who));
+      room.run(who, { type: 'gridPick', line, index: d.ok ? index : 0 });
+      n++;
+      sync();
+    }
+    expect(room.state.phase).toBe('deckbuilding');
+    expect(room.state.draft!.players.a!.pool.length + room.state.draft!.players.b!.pool.length).toBeGreaterThanOrEqual(16);
+  });
+});

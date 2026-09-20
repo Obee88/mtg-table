@@ -43,6 +43,11 @@ export function emptyWinstonPhase(poolCubeVersionId = ''): DraftPhaseConfig {
   return { type: 'winston', name: 'Winston', poolCubeVersionId, stackSize: 90, piles: 3 };
 }
 
+/** A blank Grid phase for the editor (two-player classic: eighteen 3×3 grids). */
+export function emptyGridPhase(poolCubeVersionId = ''): DraftPhaseConfig {
+  return { type: 'grid', name: 'Grid', poolCubeVersionId, grids: 18, size: 3 };
+}
+
 export function houseRulesPreset(pools: { triColour: string; main: string }, name = 'House rules'): DraftConfig {
   return {
     name,
@@ -67,7 +72,10 @@ export function cardsPerDrafter(config: DraftConfig): number {
 
 /** Cards one drafter gets from a phase (a Winston stack is split evenly, roughly). */
 export function cardsPerDrafterIn(config: DraftConfig, phase: DraftPhaseConfig): number {
-  return phase.type === 'winston' ? Math.floor(phase.stackSize / config.seats) : phase.packSize * phase.packsPerPlayer * phase.rounds;
+  if (phase.type === 'winston') return Math.floor(phase.stackSize / config.seats);
+  // Grid: the first pick takes a full line, later picks a line with one card already gone.
+  if (phase.type === 'grid') return Math.floor((phase.grids * (phase.size + (config.seats - 1) * (phase.size - 1))) / config.seats);
+  return phase.packSize * phase.packsPerPlayer * phase.rounds;
 }
 
 /**
