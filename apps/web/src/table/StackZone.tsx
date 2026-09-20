@@ -16,13 +16,16 @@ const PAD = 14;
  * down and to the right of the one below); the panel widens with the pile.
  * Anyone can drop their own cards here; each is edged in its owner's colour.
  */
-export function StackZone({ state, meId, printings, run, onCardMenu, onCardDragStart }: {
+export function StackZone({ state, meId, printings, run, onCardMenu, onCardDragStart, onCardClick, isSelected = () => false }: {
   state: RoomState;
   meId: string;
   printings: Map<string, CardPrinting>;
   run: Run;
   onCardMenu: (card: CardInstance) => (e: MouseEvent) => void;
   onCardDragStart: (card: CardInstance) => (e: DragEvent) => void;
+  /** Click selects (so the g / e / h / b shortcuts and the selection menu apply). */
+  onCardClick?: ((card: CardInstance, e: MouseEvent) => void) | undefined;
+  isSelected?: ((id: string) => boolean) | undefined;
 }) {
   const { w, h } = useCardSize();
   const game = state.game!;
@@ -59,14 +62,27 @@ export function StackZone({ state, meId, printings, run, onCardMenu, onCardDragS
       {n === 0 ? (
         <span className="flex w-full flex-1 items-center justify-center px-1 text-center text-[10px] leading-snug text-white/25">drop a spell here</span>
       ) : (
-        <div className="relative" style={{ width: pileW, height: pileH }}>
+        <div className="relative" style={{ width: pileW, height: pileH, marginBottom: 22 }}>
           {cards.map((c, i) => {
             const mine = c.controllerId === meId;
             const owner = state.players[c.ownerId];
 
+            const move = (to: 'battlefield' | 'graveyard' | 'exile') => (e: MouseEvent) => {
+              e.stopPropagation();
+              void run({ type: 'moveCard', instanceId: c.id, to });
+            };
             return (
-              <div key={c.id} className="absolute rounded-[4.5%] transition-[top,left] duration-150" style={{ top: i * dy, left: i * dx, zIndex: i + 1, boxShadow: `0 0 0 2px ${owner ? playerColor(state, owner) : 'transparent'}` }}>
-                <TableCard card={c} printing={c.printingId ? printings.get(c.printingId) : undefined} mine={mine} onContextMenu={mine ? onCardMenu(c) : undefined} onDragStart={mine ? onCardDragStart(c) : undefined} />
+              <div key={c.id} className="group absolute rounded-[4.5%] transition-[top,left] duration-150" style={{ top: i * dy, left: i * dx, zIndex: i + 1, boxShadow: `0 0 0 2px ${owner ? playerColor(state, owner) : 'transparent'}` }}>
+                <div onDoubleClick={mine ? move('battlefield') : undefined} title={mine ? 'Double-click to resolve onto the battlefield; drag or right-click for other zones' : undefined}>
+                  <TableCard card={c} printing={c.printingId ? printings.get(c.printingId) : undefined} mine={mine} selected={isSelected(c.id)} onClick={mine && onCardClick ? (e) => onCardClick(c, e) : undefined} onContextMenu={mine ? onCardMenu(c) : undefined} onDragStart={mine ? onCardDragStart(c) : undefined} />
+                </div>
+                {mine && (
+                  <div className="absolute inset-x-0 -bottom-1 z-10 flex translate-y-full justify-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <button type="button" onClick={move('battlefield')} className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-bg shadow hover:bg-accent-hover" title="Resolve: put it onto the battlefield">Resolve</button>
+                    <button type="button" onClick={move('graveyard')} className="rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white shadow hover:bg-black/90" title="To the graveyard (resolved instant/sorcery, countered)">Grave</button>
+                    <button type="button" onClick={move('exile')} className="rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white shadow hover:bg-black/90" title="To exile">Exile</button>
+                  </div>
+                )}
               </div>
             );
           })}

@@ -179,7 +179,8 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
       return;
     }
     if (card.zone !== 'battlefield') {
-      setSelected(new Set());
+      // A spell on the stack selects on click so the zone shortcuts (g / e / h / b) apply to it.
+      setSelected(card.zone === 'stack' ? new Set([card.id]) : new Set());
       return;
     }
     // Plain click: tap the selection if the card is part of it, else just this card.
@@ -392,7 +393,7 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
     <CardSizeProvider size={sizeFor(1, 0.5)}>
       <div ref={rootRef} className="relative h-full min-h-0 w-full">
       {layout}
-      <StackZone state={state} meId={meId} printings={printings} run={run} onCardMenu={openMenu} onCardDragStart={onCardDragStart} />
+      <StackZone state={state} meId={meId} printings={printings} run={run} onCardMenu={openMenu} onCardDragStart={onCardDragStart} onCardClick={onCardClick} isSelected={isSelected} />
       {inMulligan(game) && <MulliganOverlay state={state} meId={meId} printings={printings} run={run} />}
       </div>
       {menu && (
