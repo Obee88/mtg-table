@@ -1,5 +1,5 @@
 import type { CardPrinting, DraftCard, DraftState, RoomState } from '@mtg/shared';
-import { allDecksSubmitted, nextSeat, usableLibrarians } from '@mtg/shared';
+import { allDecksSubmitted, nextPile, nextSeat, usableLibrarians } from '@mtg/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
@@ -40,6 +40,8 @@ export function DraftScreen({ room, meId, leaveHref = '/rooms' }: { room: GameRo
               <Notice title="Draft finished" text="The drafters are building their decks." />
             ) : spectator ? (
               <Notice title="Drafting" text="You are watching; picks are private until the draft ends." />
+            ) : draft.winston ? (
+              <WinstonView state={state} draft={draft} meId={meId} printings={printings} send={room.send} />
             ) : pack ? (
               <PackView key={pack.id} draft={draft} pack={pack} meId={meId} printings={printings} send={room.send} />
             ) : (
@@ -82,8 +84,9 @@ function SeatStrip({ state, draft, meId, printings, connected }: { state: RoomSt
   return (
     <div className="flex h-auto shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-[13px] leading-none">
       <span className="font-semibold text-white/90">{draft.config.name}</span>
-      {running && phase && <Chip type="primary">{phase.name} · round {draft.round + 1}/{phase.rounds}</Chip>}
-      {running && <Chip type="neutral" title={`Packs pass ${draft.direction}`}>passing {draft.direction} {arrow}</Chip>}
+      {running && phase && phase.type === 'pickAndPass' && <Chip type="primary">{phase.name} · round {draft.round + 1}/{phase.rounds}</Chip>}
+      {running && phase && phase.type === 'winston' && <Chip type="primary">{phase.name} · Winston · {draft.packs[draft.winston?.packId ?? '']?.cards.length ?? 0} in the stack</Chip>}
+      {running && phase?.type === 'pickAndPass' && <Chip type="neutral" title={`Packs pass ${draft.direction}`}>passing {draft.direction} {arrow}</Chip>}
       {!running && <Chip type="success">finished</Chip>}
       <span className="flex flex-wrap items-center gap-2">
         {draft.seats.map((id, i) => {
@@ -333,5 +336,74 @@ function DeckBuilder({ draft, meId, printings, send, isOwner }: { draft: DraftSt
       <Pool title={`Main deck · ${main.size + basicCount} with basics`} cards={mainCards} printings={printings} onCardClick={toggle} emptyText="Click cards in the sideboard to add them to your main deck." className="flex-[3]" />
       <Pool title="Sideboard" cards={sideCards} printings={printings} onCardClick={toggle} emptyText="Everything is in the main deck." className="flex-[2]" extra={basicsRow} />
     </>
+  );
+}
+
+/** Winston: the piles as face-down stacks; the active player sees the pile at hand face up and takes it or passes. */
+function WinstonView({ state, draft, meId, printings, send }: { state: RoomState; draft: DraftState; meId: string; printings: Map<string, CardPrinting>; send: GameRoom['send'] }) {
+  const w = draft.winston!;
+  const active = draft.seats[w.activeSeat] ?? '';
+  const mine = active === meId;
+  const pile = w.piles[w.pileIndex] ?? [];
+  const stack = draft.packs[w.packId]?.cards.length ?? 0;
+  const ref = useRef<HTMLDivElement>(null);
+  const [area, setArea] = useState({ w: 0, h: 0 });
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => entry && setArea({ w: entry.contentRect.width, h: entry.contentRect.height }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const decide = async (take: boolean) => {
+    if (!mine || busy) return;
+    setBusy(true);
+    const r = await send({ type: 'winstonDecide', take });
+    setBusy(false);
+    if (!r.ok) setError(r.error);
+  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 't' || e.key === 'Enter') void decide(true);
+      if (e.key === 'p' || e.key === 'Escape') void decide(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+  const layout = packLayout(pile.length, area.w, area.h - 44);
+  const last = nextPile(w.piles, w.pileIndex + 1) < 0;
+
+  return (
+    <div className="flex h-full min-h-0 flex-col px-3">
+      <div className="flex h-11 shrink-0 items-center gap-2 text-[13px]">
+        <span className="flex items-center gap-2">
+          {w.piles.map((p, i) => (
+            <span key={i} className={`flex items-center gap-1 rounded-md px-2 py-1 ${i === w.pileIndex ? 'bg-white/15 text-white' : 'text-white/60'}`} title={`pile ${i + 1}`}>
+              <span className="inline-block h-5 w-[14px] rounded-[2px] bg-[radial-gradient(circle_at_30%_30%,#3a2f6b,#1a1533_70%)]" />
+              pile {i + 1} · {p.length}
+            </span>
+          ))}
+          <span className="text-white/50">· stack {stack}</span>
+        </span>
+        {mine ? (
+          <span className="ml-auto flex items-center gap-2">
+            {error && <Chip type="error">{error}</Chip>}
+            <button type="button" onClick={() => void decide(false)} disabled={busy} className="rounded-md border border-white/30 px-3 py-1 text-sm font-medium text-white hover:bg-white/10 disabled:opacity-40" title={last ? (stack > 1 ? 'Pass and take the next card of the stack blind (p)' : 'Pass (p)') : 'Add a card to this pile and look at the next (p)'}>
+              {last ? (stack > 1 ? 'Pass · take from stack' : 'Pass') : 'Pass'}
+            </button>
+            <button type="button" onClick={() => void decide(true)} disabled={busy || pile.length === 0} className="rounded-md bg-accent px-3 py-1 text-sm font-medium text-bg hover:bg-accent-hover disabled:opacity-40" title="Take every card in this pile (t)">
+              Take pile {w.pileIndex + 1} · {pile.length}
+            </button>
+          </span>
+        ) : (
+          <span className="ml-auto animate-pulse text-white/60">{state.players[active]?.displayName ?? 'Someone'} is looking at pile {w.pileIndex + 1}…</span>
+        )}
+      </div>
+      <div ref={ref} className="grid min-h-0 flex-1 content-start justify-center gap-2" style={{ gridTemplateColumns: `repeat(${Math.max(1, layout.cols)}, ${Math.max(layout.cardW, 1)}px)` }}>
+        {mine && pile.map((c) => <PackCard key={c.id} card={c} printing={printings.get(c.printingId)} w={layout.cardW} selected={false} onClick={() => undefined} onDoubleClick={() => undefined} />)}
+      </div>
+    </div>
   );
 }

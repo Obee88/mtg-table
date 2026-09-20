@@ -68,7 +68,7 @@ Phase { type, poolCubeVersionId, settings }
 PickAndPassSettings { packSize, packsPerPlayer, rounds, direction: 'alternate' | 'left' | 'right', startDirection }
 ```
 
-- Phase types are plugins implementing `start(pool, seats) → state`, `legalActions(state, player)`, `apply(state, action) → events`. Pick-and-pass first; Rotisserie, Winston, Grid, Winchester later.
+- Phase types share one `DraftState` (packs, pools, pick log) with a per-type slot: pick-and-pass uses `packs` + per-seat queues; Winston keeps its stack in a pack and its piles in `winston`. `openRound`/`advance` in the reducer dispatch on `phase.type`; Grid, Winchester and Rotisserie follow the same pattern.
 - **Draft ability hooks** (Cogwork Librarian): pool cards get a `DraftAbility` by card name when the pools are loaded (`draftAbilityFor`). `librarian`: always drafted face up; `usableLibrarians(state, player)` offers "take two from the pack at hand, put the Librarian in" (`draftPick.librarian`), emitted as two held picks plus `draftCardReturned`, which passes the pack. Uneven pack sizes are supported by design: packs are arrays, not fixed-size slots.
 - **Every pick is logged with context**: pack contents at that moment, pick number within pack, overall pick number, player, whether it was a double pick. Stats are derived later from this log, never computed inline.
 - Seats are fixed from draft through game; 2v2 teammates sit diagonally.
@@ -169,7 +169,10 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] Player stats (W/L per format, head-to-head, draft tendencies, deck history)
 
 **M7 — Later**
-- [ ] Rotisserie / Winston / Grid / Winchester phase types
+- [x] Winston phase type (stack + piles, take or pass, blind take from the stack)
+- [ ] Grid phase type
+- [ ] Winchester phase type
+- [ ] Rotisserie phase type
 - [ ] Moxfield / Archidekt import
 - [ ] Passkeys / YubiKey
 - [ ] Tablet layout

@@ -122,6 +122,10 @@ export function describeEvent(e: RoomEvent, ctx: LogContext): string | null {
     }
     case 'draftDeckSubmitted':
       return `${ctx.playerName(ev.playerId)} submitted their deck`;
+    case 'winstonTaken':
+      return ev.pileIndex < 0 ? `${ctx.playerName(ev.playerId)} took the top card of the stack` : `${ctx.playerName(ev.playerId)} took pile ${ev.pileIndex + 1} (${ev.cards.length} card${ev.cards.length === 1 ? '' : 's'})`;
+    case 'winstonPassed':
+      return `${ctx.playerName(ev.playerId)} passed on pile ${ev.pileIndex + 1}`;
     case 'resultReported':
       return `${ctx.playerName(ev.reportedBy)} reported game ${ev.gameNumber}: ${ev.winners.length === 0 ? 'a draw' : `${ev.winners.map(ctx.playerName).join(' & ')} won`}${ev.note ? ` — ${ev.note}` : ''}`;
     case 'draftCardReturned':

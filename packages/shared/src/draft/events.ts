@@ -12,11 +12,21 @@ export const pickAndPassConfigSchema = z.object({
   direction: z.enum(['alternate', 'left', 'right']),
 });
 
+export const winstonConfigSchema = z.object({
+  type: z.literal('winston'),
+  name: z.string().trim().min(1).max(60),
+  poolCubeVersionId: z.string(),
+  stackSize: z.number().int().min(6).max(600),
+  piles: z.number().int().min(2).max(5),
+});
+
+export const draftPhaseConfigSchema = z.discriminatedUnion('type', [pickAndPassConfigSchema, winstonConfigSchema]);
+
 export const draftConfigSchema = z.object({
   name: z.string().trim().min(1).max(60),
   seats: z.union([z.literal(2), z.literal(4)]),
   startDirection: passDirectionSchema,
-  phases: z.array(pickAndPassConfigSchema).min(1).max(6),
+  phases: z.array(draftPhaseConfigSchema).min(1).max(6),
 });
 
 export const draftAbilitySchema = z.enum(['librarian']);
@@ -56,6 +66,10 @@ export const draftEventSchema = z.discriminatedUnion('type', [
     printingId: z.string().nullable(),
     ability: draftAbilitySchema.optional(),
   }),
+  /** Winston: the active player took a pile (`pileIndex` -1 = the top card of the stack, blind). */
+  z.object({ type: z.literal('winstonTaken'), playerId: z.string(), packId: z.string(), pileIndex: z.number().int(), cards: z.array(draftCardSchema) }),
+  /** Winston: the active player passed on a pile; the top card of the stack (if any) joined it face down. */
+  z.object({ type: z.literal('winstonPassed'), playerId: z.string(), packId: z.string(), pileIndex: z.number().int(), addedCardId: z.string().nullable() }),
   /** A drafter's deck for the table; others only learn that it was submitted. */
   z.object({
     type: z.literal('draftDeckSubmitted'),

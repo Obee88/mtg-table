@@ -13,6 +13,8 @@ export function visibleDraftCards(state: DraftState, viewerId: string): Map<stri
   for (const c of atHand?.cards ?? []) out.set(c.id, c);
   for (const c of mine?.pool ?? []) out.set(c.id, c);
   for (const p of Object.values(state.players)) for (const c of p.faceUp) out.set(c.id, c);
+  // Winston: only the active player sees the pile they are looking at.
+  if (state.winston && state.seats[state.winston.activeSeat] === viewerId) for (const c of state.winston.piles[state.winston.pileIndex] ?? []) out.set(c.id, c);
   return out;
 }
 
@@ -32,7 +34,8 @@ export function projectDraft(state: DraftState, viewerId: string): DraftState {
   const picks = state.picks.map((r) => (r.playerId === viewerId ? r : { ...r, card: r.faceUp ? r.card : blank(r.card), packContents: r.packContents.map(() => '') }));
   // Others' decks: only the fact that they were submitted.
   const decks = Object.fromEntries(Object.entries(state.decks ?? {}).map(([id, d]) => [id, id === viewerId ? d : { main: [], basics: [] }]));
-  return { ...state, packs, players, picks, decks };
+  const winston = state.winston ? { ...state.winston, piles: state.winston.piles.map((p) => p.map(mask)) } : (state.winston ?? null);
+  return { ...state, packs, players, picks, decks, winston };
 }
 
 /**
@@ -51,6 +54,10 @@ export function projectDraftEvent(event: DraftEvent, viewerId: string): DraftEve
       return event;
     case 'draftDeckSubmitted':
       return event.playerId === viewerId ? event : { ...event, main: [], basics: [] };
+    case 'winstonTaken':
+      return event.playerId === viewerId ? event : { ...event, cards: event.cards.map((c) => ({ id: c.id, printingId: null })) };
+    case 'winstonPassed':
+      return event;
   }
 }
 
@@ -69,7 +76,8 @@ export function applyDraftIdentities(state: DraftState, revealed: readonly Draft
   const fix = (c: DraftCard): DraftCard => (ids.has(c.id) ? (ids.get(c.id) ?? blank(c)) : c);
   const packs = Object.fromEntries(Object.entries(state.packs).map(([id, p]) => [id, { ...p, cards: p.cards.map(fix) }]));
   const players = Object.fromEntries(Object.entries(state.players).map(([id, p]) => [id, { ...p, pool: p.pool.map(fix), faceUp: p.faceUp.map(fix) }]));
-  return { ...state, packs, players };
+  const winston = state.winston ? { ...state.winston, piles: state.winston.piles.map((p) => p.map(fix)) } : (state.winston ?? null);
+  return { ...state, packs, players, winston };
 }
 
 function stripAbility<T extends { ability?: DraftCard['ability'] }>(event: T): T {

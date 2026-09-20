@@ -3,7 +3,7 @@ import { dealDraft, decideDraft } from './decide.js';
 import type { DraftEvent } from './events.js';
 import { applyDraftIdentities, projectDraft, projectDraftEvent, visibleDraftCards } from './project.js';
 import { reduceDraft } from './reduce.js';
-import { cardsNeeded, directionFor, nextSeat, usableLibrarians, type DraftCard, type DraftConfig, type DraftState } from './types.js';
+import { cardsNeeded, directionFor, nextSeat, usableLibrarians, type DraftCard, type DraftConfig, type DraftState, type PickAndPassConfig } from './types.js';
 
 /** The house rules: a 20-card tri-colour phase (4×5), then three rounds of 15 from the main cube. */
 const house: DraftConfig = {
@@ -67,7 +67,7 @@ describe('dealing', () => {
 
 describe('directions and passing', () => {
   it('alternates every round across phases from the start direction', () => {
-    const [tri, main] = house.phases as [DraftConfig['phases'][0], DraftConfig['phases'][0]];
+    const [tri, main] = house.phases as [PickAndPassConfig, PickAndPassConfig];
     expect([0, 1, 2, 3].map((g) => directionFor(house, g === 0 ? tri : main, g))).toEqual(['right', 'left', 'right', 'left']);
     expect(directionFor(house, { ...main, direction: 'left' }, 3)).toBe('left');
     expect(nextSeat(4, 3, 'left')).toBe(0);

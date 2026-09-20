@@ -98,6 +98,8 @@ function projectPayload(event: GameEvent, viewerId: PlayerId, after: RoomState):
     case 'draftPicked':
     case 'draftCardReturned':
     case 'draftDeckSubmitted':
+    case 'winstonTaken':
+    case 'winstonPassed':
       return projectDraftEvent(event, viewerId);
     default:
       return event;

@@ -16,7 +16,26 @@ export interface PickAndPassConfig {
   direction: 'alternate' | PassDirection;
 }
 
-export type DraftPhaseConfig = PickAndPassConfig;
+/** Winston: a face-down stack and a few face-down piles; the active player takes a pile or passes (adding a card to it) until the stack and piles are gone. */
+export interface WinstonConfig {
+  type: 'winston';
+  name: string;
+  poolCubeVersionId: string;
+  /** Cards dealt into the stack (piles are seeded from it). */
+  stackSize: number;
+  piles: number;
+}
+
+export type DraftPhaseConfig = PickAndPassConfig | WinstonConfig;
+
+/** Live state of a Winston phase. The stack lives in `packs[packId].cards` (top first). */
+export interface WinstonState {
+  packId: string;
+  piles: DraftCard[][];
+  /** Seat whose turn it is, and the pile they are looking at. */
+  activeSeat: number;
+  pileIndex: number;
+}
 
 export interface DraftConfig {
   name: string;
@@ -103,12 +122,15 @@ export interface DraftState {
   players: Record<PlayerId, DraftPlayer>;
   picks: PickRecord[];
   status: DraftStatus;
+  /** Set while the current phase is a Winston phase. */
+  winston: WinstonState | null;
   /** Decks submitted during deckbuilding, by player. */
   decks: Record<PlayerId, DraftDeck>;
 }
 
 /** Direction for a given global round under the config's rule. */
 export function directionFor(config: DraftConfig, phase: DraftPhaseConfig, globalRound: number): PassDirection {
+  if (phase.type !== 'pickAndPass') return config.startDirection;
   if (phase.direction !== 'alternate') return phase.direction;
   return globalRound % 2 === 0 ? config.startDirection : config.startDirection === 'left' ? 'right' : 'left';
 }
@@ -120,7 +142,19 @@ export function nextSeat(seatCount: number, seat: number, direction: PassDirecti
 
 /** Total cards a config draws from each phase's pool. */
 export function cardsNeeded(config: DraftConfig, phase: DraftPhaseConfig): number {
+  if (phase.type === 'winston') return phase.stackSize;
   return phase.packSize * phase.packsPerPlayer * phase.rounds * config.seats;
+}
+
+/** Rounds a phase runs; Winston is a single continuous round. */
+export function roundsOf(phase: DraftPhaseConfig): number {
+  return phase.type === 'pickAndPass' ? phase.rounds : 1;
+}
+
+/** Index of the first non-empty pile at or after `from`, or -1. */
+export function nextPile(piles: readonly DraftCard[][], from: number): number {
+  for (let i = Math.max(0, from); i < piles.length; i++) if (piles[i]!.length > 0) return i;
+  return -1;
 }
 
 /** One row of a finished draft's pick log, as served by the API. */

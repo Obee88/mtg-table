@@ -1,5 +1,5 @@
-import type { CubeResponse, CubeSummary, DraftConfig, DraftConfigResponse, DraftPhaseConfig } from '@mtg/shared';
-import { cardsNeeded, cardsPerDrafter, draftConfigProblems, emptyPhase, houseRulesPreset } from '@mtg/shared';
+import type { CubeResponse, CubeSummary, DraftConfig, DraftConfigResponse, DraftPhaseConfig, PickAndPassConfig } from '@mtg/shared';
+import { cardsNeeded, cardsPerDrafter, cardsPerDrafterIn, draftConfigProblems, emptyPhase, emptyWinstonPhase, houseRulesPreset } from '@mtg/shared';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -46,7 +46,8 @@ export function DraftConfigPage() {
   const problems = draftConfigProblems(config, poolSizes);
 
   const set = (patch: Partial<DraftConfig>) => setConfig((c) => ({ ...c, ...patch }));
-  const setPhase = (i: number, patch: Partial<DraftPhaseConfig>) => setConfig((c) => ({ ...c, phases: c.phases.map((p, j) => (j === i ? { ...p, ...patch } : p)) }));
+  const setPhase = (i: number, patch: Partial<PickAndPassConfig> | Partial<Extract<DraftPhaseConfig, { type: 'winston' }>>) =>
+    setConfig((c) => ({ ...c, phases: c.phases.map((p, j) => (j === i ? ({ ...p, ...patch } as DraftPhaseConfig) : p)) }));
   const setPhases = (phases: DraftPhaseConfig[], cubesFor: string[]) => {
     setConfig((c) => ({ ...c, phases }));
     setPhaseCubes(cubesFor);
@@ -113,8 +114,22 @@ export function DraftConfigPage() {
         const list = versionsByCube.get(cubeId) ?? [];
         const size = poolSizes[phase.poolCubeVersionId];
         return (
-          <Card key={i} title={`Phase ${i + 1} · pick and pass`}>
+          <Card key={i} title={`Phase ${i + 1} · ${phase.type === 'winston' ? 'Winston' : 'pick and pass'}`}>
             <div className="flex flex-wrap items-end gap-3 text-sm">
+              <label>
+                <span className="mb-1 block text-text-muted">Type</span>
+                <select
+                  className={select}
+                  value={phase.type}
+                  onChange={(e) => {
+                    const next = e.target.value === 'winston' ? emptyWinstonPhase(phase.poolCubeVersionId) : emptyPhase(phase.poolCubeVersionId);
+                    setConfig((c) => ({ ...c, phases: c.phases.map((p, j) => (j === i ? { ...next, name: p.name === 'Pack draft' || p.name === 'Winston' ? next.name : p.name } : p)) }));
+                  }}
+                >
+                  <option value="pickAndPass">pick and pass</option>
+                  <option value="winston">Winston</option>
+                </select>
+              </label>
               <label>
                 <span className="mb-1 block text-text-muted">Name</span>
                 <input className={`${select} w-36`} value={phase.name} onChange={(e) => setPhase(i, { name: e.target.value })} />
@@ -142,29 +157,44 @@ export function DraftConfigPage() {
                   </select>
                 </label>
               )}
-              <label>
-                <span className="mb-1 block text-text-muted">Pack size</span>
-                <input type="number" min={1} max={30} className={number} value={phase.packSize} onChange={(e) => setPhase(i, { packSize: clamp(e.target.value, 1, 30) })} />
-              </label>
-              <label>
-                <span className="mb-1 block text-text-muted">Packs each</span>
-                <input type="number" min={1} max={4} className={number} value={phase.packsPerPlayer} onChange={(e) => setPhase(i, { packsPerPlayer: clamp(e.target.value, 1, 4) })} />
-              </label>
-              <label>
-                <span className="mb-1 block text-text-muted">Rounds</span>
-                <input type="number" min={1} max={10} className={number} value={phase.rounds} onChange={(e) => setPhase(i, { rounds: clamp(e.target.value, 1, 10) })} />
-              </label>
-              <label>
-                <span className="mb-1 block text-text-muted">Passing</span>
-                <select className={select} value={phase.direction} onChange={(e) => setPhase(i, { direction: e.target.value as DraftPhaseConfig['direction'] })}>
-                  <option value="alternate">alternate every round</option>
-                  <option value="left">always left</option>
-                  <option value="right">always right</option>
-                </select>
-              </label>
+              {phase.type === 'pickAndPass' ? (
+                <>
+                  <label>
+                    <span className="mb-1 block text-text-muted">Pack size</span>
+                    <input type="number" min={1} max={30} className={number} value={phase.packSize} onChange={(e) => setPhase(i, { packSize: clamp(e.target.value, 1, 30) })} />
+                  </label>
+                  <label>
+                    <span className="mb-1 block text-text-muted">Packs each</span>
+                    <input type="number" min={1} max={4} className={number} value={phase.packsPerPlayer} onChange={(e) => setPhase(i, { packsPerPlayer: clamp(e.target.value, 1, 4) })} />
+                  </label>
+                  <label>
+                    <span className="mb-1 block text-text-muted">Rounds</span>
+                    <input type="number" min={1} max={10} className={number} value={phase.rounds} onChange={(e) => setPhase(i, { rounds: clamp(e.target.value, 1, 10) })} />
+                  </label>
+                  <label>
+                    <span className="mb-1 block text-text-muted">Passing</span>
+                    <select className={select} value={phase.direction} onChange={(e) => setPhase(i, { direction: e.target.value as PickAndPassConfig['direction'] })}>
+                      <option value="alternate">alternate every round</option>
+                      <option value="left">always left</option>
+                      <option value="right">always right</option>
+                    </select>
+                  </label>
+                </>
+              ) : (
+                <>
+                  <label>
+                    <span className="mb-1 block text-text-muted">Stack size</span>
+                    <input type="number" min={6} max={600} className={number} value={phase.stackSize} onChange={(e) => setPhase(i, { stackSize: clamp(e.target.value, 6, 600) })} />
+                  </label>
+                  <label>
+                    <span className="mb-1 block text-text-muted">Piles</span>
+                    <input type="number" min={2} max={5} className={number} value={phase.piles} onChange={(e) => setPhase(i, { piles: clamp(e.target.value, 2, 5) })} />
+                  </label>
+                </>
+              )}
             </div>
             <div className="mt-3 flex items-center gap-2 text-xs text-text-muted">
-              <span>Deals {cardsNeeded(config, phase)} cards{size !== undefined ? ` of ${size}` : ''}; {phase.packSize * phase.packsPerPlayer * phase.rounds} per drafter.</span>
+              <span>Deals {cardsNeeded(config, phase)} cards{size !== undefined ? ` of ${size}` : ''}; {phase.type === 'winston' ? '~' : ''}{cardsPerDrafterIn(config, phase)} per drafter.</span>
               <span className="ml-auto flex gap-1">
                 <Button variant="ghost" className="!px-2 !py-0.5" disabled={i === 0} onClick={() => movePhase(i, -1)} aria-label="move up">↑</Button>
                 <Button variant="ghost" className="!px-2 !py-0.5" disabled={i === config.phases.length - 1} onClick={() => movePhase(i, 1)} aria-label="move down">↓</Button>

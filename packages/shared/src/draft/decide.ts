@@ -1,6 +1,6 @@
 import type { DraftCommand } from './commands.js';
 import type { DraftEvent } from './events.js';
-import { cardsNeeded, usableLibrarians, type DraftCard, type DraftConfig, type DraftState } from './types.js';
+import { cardsNeeded, nextPile, usableLibrarians, type DraftCard, type DraftConfig, type DraftState } from './types.js';
 
 export type DraftDecision = { ok: true; events: DraftEvent[] } | { ok: false; error: string };
 const reject = (error: string): DraftDecision => ({ ok: false, error });
@@ -21,6 +21,13 @@ export function dealDraft(config: DraftConfig, seats: string[], ctx: DealContext
     const pool = shuffle(ctx.pools[pi] ?? [], ctx.random);
     const needed = cardsNeeded(config, phase);
     if (pool.length < needed) return reject(`Phase ${pi + 1} (${phase.name}) needs ${needed} cards but the pool has ${pool.length}`);
+    if (phase.type === 'winston') {
+      // One face-down stack, kept as a pack at seat 0; piles are seeded when the phase opens.
+      const id = ctx.newId();
+      packs.push({ id, phase: pi, round: 0, cards: pool.slice(0, phase.stackSize) });
+      dealt.push([[[id], ...Array.from({ length: config.seats - 1 }, () => [] as string[])]]);
+      continue;
+    }
     let cursor = 0;
     const rounds: string[][][] = [];
     for (let r = 0; r < phase.rounds; r++) {
@@ -57,6 +64,22 @@ export function decideDraft(state: DraftState | null, command: DraftCommand, act
       if (main.some((id) => !pool.has(id))) return reject('Only cards from your own pool can go in the deck');
       const basics = command.basics.filter((b) => b.quantity > 0);
       return { ok: true, events: [{ type: 'draftDeckSubmitted', playerId: actorId, main, basics }] };
+    }
+    case 'winstonDecide': {
+      if (state.status !== 'running') return reject('Draft is not running');
+      const w = state.winston;
+      const pack = w ? state.packs[w.packId] : undefined;
+      if (!w || !pack) return reject('This is not a Winston phase');
+      if (state.seats[w.activeSeat] !== actorId) return reject('Not your turn');
+      const pile = w.piles[w.pileIndex] ?? [];
+      if (pile.length === 0) return reject('Nothing to look at');
+      if (command.take) return { ok: true, events: [{ type: 'winstonTaken', playerId: actorId, packId: pack.id, pileIndex: w.pileIndex, cards: pile.map(withIdentity) }] };
+      const added = pack.cards[0] ?? null;
+      const events: DraftEvent[] = [{ type: 'winstonPassed', playerId: actorId, packId: pack.id, pileIndex: w.pileIndex, addedCardId: added?.id ?? null }];
+      // Passing on the last pile takes the next card of the stack blind, when there is one.
+      const blind = pack.cards[1];
+      if (nextPile(w.piles, w.pileIndex + 1) < 0 && blind) events.push({ type: 'winstonTaken', playerId: actorId, packId: pack.id, pileIndex: -1, cards: [withIdentity(blind)] });
+      return { ok: true, events };
     }
     case 'draftPick': {
       if (state.status !== 'running') return reject('Draft is not running');
@@ -96,4 +119,9 @@ function shuffle<T>(items: readonly T[], random: () => number): T[] {
 /** Spread into an event so the ability travels with the identity (absent keys keep the schema optional). */
 function abilityOf(card: DraftCard): { ability?: DraftCard['ability'] } {
   return card.ability ? { ability: card.ability } : {};
+}
+
+/** A card as an event carries it (ability only when present, so the schema's optional key stays absent otherwise). */
+function withIdentity(card: DraftCard): { id: string; printingId: string; ability?: DraftCard['ability'] } {
+  return card.ability ? { id: card.id, printingId: card.printingId, ability: card.ability } : { id: card.id, printingId: card.printingId };
 }

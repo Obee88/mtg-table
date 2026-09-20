@@ -38,6 +38,11 @@ export interface DraftConfigInput {
  * three rounds of 15 from the main cube, passing direction flipping every
  * round across both phases. 50 cards per drafter, basics free at deckbuilding.
  */
+/** A blank Winston phase for the editor (two-player classic: 90 cards, three piles). */
+export function emptyWinstonPhase(poolCubeVersionId = ''): DraftPhaseConfig {
+  return { type: 'winston', name: 'Winston', poolCubeVersionId, stackSize: 90, piles: 3 };
+}
+
 export function houseRulesPreset(pools: { triColour: string; main: string }, name = 'House rules'): DraftConfig {
   return {
     name,
@@ -57,7 +62,12 @@ export function emptyPhase(poolCubeVersionId = ''): DraftPhaseConfig {
 
 /** Cards each drafter ends up with. */
 export function cardsPerDrafter(config: DraftConfig): number {
-  return config.phases.reduce((n, p) => n + p.packSize * p.packsPerPlayer * p.rounds, 0);
+  return config.phases.reduce((n, p) => n + cardsPerDrafterIn(config, p), 0);
+}
+
+/** Cards one drafter gets from a phase (a Winston stack is split evenly, roughly). */
+export function cardsPerDrafterIn(config: DraftConfig, phase: DraftPhaseConfig): number {
+  return phase.type === 'winston' ? Math.floor(phase.stackSize / config.seats) : phase.packSize * phase.packsPerPlayer * phase.rounds;
 }
 
 /**
@@ -79,6 +89,6 @@ export function draftConfigProblems(config: DraftConfig, poolSizes: Record<strin
 
 /** One-line description: "4 players · 5 + 45 cards". */
 export function describeDraftConfig(config: DraftConfig): string {
-  const parts = config.phases.map((p) => p.packSize * p.packsPerPlayer * p.rounds);
+  const parts = config.phases.map((p) => cardsPerDrafterIn(config, p));
   return `${config.seats} players · ${parts.join(' + ')} card${cardsPerDrafter(config) === 1 ? '' : 's'}`;
 }

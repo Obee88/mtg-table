@@ -232,3 +232,49 @@ describe('reporting results', () => {
     expect(room.state.results.map((r) => [r.gameNumber, r.winners])).toEqual([[1, []], [2, ['b', 'd']]]);
   });
 });
+
+describe('winston rooms', () => {
+  it('runs a two-player Winston phase with every replica matching its projection', () => {
+    const winston: DraftConfig = { name: 'Winston', seats: 2, startDirection: 'left', phases: [{ type: 'winston', name: 'Winston', poolCubeVersionId: 'main', stackSize: 24, piles: 3 }] };
+    const room = new Room();
+    room.state = reduce(room.state, { type: 'roomCreated', ownerId: 'a', settings: { playerCount: 2, mode: '1v1', startingLife: 20, commander: false, draft: winston } });
+    for (const p of ['a', 'b']) {
+      room.run(p, { type: 'join' });
+      room.run(p, { type: 'setReady', ready: true });
+    }
+    room.run('a', { type: 'start' }, { draftPools: { main: pools.main } });
+    expect(room.state.draft?.winston).toMatchObject({ activeSeat: 0, pileIndex: 0 });
+
+    const viewers = ['a', 'b', 'zed'];
+    const clients = Object.fromEntries(viewers.map((v) => [v, projectState({ ...initialRoomState('r'), ownerId: 'a', settings: room.state.settings }, v)]));
+    let applied = 0;
+    const sync = () => {
+      const fresh = room.log.slice(applied);
+      const base = room.log.slice(0, applied).reduce((s, e) => ({ ...reduce(s, e.event), seq: e.seq }), initialRoomState('r'));
+      for (const v of viewers) {
+        for (const e of projectEvents(fresh, v, base)) clients[v] = applyRoomEvent(clients[v]!, e);
+        expect(clients[v]).toEqual(projectState(room.state, v));
+      }
+      applied = room.log.length;
+    };
+    sync();
+    let turns = 0;
+    while (room.state.phase === 'drafting') {
+      const w = room.state.draft!.winston!;
+      const who = room.state.draft!.seats[w.activeSeat]!;
+      const other = who === 'a' ? 'b' : 'a';
+      expect(decide(room.state, { type: 'winstonDecide', take: true }, ctx(other))).toEqual({ ok: false, error: 'Not your turn' });
+      room.run(who, { type: 'winstonDecide', take: turns % 3 !== 1 });
+      turns++;
+      sync();
+      // The player not on turn never sees a pile card; the spectator sees nothing at all.
+      const idle = room.state.draft!.winston ? room.state.draft!.seats[1 - room.state.draft!.winston.activeSeat]! : other;
+      const view = projectState(room.state, idle).draft!;
+      expect(view.winston?.piles.flat().every((c) => c.printingId === '') ?? true).toBe(true);
+      expect(Object.values(projectState(room.state, 'zed').draft!.players).flatMap((p) => p.pool).every((c) => c.printingId === '')).toBe(true);
+    }
+    expect(room.state.phase).toBe('deckbuilding');
+    expect(room.state.draft!.players.a!.pool.length + room.state.draft!.players.b!.pool.length).toBe(24);
+    expect(room.state.draft!.picks).toHaveLength(24);
+  });
+});
