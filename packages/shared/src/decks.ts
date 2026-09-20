@@ -75,3 +75,11 @@ export interface DeckImportResponse {
   /** Lines the parser could not read at all. */
   errors: DecklistError[];
 }
+
+/** A deck fetched from Moxfield or Archidekt, resolved like a pasted list; `text` is the list as we read it. */
+export interface DeckUrlImportResponse extends DeckImportResponse {
+  name: string;
+  source: 'moxfield' | 'archidekt';
+  url: string;
+  text: string;
+}

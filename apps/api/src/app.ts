@@ -11,6 +11,7 @@ import { scryfallSource, type CardSource } from './cards/scryfall.js';
 import type { Config } from './config.js';
 import { fetchCubeCobra, type CubeCobraFetch } from './cubes/cubecobra.js';
 import { cubeRoutes } from './cubes/routes.js';
+import { fetchDeckSite, type DeckSiteFetch } from './decks/external.js';
 import { deckRoutes } from './decks/routes.js';
 import { draftConfigRoutes } from './drafts/routes.js';
 import { statsRoutes } from './stats/routes.js';
@@ -29,6 +30,7 @@ declare module 'fastify' {
     cardIngest: CardIngestService;
     rooms: RoomService;
     cubeCobraFetch: CubeCobraFetch;
+    deckSiteFetch: DeckSiteFetch;
   }
   interface FastifyRequest {
     user: UserRow | null;
@@ -41,6 +43,8 @@ export interface AppDeps {
   cardSource?: CardSource;
   /** Cube Cobra export fetch; defaults to the real site. Tests inject a stub. */
   cubeCobraFetch?: CubeCobraFetch;
+  /** Moxfield / Archidekt fetch; defaults to the real sites. Tests inject a stub. */
+  deckSiteFetch?: DeckSiteFetch;
 }
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -56,6 +60,7 @@ export async function buildApp(config: Config, db: Db, deps: AppDeps = {}): Prom
   app.decorate('cardIngest', new CardIngestService(db, deps.cardSource ?? scryfallSource, app.log));
   app.decorate('rooms', new RoomService(db, app.log));
   app.decorate('cubeCobraFetch', deps.cubeCobraFetch ?? fetchCubeCobra);
+  app.decorate('deckSiteFetch', deps.deckSiteFetch ?? fetchDeckSite);
   app.decorateRequest('user', null);
   app.decorateRequest('sessionToken', null);
 

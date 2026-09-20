@@ -1,4 +1,4 @@
-import type { DeckImportResponse, DeckResponse } from '@mtg/shared';
+import type { DeckImportResponse, DeckResponse, DeckUrlImportResponse } from '@mtg/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, type ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
@@ -26,6 +26,18 @@ export function DeckImportPage() {
     onSuccess: (res) => {
       setReport(res);
       setDeck(fromImport(name, res));
+    },
+  });
+
+  const [url, setUrl] = useState('');
+  const fromUrl = useMutation({
+    mutationFn: (url: string) => api<DeckUrlImportResponse>('/decks/import/url', { body: { url } }),
+    onSuccess: (res) => {
+      setText(res.text);
+      const deckName = name || res.name;
+      if (!name) setName(res.name);
+      setReport(res);
+      setDeck(fromImport(deckName, res));
     },
   });
 
@@ -65,6 +77,11 @@ export function DeckImportPage() {
             }}
           >
             <Input label="Deck name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Mono-red burn" />
+            <div className="flex items-end gap-2">
+              <Input label="Or a public Moxfield / Archidekt deck link" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://moxfield.com/decks/… or https://archidekt.com/decks/…" />
+              <Button type="button" variant="ghost" onClick={() => fromUrl.mutate(url)} disabled={fromUrl.isPending || url.trim().length === 0}>Fetch</Button>
+            </div>
+            <ErrorText error={fromUrl.error} />
             <Textarea label="Paste a decklist (Arena, Moxfield, MTGO, Cockatrice…)" rows={18} value={text} onChange={(e) => setText(e.target.value)} placeholder={SAMPLE} />
             <div className="flex items-center gap-3">
               <Button type="submit" disabled={resolve.isPending || text.trim().length === 0}>

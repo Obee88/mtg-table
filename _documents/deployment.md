@@ -198,4 +198,5 @@ the app single-origin again without changing the API.
 
 - Scryfall bulk data (card ingest) and image CDN (hotlinked from the browser).
 - Cube Cobra `https://cubecobra.com/cube/api/cubeJSON/<id>` for cube import (server-side fetch,
+- Moxfield (`api2.moxfield.com`) and Archidekt (`archidekt.com/api`) for deck imports by URL; Moxfield may refuse server requests, in which case the UI tells the user to paste the list.
   ~1.5 MB per cube, on demand); its `cardID` is the Scryfall id, so printings match exactly.

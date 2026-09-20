@@ -6,6 +6,7 @@ import { toPrinting } from '../cards/search.js';
 import { schema, type DeckRow } from '../db/index.js';
 import { badRequest, notFound, unauthorized } from '../errors.js';
 import { parse } from '../validate.js';
+import { importDeckFromUrl } from './external.js';
 import { resolveDecklist } from './resolve.js';
 
 const MAX_CARDS = 1000;
@@ -14,6 +15,7 @@ const deckCard = z.object({ printingId: z.uuid(), quantity: z.number().int().min
 const contentsSchema = z.object({ main: z.array(deckCard), sideboard: z.array(deckCard), commander: z.array(deckCard) });
 const deckInput = z.object({ name: z.string().trim().min(1).max(80), contents: contentsSchema });
 const importInput = z.object({ text: z.string().max(100_000) });
+const urlInput = z.object({ url: z.string().trim().min(1).max(500) });
 const idParam = z.object({ id: z.uuid() });
 
 const count = (cards: { quantity: number }[]) => cards.reduce((n, c) => n + c.quantity, 0);
@@ -69,6 +71,12 @@ export async function deckRoutes(app: FastifyInstance): Promise<void> {
   app.post('/decks/import', async (req) => {
     const { text } = parse(importInput, req.body);
     return resolveDecklist(db, text);
+  });
+
+  /** Fetches a public Moxfield or Archidekt deck and resolves it like a pasted list (not saved). */
+  app.post('/decks/import/url', async (req) => {
+    const { url } = parse(urlInput, req.body);
+    return importDeckFromUrl(db, url, app.deckSiteFetch);
   });
 
   app.get('/decks', async (req): Promise<DeckSummary[]> => {
