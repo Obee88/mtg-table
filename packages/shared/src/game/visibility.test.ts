@@ -291,3 +291,40 @@ describe('hidden identities', () => {
     expect(client.game!.cards[top]!.printingId).toBeNull();
   });
 });
+
+describe('top card revealed across shuffles', () => {
+  it('keeps the new top card identified for everyone after a shuffle', async () => {
+    const { decide } = await import('./decide.js');
+    const { initialRoomState, reduce } = await import('./reduce.js');
+    let state = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings: { playerCount: 2, mode: '1v1', startingLife: 20, commander: false } });
+    const ctx = (actorId: string) => ({ actorId, actorDisplayName: actorId, now: new Date('2026-01-01'), random: () => 0.5, newId: (() => { let n = 0; return () => `n${n++}`; })() });
+    const run = (actor: string, command: Parameters<typeof decide>[1], extra: Record<string, unknown> = {}) => {
+      const d = decide(state, command, { ...ctx(actor), ...extra });
+      if (!d.ok) throw new Error(d.error);
+      const before = state;
+      const stored = d.events.map((event, i) => ({ seq: state.seq + i + 1, actorId: actor, at: 'now', event }));
+      state = stored.reduce((s, e) => ({ ...reduce(s, e.event), seq: e.seq }), state);
+      return { before, stored };
+    };
+    const decks = { a: { main: [{ printingId: 'bolt', quantity: 9 }], sideboard: [], commander: [] }, b: { main: [{ printingId: 'bear', quantity: 9 }], sideboard: [], commander: [] } };
+    for (const p of ['a', 'b']) {
+      run(p, { type: 'join' });
+      run(p, { type: 'selectDeck', deckId: 'd' });
+      run(p, { type: 'setReady', ready: true });
+    }
+    run('a', { type: 'start' }, { decks });
+    run('a', { type: 'keepHand', bottom: [] });
+    run('b', { type: 'keepHand', bottom: [] });
+    run('a', { type: 'setTopRevealed', enabled: true });
+
+    // Bob's replica, built from projected events, must show Alice's top card after she shuffles.
+    let bob = projectState(state, 'b');
+    const { before, stored } = run('a', { type: 'shuffleLibrary' });
+    for (const e of projectEvents(stored, 'b', before)) bob = applyRoomEvent(bob, e);
+    const top = state.game!.players.a!.zones.library[0]!;
+    expect(bob.game!.cards[top]!.printingId).toBe('bolt');
+    expect(bob).toEqual(projectState(state, 'b'));
+    // The rest of the library stays hidden.
+    expect(state.game!.players.a!.zones.library.slice(1).every((id) => bob.game!.cards[id]!.printingId === null)).toBe(true);
+  });
+});

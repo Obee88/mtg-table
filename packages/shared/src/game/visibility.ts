@@ -90,8 +90,18 @@ function projectPayload(event: GameEvent, viewerId: PlayerId, after: RoomState):
         ),
       };
     }
-    case 'libraryShuffled':
-      return { ...event, cards: event.cards.map((c) => ({ id: c.id, printingId: null, previousId: null })) };
+    case 'libraryShuffled': {
+      // Re-keyed cards are new to the viewer, so nothing in `revealed` covers them: keep the identity of
+      // any the viewer may see afterwards (the top card when it is played revealed).
+      const game = after.game;
+      return {
+        ...event,
+        cards: event.cards.map((c) => {
+          const card = game?.cards[c.id];
+          return card && canSee(after, card, viewerId) ? { id: c.id, printingId: c.printingId, previousId: null } : { id: c.id, printingId: null, previousId: null };
+        }),
+      };
+    }
     case 'actionUndone':
       return { ...event, state: projectState(event.state, viewerId) };
     case 'draftStarted':
