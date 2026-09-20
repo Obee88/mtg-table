@@ -34,7 +34,7 @@ const DRAG_MIME = 'text/instance-ids';
  * The whole game view. Fills its container (no page scroll): one row per
  * player, card size derived from the space each row gets.
  */
-export function Table({ state, meId, send, live = [], connected = [] }: { state: RoomState; meId: string; send: Send; live?: RoomEvent[]; connected?: string[] }) {
+export function Table({ state, meId, send, live = [], connected = [], onEndGame, onNewGame }: { state: RoomState; meId: string; send: Send; live?: RoomEvent[]; connected?: string[]; onEndGame?: (() => void) | undefined; onNewGame?: (() => void) | undefined }) {
   const game = state.game!;
   const players = seatedPlayers(state);
   const me = players.find((p) => p.id === meId);
@@ -339,6 +339,8 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
           onLibraryMenu={isMe ? (e) => { e.preventDefault(); setPileMenu({ x: e.clientX, y: e.clientY }); } : undefined}
           onToken={isMe ? () => setTokenDialog(true) : undefined}
           onHelp={isMe ? () => setHelpDialog(true) : undefined}
+          onEndGame={isMe ? onEndGame : undefined}
+          onNewGame={isMe ? onNewGame : undefined}
           isSelected={isMe ? isSelected : () => false}
           onMarquee={isMe ? onMarquee : undefined}
           selectedCount={isMe ? liveSelected.size : 0}
@@ -425,7 +427,9 @@ export function Table({ state, meId, send, live = [], connected = [] }: { state:
   );
 }
 
-function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run, flipped = false, collapsed = false, onCardClick, onCardMenu, onGroupMenu, onCardDragStart, onToken, onHelp, onLibraryMenu, isSelected, highlighted, onMarquee, selectedCount = 0, banner, bannerKind = 'error', onFocus, focused = false }: {
+function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run, flipped = false, collapsed = false, onCardClick, onCardMenu, onGroupMenu, onCardDragStart, onToken, onHelp, onEndGame, onNewGame, onLibraryMenu, isSelected, highlighted, onMarquee, selectedCount = 0, banner, bannerKind = 'error', onFocus, focused = false }: {
+  onEndGame?: (() => void) | undefined;
+  onNewGame?: (() => void) | undefined;
   /** Strip only (other opponents while focused on one board). */
   collapsed?: boolean;
   /** Toggle focus on this board (name click); present on 3+ player tables. */
@@ -597,7 +601,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
         mine={mine}
         connected={connected}
         run={run}
-        toolbar={mine ? <Toolbar run={run} onToken={onToken ?? (() => undefined)} onHelp={onHelp ?? (() => undefined)} myTurn={isActive(state, player.id)} /> : undefined}
+        toolbar={mine ? <Toolbar run={run} onToken={onToken ?? (() => undefined)} onHelp={onHelp ?? (() => undefined)} onEndGame={onEndGame} onNewGame={onNewGame} myTurn={isActive(state, player.id)} /> : undefined}
         onFocus={onFocus}
         focused={focused}
       />

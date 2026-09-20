@@ -132,6 +132,12 @@ export function describeEvent(e: RoomEvent, ctx: LogContext): string | null {
       return `${ctx.playerName(ev.playerId)} took pile ${ev.index + 1} (${ev.cards.length} card${ev.cards.length === 1 ? '' : 's'})`;
     case 'gridTaken':
       return `${ctx.playerName(ev.playerId)} took ${ev.line === 'row' ? 'row' : 'column'} ${ev.index + 1} (${ev.cards.length} card${ev.cards.length === 1 ? '' : 's'})`;
+    case 'resultProposed':
+      return `${ctx.playerName(ev.proposedBy)} wants to ${ev.then === 'end' ? 'end the game' : 'start a new game'}: ${ev.winners === null ? 'nobody won (not tracked)' : ev.winners.length === 0 ? 'a draw' : `${ev.winners.map(ctx.playerName).join(' & ')} won`}`;
+    case 'resultConfirmed':
+      return `${ctx.playerName(ev.playerId)} confirmed the outcome`;
+    case 'resultRejected':
+      return `${ctx.playerName(ev.playerId)} disputed the outcome`;
     case 'resultReported':
       return `${ctx.playerName(ev.reportedBy)} reported game ${ev.gameNumber}: ${ev.winners.length === 0 ? 'a draw' : `${ev.winners.map(ctx.playerName).join(' & ')} won`}${ev.note ? ` — ${ev.note}` : ''}`;
     case 'draftCardReturned':

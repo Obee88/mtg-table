@@ -91,9 +91,24 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
           activePlayerId: event.firstPlayerId,
           turn: 1,
           gameNumber: (state.game?.gameNumber ?? 0) + 1,
+          pendingResult: null,
         },
       };
     }
+
+    case 'resultProposed':
+      if (!state.game) return state;
+      return { ...state, game: { ...state.game, pendingResult: { proposedBy: event.proposedBy, winners: event.winners, then: event.then, confirmed: [] } } };
+
+    case 'resultConfirmed': {
+      const pending = state.game?.pendingResult;
+      if (!state.game || !pending || pending.confirmed.includes(event.playerId)) return state;
+      return { ...state, game: { ...state.game, pendingResult: { ...pending, confirmed: [...pending.confirmed, event.playerId] } } };
+    }
+
+    case 'resultRejected':
+      if (!state.game) return state;
+      return { ...state, game: { ...state.game, pendingResult: null } };
 
     case 'resultReported': {
       const result = { gameNumber: event.gameNumber, reportedBy: event.reportedBy, winners: event.winners, note: event.note, at: event.at };

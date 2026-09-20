@@ -126,6 +126,7 @@ export function fixtureRoom(playerCount: 2 | 4 = 2): RoomState {
       openingRoll: { [ME]: 9, [OPP]: 14 },
       startedAt: new Date().toISOString(),
       gameNumber: 1,
+      pendingResult: null,
     },
     seq: 1,
   };

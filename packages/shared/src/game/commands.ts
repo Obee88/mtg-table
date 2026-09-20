@@ -81,6 +81,11 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
     count: z.number().int().min(1).max(20),
     position: positionSchema.optional(),
   }),
+  /** End the game (or deal a new one) once everyone confirms the outcome; `winners: null` = nobody won, do not track. */
+  z.object({ type: z.literal('proposeResult'), winners: z.array(z.string()).max(4).nullable(), then: z.enum(['end', 'restart']) }),
+  z.object({ type: z.literal('confirmResult') }),
+  /** Withdraw or dispute the pending outcome. */
+  z.object({ type: z.literal('rejectResult') }),
   /** Report the outcome of the current game: the winning players (a whole team in 2v2), none for a draw. May be repeated to correct. */
   z.object({ type: z.literal('reportResult'), winners: z.array(z.string()).max(4), note: z.string().trim().max(200).optional() }),
   // ---- draft ----

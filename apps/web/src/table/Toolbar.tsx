@@ -6,7 +6,7 @@ type Run = (c: GameCommand) => Promise<void>;
 const btn = 'rounded px-1.5 py-1 text-[11px] text-text-muted hover:bg-white/10 hover:text-text disabled:opacity-40';
 
 /** The owner's actions; lives in the strip and is dimmed until the half is hovered. */
-export function Toolbar({ run, onToken, onHelp, myTurn = false }: { run: Run; onToken: () => void; onHelp: () => void; myTurn?: boolean }) {
+export function Toolbar({ run, onToken, onHelp, onEndGame, onNewGame, myTurn = false }: { run: Run; onToken: () => void; onHelp: () => void; onEndGame?: (() => void) | undefined; onNewGame?: (() => void) | undefined; myTurn?: boolean }) {
   const [dice, setDice] = useState(false);
   const [expr, setExpr] = useState('2d6');
   const ref = useRef<HTMLSpanElement>(null);
@@ -42,6 +42,9 @@ export function Toolbar({ run, onToken, onHelp, myTurn = false }: { run: Run; on
       </span>
       <button type="button" className={btn} onClick={() => void run({ type: 'undo' })} title="Undo your last action if nobody acted since">Undo <kbd>⌃Z</kbd></button>
       <button type="button" className={btn} onClick={onHelp} title="Keyboard shortcuts">?</button>
+      {(onNewGame || onEndGame) && <span className="mx-1 h-4 w-px bg-white/15" />}
+      {onNewGame && <button type="button" className={btn} onClick={onNewGame} title="Say who won; once everyone confirms, new hands are dealt">New game</button>}
+      {onEndGame && <button type="button" className={btn} onClick={onEndGame} title="Say who won; once everyone confirms, the room ends">End game</button>}
     </span>
   );
 }

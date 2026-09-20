@@ -77,6 +77,16 @@ export interface GameState {
   startedAt: string;
   /** 1 for the first deal in the room, +1 per restart; results are reported per game number. */
   gameNumber: number;
+  /** A proposed outcome waiting for every seat to confirm; null winners = nobody won, do not track. */
+  pendingResult: PendingResult | null;
+}
+
+export interface PendingResult {
+  proposedBy: PlayerId;
+  winners: PlayerId[] | null;
+  /** What happens once everyone agrees: the room ends, or a new game is dealt. */
+  then: 'end' | 'restart';
+  confirmed: PlayerId[];
 }
 
 /** Outcome of one game as reported by a seated player; empty winners = draw. Re-reporting replaces the earlier entry. */

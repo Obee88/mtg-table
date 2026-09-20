@@ -389,3 +389,53 @@ describe('rotisserie rooms', () => {
     expect(Object.values(room.state.draft!.players).map((p) => p.pool.length)).toEqual([5, 5, 5, 5]);
   });
 });
+
+describe('ending a game together', () => {
+  function playing(): Room {
+    const room = new Room();
+    room.state = reduce(room.state, { type: 'roomCreated', ownerId: 'a', settings: { playerCount: 2, mode: '1v1', startingLife: 20, commander: false } });
+    for (const p of ['a', 'b']) {
+      room.run(p, { type: 'join' });
+      room.run(p, { type: 'selectDeck', deckId: 'd' });
+      room.run(p, { type: 'setReady', ready: true });
+    }
+    room.run('a', { type: 'start' }, { decks });
+    return room;
+  }
+  const decks = { a: { main: [{ printingId: 'x', quantity: 9 }], sideboard: [], commander: [] }, b: { main: [{ printingId: 'y', quantity: 9 }], sideboard: [], commander: [] } };
+
+  it('records the outcome only once every seat confirmed, then ends the room', () => {
+    const room = playing();
+    expect(decide(room.state, { type: 'confirmResult' }, ctx('b'))).toEqual({ ok: false, error: 'Nothing to confirm' });
+    room.run('a', { type: 'proposeResult', winners: ['b'], then: 'end' });
+    expect(room.state.game?.pendingResult).toEqual({ proposedBy: 'a', winners: ['b'], then: 'end', confirmed: ['a'] });
+    expect(room.state.results).toEqual([]);
+    expect(decide(room.state, { type: 'proposeResult', winners: [], then: 'end' }, ctx('b'))).toEqual({ ok: false, error: 'An outcome is already waiting for confirmation' });
+    expect(decide(room.state, { type: 'confirmResult' }, ctx('a'))).toEqual({ ok: false, error: 'Already confirmed' });
+    room.run('b', { type: 'confirmResult' });
+    expect(room.state.results).toEqual([{ gameNumber: 1, reportedBy: 'a', winners: ['b'], note: null, at: '2026-01-01T00:00:00.000Z' }]);
+    expect(room.state.phase).toBe('ended');
+  });
+
+  it('leaves untracked games out of the results and deals again when asked', () => {
+    const room = playing();
+    room.run('b', { type: 'proposeResult', winners: null, then: 'restart' });
+    room.run('a', { type: 'confirmResult' }, { decks });
+    expect(room.state.results).toEqual([]);
+    expect(room.state.phase).toBe('playing');
+    expect(room.state.game?.gameNumber).toBe(2);
+    expect(room.state.game?.pendingResult).toBeNull();
+  });
+
+  it('a dispute clears the proposal so anyone can propose again', () => {
+    const room = playing();
+    room.run('a', { type: 'proposeResult', winners: ['a'], then: 'end' });
+    room.run('b', { type: 'rejectResult' });
+    expect(room.state.game?.pendingResult).toBeNull();
+    expect(room.state.phase).toBe('playing');
+    room.run('b', { type: 'proposeResult', winners: ['b'], then: 'end' });
+    room.run('a', { type: 'rejectResult' }); // the proposer may also withdraw; here the other side withdraws for them
+    expect(room.state.game?.pendingResult).toBeNull();
+    expect(decide(room.state, { type: 'rejectResult' }, ctx('zed'))).toEqual({ ok: false, error: 'Not in the room' });
+  });
+});

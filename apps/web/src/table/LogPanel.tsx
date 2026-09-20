@@ -44,7 +44,7 @@ export function LogPanel({ roomId, state, live, status, leaveHref, onCloseRoom, 
             <Link to={leaveHref} className="ml-auto text-accent hover:underline">Leave</Link>
             {onReport && <button type="button" onClick={onReport} className="text-accent hover:underline" title="Record who won this game">Report result</button>}
             {onRestart && <button type="button" onClick={onRestart} className="text-accent hover:underline" title="Deal new hands for everyone">Restart</button>}
-            {onCloseRoom && <button type="button" onClick={onCloseRoom} className="text-danger hover:underline" title="End the game and close the room for everyone">Close room</button>}
+            {onCloseRoom && <button type="button" onClick={onCloseRoom} className="text-danger hover:underline" title="Close the room without recording anything">Abandon</button>}
           </>
         )}
       </div>

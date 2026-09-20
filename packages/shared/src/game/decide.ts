@@ -4,7 +4,7 @@ import type { DeckContents } from '../decks.js';
 import { dealDraft, decideDraft } from '../draft/decide.js';
 import { allDecksSubmitted, draftAbilityFor, draftDeckContents, type DraftCard } from '../draft/types.js';
 import { defaultVisibility } from './reduce.js';
-import { activePlayer, inMulligan, isActive, seatedPlayers, shuffled, teamForSeat, type CardInstance, type PlayerGameState, type RoomState } from './types.js';
+import { activePlayer, inMulligan, isActive, seatedPlayers, shuffled, teamForSeat, type CardInstance, type GameState, type PlayerGameState, type RoomState } from './types.js';
 
 const HAND_SIZE = 7;
 const MAX_TIE_BREAK_ROUNDS = 20;
@@ -441,14 +441,38 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
     case 'reportResult': {
       if (!me) return reject('Not in the room');
       if (state.phase !== 'playing' || !state.game) return reject('Game not running');
-      const unknown = command.winners.filter((id) => !state.players[id]);
-      if (unknown.length > 0) return reject('Winners must be seated players');
-      // In 2v2 a team wins together.
-      const winners = state.settings.mode === '2v2'
-        ? Object.values(state.players).filter((p) => command.winners.some((w) => state.players[w]?.team === p.team)).map((p) => p.id)
-        : [...new Set(command.winners)];
-      return accept({ type: 'resultReported', gameNumber: state.game.gameNumber ?? 1, reportedBy: ctx.actorId, winners: winners.sort(), note: command.note?.trim() || null, at: ctx.now.toISOString() });
+      const winners = normalizeWinners(state, command.winners);
+      if (winners === undefined) return reject('Winners must be seated players');
+      return accept({ type: 'resultReported', gameNumber: state.game.gameNumber ?? 1, reportedBy: ctx.actorId, winners, note: command.note?.trim() || null, at: ctx.now.toISOString() });
     }
+
+    case 'proposeResult': {
+      if (!me) return reject('Not in the room');
+      if (state.phase !== 'playing' || !state.game) return reject('Game not running');
+      if (state.game.pendingResult) return reject('An outcome is already waiting for confirmation');
+      const winners = command.winners === null ? null : normalizeWinners(state, command.winners);
+      if (winners === undefined) return reject('Winners must be seated players');
+      const events: GameEvent[] = [{ type: 'resultProposed', proposedBy: ctx.actorId, winners, then: command.then }, { type: 'resultConfirmed', playerId: ctx.actorId }];
+      // Alone at the table: nobody else to ask.
+      if (Object.keys(state.players).length === 1) events.push(...settle(state, { proposedBy: ctx.actorId, winners, then: command.then, confirmed: [ctx.actorId] }, ctx));
+      return accept(...events);
+    }
+
+    case 'confirmResult': {
+      if (!me) return reject('Not in the room');
+      const pending = state.game?.pendingResult;
+      if (state.phase !== 'playing' || !pending) return reject('Nothing to confirm');
+      if (pending.confirmed.includes(ctx.actorId)) return reject('Already confirmed');
+      const confirmed = [...pending.confirmed, ctx.actorId];
+      const events: GameEvent[] = [{ type: 'resultConfirmed', playerId: ctx.actorId }];
+      if (Object.keys(state.players).every((id) => confirmed.includes(id))) events.push(...settle(state, { ...pending, confirmed }, ctx));
+      return accept(...events);
+    }
+
+    case 'rejectResult':
+      if (!me) return reject('Not in the room');
+      if (state.phase !== 'playing' || !state.game?.pendingResult) return reject('Nothing to dispute');
+      return accept({ type: 'resultRejected', playerId: ctx.actorId });
 
     case 'closeRoom':
       if (!isOwner) return reject('Only the owner can close the room');
@@ -569,4 +593,27 @@ function draftDecks(state: RoomState): Record<string, DeckContents> {
     if (contents) decks[id] = contents;
   }
   return decks;
+}
+
+/** Seated winners, sorted; in 2v2 a team wins together. Undefined when someone is not seated. */
+function normalizeWinners(state: RoomState, winners: string[]): string[] | undefined {
+  if (winners.some((id) => !state.players[id])) return undefined;
+  const ids = state.settings.mode === '2v2'
+    ? Object.values(state.players).filter((p) => winners.some((w) => state.players[w]?.team === p.team)).map((p) => p.id)
+    : [...new Set(winners)];
+  return ids.sort();
+}
+
+/** Everyone agreed: record the result (unless untracked), then end the room or deal the next game. */
+function settle(state: RoomState, pending: NonNullable<GameState['pendingResult']>, ctx: CommandContext): GameEvent[] {
+  const events: GameEvent[] = [];
+  if (pending.winners !== null) events.push({ type: 'resultReported', gameNumber: state.game?.gameNumber ?? 1, reportedBy: pending.proposedBy, winners: pending.winners, note: null, at: ctx.now.toISOString() });
+  if (pending.then === 'end') {
+    events.push({ type: 'roomClosed' });
+    return events;
+  }
+  const dealt = deal(state, state.draft ? { ...ctx, decks: draftDecks(state) } : ctx);
+  if (dealt.ok) events.push(...dealt.events);
+  else events.push({ type: 'resultRejected', playerId: pending.proposedBy });
+  return events;
 }

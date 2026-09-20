@@ -22,7 +22,7 @@ import { HttpError } from '../errors.js';
 const SNAPSHOT_EVERY = 50;
 const IDLE_EVICT_MS = 30 * 60 * 1000;
 /** Lobby and bookkeeping events are never undone. */
-const NOT_UNDOABLE = new Set(['roomCreated', 'settingsChanged', 'playerJoined', 'playerLeft', 'seatChanged', 'deckSelected', 'readyChanged', 'roomClosed', 'gameStarted', 'actionUndone', 'mulliganTaken', 'handKept', 'draftStarted', 'draftPicked', 'draftCardReturned', 'draftDeckSubmitted', 'winstonTaken', 'winstonPassed', 'gridTaken', 'winchesterTaken', 'rotisseriePicked', 'resultReported']);
+const NOT_UNDOABLE = new Set(['roomCreated', 'settingsChanged', 'playerJoined', 'playerLeft', 'seatChanged', 'deckSelected', 'readyChanged', 'roomClosed', 'gameStarted', 'actionUndone', 'mulliganTaken', 'handKept', 'draftStarted', 'draftPicked', 'draftCardReturned', 'draftDeckSubmitted', 'winstonTaken', 'winstonPassed', 'gridTaken', 'winchesterTaken', 'rotisseriePicked', 'resultReported', 'resultProposed', 'resultConfirmed', 'resultRejected']);
 
 export type RoomListener = (events: RoomEvent[], state: RoomState, before: RoomState) => void;
 
@@ -124,7 +124,7 @@ export class RoomService {
         random: () => randomInt(0, 2 ** 32) / 2 ** 32,
         newId: () => randomUUID(),
       };
-      if (command.type === 'start' || command.type === 'restart') ctx.decks = await this.loadDecks(room.state);
+      if (command.type === 'start' || command.type === 'restart' || command.type === 'confirmResult' || command.type === 'proposeResult') ctx.decks = await this.loadDecks(room.state);
       if (command.type === 'submitDraftDeck') {
         const bad = await this.nonBasicPrintings(command.basics.map((b) => b.printingId));
         if (bad.length > 0) return { ok: false, error: 'Only basic lands can be added for free' };
