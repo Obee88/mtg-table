@@ -43,3 +43,11 @@ describe('winchester phases', () => {
     expect(cardsPerDrafter(config)).toBe(45);
   });
 });
+
+describe('grid defaults', () => {
+  it('are 18 grids of 3×3 in the editor and in the schema', async () => {
+    const { gridConfigSchema } = await import('./events.js');
+    expect(emptyGridPhase('x')).toMatchObject({ grids: 18, size: 3 });
+    expect(gridConfigSchema.parse({ type: 'grid', name: 'Grid', poolCubeVersionId: 'x' })).toMatchObject({ grids: 18, size: 3 });
+  });
+});

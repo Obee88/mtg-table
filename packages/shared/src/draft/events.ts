@@ -24,8 +24,8 @@ export const gridConfigSchema = z.object({
   type: z.literal('grid'),
   name: z.string().trim().min(1).max(60),
   poolCubeVersionId: z.string(),
-  grids: z.number().int().min(1).max(60),
-  size: z.number().int().min(2).max(4),
+  grids: z.number().int().min(1).max(60).default(18),
+  size: z.number().int().min(2).max(4).default(3),
 });
 
 export const winchesterConfigSchema = z.object({
