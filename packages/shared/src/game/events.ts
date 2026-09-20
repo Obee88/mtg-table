@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { draftConfigSchema, draftEventSchema } from '../draft/events.js';
+import type { DraftAbility } from '../draft/types.js';
 import { ZONES, type RoomState } from './types.js';
 
 export const positionSchema = z.object({ row: z.number().int().min(0).max(3), col: z.number() });
@@ -117,7 +118,7 @@ export interface RoomEvent {
   /** Cards whose identity the viewer may no longer see (projection only). */
   hidden?: string[];
   /** Draft cards whose identity the viewer just gained (pack arrived at their seat, face-up pick). */
-  draftRevealed?: { cardId: string; printingId: string }[];
+  draftRevealed?: { cardId: string; printingId: string; ability?: DraftAbility }[];
   /** Draft cards the viewer may no longer see (pack passed on). */
   draftHidden?: string[];
 }

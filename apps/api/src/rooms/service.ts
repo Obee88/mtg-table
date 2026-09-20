@@ -156,14 +156,19 @@ export class RoomService {
   }
 
   /** Printing ids (one per copy) of each cube version a draft deals from. */
-  private async loadDraftPools(versionIds: string[]): Promise<{ ok: true; pools: Record<string, string[]> } | { ok: false; error: string }> {
+  private async loadDraftPools(versionIds: string[]): Promise<{ ok: true; pools: Record<string, { printingId: string; name: string }[]> } | { ok: false; error: string }> {
     const ids = [...new Set(versionIds)];
     const versions = await this.db.select({ id: schema.cubeVersions.id }).from(schema.cubeVersions).where(inArray(schema.cubeVersions.id, ids));
     const missing = ids.filter((id) => !versions.some((v) => v.id === id));
     if (missing.length > 0) return { ok: false, error: 'A cube version this draft uses no longer exists' };
-    const rows = await this.db.select().from(schema.cubeVersionCards).where(inArray(schema.cubeVersionCards.versionId, ids));
-    const pools: Record<string, string[]> = Object.fromEntries(ids.map((id) => [id, []]));
-    for (const r of rows) for (let i = 0; i < r.quantity; i++) pools[r.versionId]!.push(r.cardId);
+    // Names identify draft-matters cards (Cogwork Librarian) whatever the printing.
+    const rows = await this.db
+      .select({ versionId: schema.cubeVersionCards.versionId, cardId: schema.cubeVersionCards.cardId, quantity: schema.cubeVersionCards.quantity, name: schema.cards.name })
+      .from(schema.cubeVersionCards)
+      .innerJoin(schema.cards, eq(schema.cards.id, schema.cubeVersionCards.cardId))
+      .where(inArray(schema.cubeVersionCards.versionId, ids));
+    const pools: Record<string, { printingId: string; name: string }[]> = Object.fromEntries(ids.map((id) => [id, []]));
+    for (const r of rows) for (let i = 0; i < r.quantity; i++) pools[r.versionId]!.push({ printingId: r.cardId, name: r.name });
     return { ok: true, pools };
   }
 

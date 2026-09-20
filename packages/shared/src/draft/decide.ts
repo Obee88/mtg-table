@@ -1,6 +1,6 @@
 import type { DraftCommand } from './commands.js';
 import type { DraftEvent } from './events.js';
-import { cardsNeeded, type DraftCard, type DraftConfig, type DraftState } from './types.js';
+import { cardsNeeded, usableLibrarians, type DraftCard, type DraftConfig, type DraftState } from './types.js';
 
 export type DraftDecision = { ok: true; events: DraftEvent[] } | { ok: false; error: string };
 const reject = (error: string): DraftDecision => ({ ok: false, error });
@@ -55,7 +55,21 @@ export function decideDraft(state: DraftState | null, command: DraftCommand, act
       const pack = state.packs[packId]!;
       const card = pack.cards.find((c) => c.id === command.cardId);
       if (!card) return reject('That card is not in your current pack');
-      return { ok: true, events: [{ type: 'draftPicked', playerId: actorId, packId, cardId: card.id, printingId: card.printingId, faceUp: command.faceUp ?? false, double: false }] };
+      const faceUp = (command.faceUp ?? false) || card.ability === 'librarian';
+      if (!command.librarian) return { ok: true, events: [{ type: 'draftPicked', playerId: actorId, packId, cardId: card.id, printingId: card.printingId, ...abilityOf(card), faceUp, double: false }] };
+      // Cogwork Librarian: take a second card from the same pack, and the Librarian goes into the pack instead.
+      const librarian = usableLibrarians(state, actorId).find((c) => c.id === command.librarian!.cardId);
+      if (!librarian) return reject('You have no Cogwork Librarian to spend on this pack');
+      const second = pack.cards.find((c) => c.id === command.librarian!.secondCardId);
+      if (!second || second.id === card.id) return reject('Choose a second, different card from the same pack');
+      return {
+        ok: true,
+        events: [
+          { type: 'draftPicked', playerId: actorId, packId, cardId: card.id, printingId: card.printingId, ...abilityOf(card), faceUp, double: false, holdPack: true },
+          { type: 'draftPicked', playerId: actorId, packId, cardId: second.id, printingId: second.printingId, ...abilityOf(second), faceUp: second.ability === 'librarian', double: true, holdPack: true },
+          { type: 'draftCardReturned', playerId: actorId, packId, cardId: librarian.id, printingId: librarian.printingId, ability: 'librarian' },
+        ],
+      };
     }
   }
 }
@@ -67,4 +81,9 @@ function shuffle<T>(items: readonly T[], random: () => number): T[] {
     [out[i], out[j]] = [out[j]!, out[i]!];
   }
   return out;
+}
+
+/** Spread into an event so the ability travels with the identity (absent keys keep the schema optional). */
+function abilityOf(card: DraftCard): { ability?: DraftCard['ability'] } {
+  return card.ability ? { ability: card.ability } : {};
 }

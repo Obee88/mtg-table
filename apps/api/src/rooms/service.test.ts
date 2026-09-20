@@ -210,7 +210,7 @@ describe('draft rooms', () => {
 
   async function cubeVersion(): Promise<string> {
     await db.insert(schema.cards).values(cardIds.map((id, i) => ({
-      id, name: `Card ${i}`, lang: 'en', layout: 'normal', setCode: 'lea', setName: 'Alpha', setType: 'core',
+      id, name: i === 0 ? 'Cogwork Librarian' : `Card ${i}`, lang: 'en', layout: 'normal', setCode: 'lea', setName: 'Alpha', setType: 'core',
       collectorNumber: String(i), releasedAt: '1993-08-05', rarity: 'common', colorIdentity: [], faces: [], oracleId: null,
     }))).onConflictDoNothing();
     const [cube] = await db.insert(schema.cubes).values({ ownerId: alice.id, name: 'Tiny cube' }).returning();
@@ -233,6 +233,9 @@ describe('draft rooms', () => {
     expect(state.draft?.seats).toEqual([alice.id, bob.id]);
     const dealt = Object.values(state.draft!.packs).flatMap((p) => p.cards.map((c) => c.printingId)).sort();
     expect(dealt).toEqual([...cardIds].sort());
+    // Draft-matters cards are recognised by name when the pools are loaded.
+    const librarian = Object.values(state.draft!.packs).flatMap((p) => p.cards).find((c) => c.printingId === cardIds[0]);
+    expect(librarian?.ability).toBe('librarian');
 
     const pickTop = async (who: typeof alice) => {
       const s = await service.get(room.id);

@@ -62,7 +62,7 @@ export function projectEvent(stored: RoomEvent, viewerId: PlayerId, before: Room
   if (after.draft) {
     const was = before.draft ? visibleDraftCards(before.draft, viewerId) : new Map<string, string>();
     const now = visibleDraftCards(after.draft, viewerId);
-    const draftRevealed = [...now].filter(([id]) => !was.has(id)).map(([cardId, printingId]) => ({ cardId, printingId }));
+    const draftRevealed = [...now.values()].filter((c) => !was.has(c.id)).map((c) => (c.ability ? { cardId: c.id, printingId: c.printingId, ability: c.ability } : { cardId: c.id, printingId: c.printingId }));
     const draftHidden = [...was.keys()].filter((id) => !now.has(id));
     if (draftRevealed.length > 0) out.draftRevealed = draftRevealed;
     if (draftHidden.length > 0) out.draftHidden = draftHidden;
@@ -96,6 +96,7 @@ function projectPayload(event: GameEvent, viewerId: PlayerId, after: RoomState):
       return { ...event, state: projectState(event.state, viewerId) };
     case 'draftStarted':
     case 'draftPicked':
+    case 'draftCardReturned':
       return projectDraftEvent(event, viewerId);
     default:
       return event;

@@ -288,7 +288,8 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
     case 'draftStarted':
       return { ...state, phase: 'drafting', draft: reduceDraft(null, event) };
 
-    case 'draftPicked': {
+    case 'draftPicked':
+    case 'draftCardReturned': {
       const draft = reduceDraft(state.draft ?? null, event);
       return { ...state, draft, phase: draft?.status === 'finished' ? 'deckbuilding' : state.phase };
     }

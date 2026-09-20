@@ -3,7 +3,7 @@ import { dealDraft, decideDraft } from './decide.js';
 import type { DraftEvent } from './events.js';
 import { applyDraftIdentities, projectDraft, projectDraftEvent, visibleDraftCards } from './project.js';
 import { reduceDraft } from './reduce.js';
-import { cardsNeeded, directionFor, nextSeat, type DraftCard, type DraftConfig, type DraftState } from './types.js';
+import { cardsNeeded, directionFor, nextSeat, usableLibrarians, type DraftCard, type DraftConfig, type DraftState } from './types.js';
 
 /** The house rules: a 20-card tri-colour phase (4×5), then three rounds of 15 from the main cube. */
 const house: DraftConfig = {
@@ -134,16 +134,81 @@ describe('rounds and phases', () => {
     expect(fifth!.packContents).toHaveLength(4);
   });
 
-  it('keeps the pack in hand on a double pick', () => {
+  it('keeps the pack in hand while an action continues', () => {
     let s = start();
     const packId = s.players.a!.queue[0]!;
     const [c1, c2] = s.packs[packId]!.cards;
-    s = reduceDraft(s, { type: 'draftPicked', playerId: 'a', packId, cardId: c1!.id, printingId: c1!.printingId, faceUp: false, double: true })!;
+    s = reduceDraft(s, { type: 'draftPicked', playerId: 'a', packId, cardId: c1!.id, printingId: c1!.printingId, faceUp: false, double: false, holdPack: true })!;
     expect(s.players.a!.queue).toEqual([packId]);
-    s = reduceDraft(s, { type: 'draftPicked', playerId: 'a', packId, cardId: c2!.id, printingId: c2!.printingId, faceUp: false, double: false })!;
+    s = reduceDraft(s, { type: 'draftPicked', playerId: 'a', packId, cardId: c2!.id, printingId: c2!.printingId, faceUp: false, double: true })!;
     expect(s.players.a!.queue).toEqual([]);
     expect(s.players.a!.pool).toHaveLength(2);
-    expect(s.picks.map((p) => p.double)).toEqual([true, false]);
+    expect(s.picks.map((p) => p.double)).toEqual([false, true]);
+  });
+});
+
+describe('Cogwork Librarian', () => {
+  /** House draft where the first card of a's first pack is a Librarian. */
+  function withLibrarian() {
+    const tri = pool('t', 20);
+    const s = reduceDraft(null, (() => {
+      let n = 0;
+      const r = dealDraft(house, seats, { pools: [tri, pool('m', 360)], random: rng(), newId: () => `pack${n++}` });
+      if (!r.ok) throw new Error(r.error);
+      const ev = r.events[0]!;
+      if (ev.type !== 'draftStarted') throw new Error('type');
+      const packOfA = ev.dealt[0]![0]![0]![0]!;
+      return { ...ev, packs: ev.packs.map((p) => (p.id === packOfA ? { ...p, cards: p.cards.map((c, i) => (i === 0 ? { ...c, ability: 'librarian' as const } : c)) } : p)) };
+    })())!;
+    return s;
+  }
+
+  it('is drafted face up, then trades itself for two cards from a later pack', () => {
+    let s = withLibrarian();
+    const packA = s.players.a!.queue[0]!;
+    const librarian = s.packs[packA]!.cards[0]!;
+    expect(librarian.ability).toBe('librarian');
+    expect(usableLibrarians(s, 'a')).toEqual([]); // not drafted yet
+    const pick = decideDraft(s, { type: 'draftPick', cardId: librarian.id }, 'a');
+    if (!pick.ok) throw new Error(pick.error);
+    expect(pick.events[0]).toMatchObject({ faceUp: true });
+    s = reduceDraft(s, pick.events[0]!)!;
+    expect(s.players.a!.faceUp.map((c) => c.id)).toEqual([librarian.id]);
+    expect(usableLibrarians(s, 'a')).toEqual([]); // no pack at hand yet
+    for (const id of ['b', 'c', 'd']) s = reduceDraft(s, (decideDraft(s, { type: 'draftPick', cardId: s.packs[s.players[id]!.queue[0]!]!.cards[0]!.id }, id) as { events: DraftEvent[] }).events[0]!)!;
+
+    const packB = s.players.a!.queue[0]!;
+    expect(usableLibrarians(s, 'a').map((c) => c.id)).toEqual([librarian.id]);
+    const [x, y] = s.packs[packB]!.cards;
+    expect(decideDraft(s, { type: 'draftPick', cardId: x!.id, librarian: { cardId: 'nope', secondCardId: y!.id } }, 'a')).toEqual({ ok: false, error: 'You have no Cogwork Librarian to spend on this pack' });
+    expect(decideDraft(s, { type: 'draftPick', cardId: x!.id, librarian: { cardId: librarian.id, secondCardId: x!.id } }, 'a')).toEqual({ ok: false, error: 'Choose a second, different card from the same pack' });
+    const dbl = decideDraft(s, { type: 'draftPick', cardId: x!.id, librarian: { cardId: librarian.id, secondCardId: y!.id } }, 'a');
+    if (!dbl.ok) throw new Error(dbl.error);
+    expect(dbl.events.map((e) => e.type)).toEqual(['draftPicked', 'draftPicked', 'draftCardReturned']);
+    const before = s.packs[packB]!.cards.length;
+    for (const e of dbl.events) s = reduceDraft(s, e)!;
+    expect(s.players.a!.pool.map((c) => c.id)).toEqual([x!.id, y!.id]);
+    expect(s.players.a!.faceUp).toEqual([]);
+    expect(s.players.a!.queue).toEqual([]);
+    const pack = s.packs[packB]!;
+    expect(pack.cards).toHaveLength(before - 1); // two out, the Librarian in
+    expect(pack.cards[pack.cards.length - 1]).toEqual(librarian);
+    expect(s.players.d!.queue).toContain(packB); // passed right
+    expect(s.picks.slice(-2).map((p) => [p.pickInPack, p.double])).toEqual([[2, false], [3, true]]);
+    expect(usableLibrarians(s, 'a')).toEqual([]);
+  });
+
+  it('cannot be spent on a pack with a single card', () => {
+    let s = withLibrarian();
+    const packA = s.players.a!.queue[0]!;
+    const librarian = s.packs[packA]!.cards[0]!;
+    s = reduceDraft(s, (decideDraft(s, { type: 'draftPick', cardId: librarian.id }, 'a') as { events: DraftEvent[] }).events[0]!)!;
+    // Shrink the incoming pack to one card and hand it over.
+    const packD = s.players.d!.queue[0]!;
+    const only = s.packs[packD]!.cards[0]!;
+    s = { ...s, packs: { ...s.packs, [packD]: { ...s.packs[packD]!, cards: [only] } }, players: { ...s.players, a: { ...s.players.a!, queue: [packD] } } };
+    expect(usableLibrarians(s, 'a')).toEqual([]);
+    expect(decideDraft(s, { type: 'draftPick', cardId: only.id, librarian: { cardId: librarian.id, secondCardId: 'x' } }, 'a').ok).toBe(false);
   });
 });
 

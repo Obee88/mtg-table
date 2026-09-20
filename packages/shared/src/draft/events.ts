@@ -19,7 +19,8 @@ export const draftConfigSchema = z.object({
   phases: z.array(pickAndPassConfigSchema).min(1).max(6),
 });
 
-const draftCardSchema = z.object({ id: z.string(), printingId: z.string().nullable() });
+export const draftAbilitySchema = z.enum(['librarian']);
+const draftCardSchema = z.object({ id: z.string(), printingId: z.string().nullable(), ability: draftAbilitySchema.optional() });
 const packSchema = z.object({ id: z.string(), phase: z.number().int(), round: z.number().int(), cards: z.array(draftCardSchema) });
 
 /** Facts about a draft. `draftStarted` carries every pack dealt for every phase and round. */
@@ -40,7 +41,20 @@ export const draftEventSchema = z.discriminatedUnion('type', [
     /** Printing may be null in a projection for viewers who may not see it. */
     printingId: z.string().nullable(),
     faceUp: z.boolean(),
+    ability: draftAbilitySchema.optional(),
+    /** An extra pick granted by a draft ability (kept out of pick-position statistics). */
     double: z.boolean(),
+    /** The pack stays in hand: more of this action follows (a second pick, a card returned). */
+    holdPack: z.boolean().optional(),
+  }),
+  /** A drafted card goes from the player's pool back into the pack at hand, which is then passed (Cogwork Librarian). */
+  z.object({
+    type: z.literal('draftCardReturned'),
+    playerId: z.string(),
+    packId: z.string(),
+    cardId: z.string(),
+    printingId: z.string().nullable(),
+    ability: draftAbilitySchema.optional(),
   }),
 ]);
 export type DraftEvent = z.infer<typeof draftEventSchema>;

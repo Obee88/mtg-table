@@ -25,10 +25,22 @@ export interface DraftConfig {
   phases: DraftPhaseConfig[];
 }
 
+/** Draft-matters abilities the engine knows how to run. */
+export type DraftAbility = 'librarian';
+
+/** Cards with draft abilities, by card name. */
+const ABILITIES: Record<string, DraftAbility> = { 'Cogwork Librarian': 'librarian' };
+
+export function draftAbilityFor(name: string): DraftAbility | undefined {
+  return ABILITIES[name];
+}
+
 export interface DraftCard {
   /** Instance id (unique within the draft). */
   id: string;
   printingId: string;
+  /** Set on cards with a draft ability; stripped together with the identity when hidden. */
+  ability?: DraftAbility | undefined;
 }
 
 export interface Pack {
@@ -63,6 +75,8 @@ export interface PickRecord {
   packContents: string[];
   /** Extra pick made in the same action (draft abilities); excluded from pick-position stats. */
   double: boolean;
+  /** Picked face up: the card is public history for everyone. */
+  faceUp: boolean;
 }
 
 export type DraftStatus = 'running' | 'finished';
@@ -111,4 +125,17 @@ export interface DraftPickSummary {
   pickInPack: number;
   packContents: string[];
   double: boolean;
+}
+
+/**
+ * Cogwork Librarians the player drafted face up and may now spend: draft two
+ * cards from the pack at hand and put the Librarian into that pack instead.
+ * Needs a pack with at least two cards.
+ */
+export function usableLibrarians(state: DraftState, playerId: PlayerId): DraftCard[] {
+  const player = state.players[playerId];
+  if (!player || state.status !== 'running') return [];
+  const pack = player.queue[0] ? state.packs[player.queue[0]] : undefined;
+  if (!pack || pack.cards.length < 2) return [];
+  return player.faceUp.filter((c) => c.ability === 'librarian');
 }

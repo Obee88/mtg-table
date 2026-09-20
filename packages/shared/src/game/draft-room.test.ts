@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { DraftConfig } from '../draft/types.js';
 import { decide, type CommandContext } from './decide.js';
 import type { RoomEvent } from './events.js';
+import { usableLibrarians } from '../draft/types.js';
 import { initialRoomState, reduce } from './reduce.js';
 import type { RoomSettings, RoomState } from './types.js';
 import { applyRoomEvent, projectEvents, projectState } from './visibility.js';
@@ -17,7 +18,11 @@ const house: DraftConfig = {
   ],
 };
 const settings: RoomSettings = { playerCount: 4, mode: 'ffa', startingLife: 20, commander: false, draft: house };
-const pools = { tri: Array.from({ length: 20 }, (_, i) => `tri-${i}`), main: Array.from({ length: 360 }, (_, i) => `main-${i}`) };
+const pools = {
+  tri: Array.from({ length: 20 }, (_, i) => ({ printingId: `tri-${i}`, name: `Tri ${i}` })),
+  // Four Librarians in the main cube exercise the double-pick hook under projection.
+  main: Array.from({ length: 360 }, (_, i) => ({ printingId: `main-${i}`, name: i % 90 === 0 ? 'Cogwork Librarian' : `Main ${i}` })),
+};
 
 function rng(seed = 7) {
   let s = seed;
@@ -92,20 +97,32 @@ describe('draft rooms', () => {
     sync();
 
     let picks = 0;
+    let librarianUses = 0;
     while (room.state.phase === 'drafting') {
       for (const p of ['a', 'b', 'c', 'd']) {
         const me = room.state.draft!.players[p]!;
         const pack = room.state.draft!.packs[me.queue[0]!]!;
-        room.run(p, { type: 'draftPick', cardId: pack.cards[pack.cards.length - 1]!.id, faceUp: picks % 7 === 0 });
-        picks++;
+        const librarian = usableLibrarians(room.state.draft!, p)[0];
+        const cardId = pack.cards[pack.cards.length - 1]!.id;
+        if (librarian) {
+          room.run(p, { type: 'draftPick', cardId, librarian: { cardId: librarian.id, secondCardId: pack.cards[0]!.id } });
+          picks += 2;
+          librarianUses++;
+        } else {
+          room.run(p, { type: 'draftPick', cardId, faceUp: picks % 7 === 0 });
+          picks++;
+        }
         if (picks % 9 === 0) sync();
       }
     }
     sync();
     expect(room.state.phase).toBe('deckbuilding');
     expect(room.state.draft?.status).toBe('finished');
-    expect(picks).toBe(200);
-    expect(Object.values(room.state.draft!.players).map((p) => p.pool.length)).toEqual([50, 50, 50, 50]);
+    // A spent Librarian is drafted twice, so each use adds a pick; the cards themselves are conserved.
+    expect(librarianUses).toBeGreaterThan(0);
+    expect(picks).toBe(200 + librarianUses);
+    expect(room.state.draft!.picks.filter((p) => p.double)).toHaveLength(librarianUses);
+    expect(Object.values(room.state.draft!.players).reduce((n, p) => n + p.pool.length, 0)).toBe(200);
     expect(decide(room.state, { type: 'draftPick', cardId: 'x' }, ctx('a'))).toEqual({ ok: false, error: 'No draft running' });
 
     // Spectators never learn a single identity; a drafter sees their own pool and all face-up picks.
@@ -113,7 +130,7 @@ describe('draft rooms', () => {
     expect(Object.values(zed.players).flatMap((p) => p.pool).filter((c) => c.printingId !== '').length).toBe(Object.values(zed.players).flatMap((p) => p.faceUp).length);
     const a = projectState(room.state, 'a').draft!;
     expect(a.players.a!.pool.every((c) => c.printingId !== '')).toBe(true);
-    expect(a.picks).toHaveLength(200);
+    expect(a.picks).toHaveLength(picks);
     expect(a.picks.filter((p) => p.playerId === 'a').every((p) => p.packContents.every((c) => c !== ''))).toBe(true);
   });
 

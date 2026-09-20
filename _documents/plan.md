@@ -69,7 +69,7 @@ PickAndPassSettings { packSize, packsPerPlayer, rounds, direction: 'alternate' |
 ```
 
 - Phase types are plugins implementing `start(pool, seats) → state`, `legalActions(state, player)`, `apply(state, action) → events`. Pick-and-pass first; Rotisserie, Winston, Grid, Winchester later.
-- **Draft ability hooks** (Cogwork Librarian): a card in the pool can register hooks — `onPicked` (mark face-up, attach to seat), `extraPickOptions(state, player)` (offers "take two, put Librarian in pack"). Uneven pack sizes are supported by design: packs are arrays, not fixed-size slots.
+- **Draft ability hooks** (Cogwork Librarian): pool cards get a `DraftAbility` by card name when the pools are loaded (`draftAbilityFor`). `librarian`: always drafted face up; `usableLibrarians(state, player)` offers "take two from the pack at hand, put the Librarian in" (`draftPick.librarian`), emitted as two held picks plus `draftCardReturned`, which passes the pack. Uneven pack sizes are supported by design: packs are arrays, not fixed-size slots.
 - **Every pick is logged with context**: pack contents at that moment, pick number within pack, overall pick number, player, whether it was a double pick. Stats are derived later from this log, never computed inline.
 - Seats are fixed from draft through game; 2v2 teammates sit diagonally.
 
@@ -159,7 +159,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] Draft engine core (a): pure model in shared — config, pick-and-pass phase, dealing, pass-direction rule, pick log with pack context, projection
 - [x] Draft engine core (b): server integration — draft rooms over the event stream, pools from cube versions, draft_picks table, routes, socket, tests
 - [x] Draft config editor and the house-rules preset (phase 1 tri-color pool + phase 2 main cube)
-- [ ] Draft ability hooks with Cogwork Librarian
+- [x] Draft ability hooks with Cogwork Librarian
 - [ ] Draft UI: packs, pass direction / pick counter, face-up picks per seat, sortable pool
 - [ ] Deckbuilding step (main / sideboard / free basics) and handoff to the table with fixed seats
 

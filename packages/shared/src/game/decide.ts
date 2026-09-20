@@ -2,7 +2,7 @@ import type { GameCommand } from './commands.js';
 import type { GameEvent } from './events.js';
 import type { DeckContents } from '../decks.js';
 import { dealDraft, decideDraft } from '../draft/decide.js';
-import type { DraftCard } from '../draft/types.js';
+import { draftAbilityFor, type DraftCard } from '../draft/types.js';
 import { defaultVisibility } from './reduce.js';
 import { activePlayer, inMulligan, isActive, seatedPlayers, shuffled, teamForSeat, type CardInstance, type PlayerGameState, type RoomState } from './types.js';
 
@@ -17,7 +17,7 @@ export interface CommandContext {
   /** Needed by `start`: each seated player's deck, a random source in [0, 1) and fresh ids. */
   decks?: Record<string, DeckContents>;
   /** Needed by `start` in a draft room: printing ids per cube version id, one entry per copy. */
-  draftPools?: Record<string, string[]>;
+  draftPools?: Record<string, { printingId: string; name: string }[]>;
   random?: () => number;
   newId?: () => string;
 }
@@ -469,7 +469,10 @@ function startDraft(state: RoomState, ctx: CommandContext): Decision {
   const config = state.settings.draft;
   if (!config || !ctx.draftPools || !ctx.random || !ctx.newId) return reject('Draft pools unavailable');
   const pools: DraftCard[][] = config.phases.map((phase) =>
-    (ctx.draftPools![phase.poolCubeVersionId] ?? []).map((printingId) => ({ id: ctx.newId!(), printingId })),
+    (ctx.draftPools![phase.poolCubeVersionId] ?? []).map((c) => {
+      const ability = draftAbilityFor(c.name);
+      return ability ? { id: ctx.newId!(), printingId: c.printingId, ability } : { id: ctx.newId!(), printingId: c.printingId };
+    }),
   );
   return dealDraft(config, seatedPlayers(state).map((p) => p.id), { pools, random: ctx.random, newId: ctx.newId });
 }

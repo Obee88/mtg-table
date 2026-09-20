@@ -118,7 +118,9 @@ export function describeEvent(e: RoomEvent, ctx: LogContext): string | null {
       return `Draft started: ${ev.config.name}, ${ev.packs.length} packs over ${ev.config.phases.length} phase${ev.config.phases.length === 1 ? '' : 's'}`;
     case 'draftPicked': {
       const name = ev.printingId ? (ctx.printingName?.(ev.printingId) ?? 'a card') : 'a card';
-      return `${ctx.playerName(ev.playerId)} picked ${name}${ev.faceUp ? ' face up' : ''}${ev.double ? ' (double pick)' : ''}`;
+      return `${ctx.playerName(ev.playerId)} picked ${name}${ev.faceUp ? ' face up' : ''}${ev.double ? ' (extra pick)' : ''}`;
     }
+    case 'draftCardReturned':
+      return `${ctx.playerName(ev.playerId)} put ${ev.printingId ? (ctx.printingName?.(ev.printingId) ?? 'a card') : 'a card'} into the pack`;
   }
 }

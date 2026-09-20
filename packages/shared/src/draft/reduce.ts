@@ -1,11 +1,16 @@
 import type { DraftEvent } from './events.js';
-import { directionFor, nextSeat, type DraftPlayer, type DraftState } from './types.js';
+import { directionFor, nextSeat, type DraftAbility, type DraftCard, type DraftPlayer, type DraftState } from './types.js';
+
+/** A card as carried in events (identity possibly stripped) into the state shape. */
+function cardFrom(c: { id: string; printingId: string | null; ability?: DraftAbility | undefined }): DraftCard {
+  return c.ability ? { id: c.id, printingId: c.printingId ?? '', ability: c.ability } : { id: c.id, printingId: c.printingId ?? '' };
+}
 
 /** Applies a draft event. Rounds and phases advance deterministically from the dealt layout. */
 export function reduceDraft(state: DraftState | null, event: DraftEvent): DraftState | null {
   switch (event.type) {
     case 'draftStarted': {
-      const packs = Object.fromEntries(event.packs.map((p) => [p.id, { ...p, cards: p.cards.map((c) => ({ id: c.id, printingId: c.printingId ?? '' })), taken: 0 }]));
+      const packs = Object.fromEntries(event.packs.map((p) => [p.id, { ...p, cards: p.cards.map((c) => cardFrom(c)), taken: 0 }]));
       const players: Record<string, DraftPlayer> = Object.fromEntries(event.seats.map((id) => [id, { queue: [], pool: [], faceUp: [], picks: 0 }]));
       const s: DraftState = { config: event.config, seats: event.seats, phase: 0, round: 0, globalRound: 0, direction: event.config.startDirection, packs, dealt: event.dealt, players, picks: [], status: 'running' };
       return openRound(s);
@@ -17,7 +22,9 @@ export function reduceDraft(state: DraftState | null, event: DraftEvent): DraftS
       if (!pack || !player) return state;
       const card = pack.cards.find((c) => c.id === event.cardId);
       if (!card) return state;
-      const picked = { ...card, printingId: event.printingId ?? card.printingId };
+      const picked = cardFrom({ id: card.id, printingId: event.printingId ?? card.printingId, ability: event.ability ?? card.ability });
+      // Librarians are always drafted face up; the projection may have blanked the ability for others.
+      const faceUp = event.faceUp || picked.ability === 'librarian';
       const remaining = pack.cards.filter((c) => c.id !== event.cardId);
       const packs = { ...state.packs, [pack.id]: { ...pack, cards: remaining, taken: pack.taken + 1 } };
       const picks = [...state.picks, {
@@ -30,12 +37,23 @@ export function reduceDraft(state: DraftState | null, event: DraftEvent): DraftS
         pickInPack: pack.taken + 1,
         packContents: pack.cards.map((c) => c.printingId),
         double: event.double,
+        faceUp,
       }];
-      const players = { ...state.players, [event.playerId]: { ...player, pool: [...player.pool, picked], faceUp: event.faceUp ? [...player.faceUp, picked] : player.faceUp, picks: player.picks + 1 } };
-      let s: DraftState = { ...state, packs, players, picks };
-      // A double pick keeps the pack in hand; a normal pick passes it on.
-      if (!event.double) s = passPack(s, event.playerId, pack.id);
-      return advance(s);
+      const players = { ...state.players, [event.playerId]: { ...player, pool: [...player.pool, picked], faceUp: faceUp ? [...player.faceUp, picked] : player.faceUp, picks: player.picks + 1 } };
+      const s: DraftState = { ...state, packs, players, picks };
+      // The pack stays while the action continues (second pick, card returned); otherwise it passes on.
+      return event.holdPack ? s : advance(passPack(s, event.playerId, pack.id));
+    }
+    case 'draftCardReturned': {
+      if (!state) return state;
+      const pack = state.packs[event.packId];
+      const player = state.players[event.playerId];
+      if (!pack || !player) return state;
+      const known = player.pool.find((c) => c.id === event.cardId);
+      const card = cardFrom({ id: event.cardId, printingId: event.printingId ?? known?.printingId ?? null, ability: event.ability ?? known?.ability });
+      const packs = { ...state.packs, [pack.id]: { ...pack, cards: [...pack.cards, card] } };
+      const players = { ...state.players, [event.playerId]: { ...player, pool: player.pool.filter((c) => c.id !== event.cardId), faceUp: player.faceUp.filter((c) => c.id !== event.cardId) } };
+      return advance(passPack({ ...state, packs, players }, event.playerId, pack.id));
     }
   }
 }
