@@ -187,7 +187,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 **M8 — Draft sessions and deckbuilding comfort** (requested 2026-09-21)
 - [x] Seats out of the draft config: a format’s seat count becomes its *default*; the player count is chosen when creating the room, on the same screen as the format
 - [x] Named drafts: starting a draft asks for a name, defaulting to "<format> · <n> players · <date> · <player names>"; stored on the room
-- [ ] Draft history: a page listing past drafts (name, date, format, players) where a player can open their drafted pool / deck and save it to their deck list
+- [x] Draft history: a page listing past drafts (name, date, format, players) where a player can open their drafted pool / deck and save it to their deck list
 - [ ] Card image size slider in the deck builder (drafted pool / main / sideboard); reuse the control on the draft pack view and the table if it proves useful
 - [ ] "Auto basics" in the deck builder: fills the remaining slots up to 40 with basic lands in the ratio of coloured mana symbols in the main deck's mana costs (colourless-only deck → even split or a chosen colour)
 

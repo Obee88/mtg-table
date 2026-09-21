@@ -1,5 +1,5 @@
-import { draftConfigSchema, type DraftConfigResponse, type DraftConfigSummary, type DraftPoolInfo } from '@mtg/shared';
-import { and, asc, desc, eq, inArray, or, sql } from 'drizzle-orm';
+import { draftConfigSchema, draftDeckOrPool, type DraftConfigResponse, type DraftConfigSummary, type DraftHistoryDeck, type DraftHistoryItem, type DraftPoolInfo } from '@mtg/shared';
+import { and, asc, count, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { schema, type Db, type DraftConfigRow } from '../db/index.js';
@@ -10,6 +10,7 @@ const configInput = z.object({ name: z.string().trim().min(1).max(80), config: d
 const idParam = z.object({ id: z.uuid() });
 const memberInput = z.object({ userId: z.uuid() });
 const memberParam = z.object({ id: z.uuid(), userId: z.uuid() });
+const roomParam = z.object({ roomId: z.uuid() });
 
 /** Cube and size of each referenced version, for display and validation. */
 export async function poolInfo(db: Db, versionIds: string[]): Promise<DraftPoolInfo[]> {
@@ -145,5 +146,51 @@ export async function draftConfigRoutes(app: FastifyInstance): Promise<void> {
     await owned(id, req.user!.id);
     await db.delete(schema.draftConfigs).where(eq(schema.draftConfigs.id, id));
     return reply.code(204).send();
+  });
+
+  // ---- history: drafts the caller took part in ----
+
+  /** History entries for the given rooms (or every room the caller drafted in), newest first. */
+  async function history(userId: string, roomId?: string): Promise<DraftHistoryItem[]> {
+    const picked = await db
+      .select({ roomId: schema.draftPicks.roomId, picks: count() })
+      .from(schema.draftPicks)
+      .where(roomId ? and(eq(schema.draftPicks.playerId, userId), eq(schema.draftPicks.roomId, roomId)) : eq(schema.draftPicks.playerId, userId))
+      .groupBy(schema.draftPicks.roomId);
+    if (picked.length === 0) return [];
+    const ids = picked.map((p) => p.roomId);
+    const rows = await db.select().from(schema.rooms).where(inArray(schema.rooms.id, ids)).orderBy(desc(schema.rooms.createdAt));
+    const seated = await db
+      .select({ roomId: schema.roomPlayers.roomId, seat: schema.roomPlayers.seat, id: schema.users.id, displayName: schema.users.displayName })
+      .from(schema.roomPlayers)
+      .innerJoin(schema.users, eq(schema.users.id, schema.roomPlayers.userId))
+      .where(inArray(schema.roomPlayers.roomId, ids))
+      .orderBy(asc(schema.roomPlayers.seat));
+    return rows
+      // A draft still running is not history yet.
+      .filter((r) => r.phase !== 'drafting' && r.settings.draft)
+      .map((r) => ({
+        roomId: r.id,
+        name: r.name,
+        format: r.settings.draft!.name,
+        types: [...new Set(r.settings.draft!.phases.map((p) => p.type))],
+        playerCount: r.settings.playerCount,
+        players: seated.filter((s) => s.roomId === r.id).map((s) => ({ id: s.id, displayName: s.displayName })),
+        startedAt: r.createdAt.toISOString(),
+        phase: r.phase,
+        picks: picked.find((p) => p.roomId === r.id)?.picks ?? 0,
+      }));
+  }
+
+  app.get('/drafts/history', async (req): Promise<DraftHistoryItem[]> => history(req.user!.id));
+
+  /** One past draft with the caller's own cards: the submitted deck, or the whole pool if they never built one. */
+  app.get('/drafts/history/:roomId', async (req): Promise<DraftHistoryDeck> => {
+    const { roomId } = parse(roomParam, req.params);
+    const [item] = await history(req.user!.id, roomId);
+    if (!item) throw notFound('No such draft of yours');
+    const state = await app.rooms.get(roomId);
+    if (!state.draft || !state.players[req.user!.id]) throw notFound('No such draft of yours');
+    return { ...item, ...draftDeckOrPool(state.draft, req.user!.id) };
   });
 }

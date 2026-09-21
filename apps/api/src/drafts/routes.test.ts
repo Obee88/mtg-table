@@ -75,3 +75,55 @@ describe('draft configs', () => {
     expect((await ctx.app.inject({ url: '/draft-configs' })).statusCode).toBe(401);
   });
 });
+
+describe('draft history', () => {
+  it('lists finished drafts the caller took part in and serves their deck or pool', async () => {
+    const me = async (cookie: string) => (await ctx.app.inject({ url: '/me', headers: { cookie } })).json() as { id: string; displayName: string };
+    const [a, b] = [await me(alice), await me(bob)];
+    const versionId = await cube(alice, 'History cube', 4, 'a1b2c3d4');
+    const forest = 'a1b2c3d4-0000-4000-8000-0000000000ff';
+    await ctx.app.db.insert(schema.cards).values({
+      id: forest, name: 'Forest', lang: 'en', layout: 'normal', setCode: 'lea', setName: 'Alpha', setType: 'core', typeLine: 'Basic Land — Forest',
+      collectorNumber: 'ff', releasedAt: '1993-08-05', rarity: 'common', colorIdentity: ['G'], faces: [], oracleId: null,
+    }).onConflictDoNothing();
+    const draft = { name: 'Tiny', seats: 2 as const, startDirection: 'left' as const, phases: [{ type: 'pickAndPass' as const, name: 'Only', poolCubeVersionId: versionId, packSize: 2, packsPerPlayer: 1, rounds: 1, direction: 'alternate' as const }] };
+    const rooms = ctx.app.rooms;
+    const room = await rooms.create(a, { playerCount: 2, mode: '1v1', startingLife: 20, commander: false, draft });
+    await rooms.dispatch(room.id, b, { type: 'join' });
+    await rooms.dispatch(room.id, a, { type: 'setReady', ready: true });
+    await rooms.dispatch(room.id, b, { type: 'setReady', ready: true });
+    expect((await rooms.dispatch(room.id, a, { type: 'start', name: 'Friday night' })).ok).toBe(true);
+    const pick = async (who: { id: string; displayName: string }) => {
+      const s = await rooms.get(room.id);
+      const pack = s.draft!.packs[s.draft!.players[who.id]!.queue[0]!]!;
+      expect((await rooms.dispatch(room.id, who, { type: 'draftPick', cardId: pack.cards[0]!.id })).ok).toBe(true);
+    };
+    await pick(a);
+    await pick(b);
+    // Still drafting: not history yet.
+    expect((await call('GET', '/drafts/history', alice)).json()).toEqual([]);
+    await pick(a);
+    await pick(b);
+    const state = await rooms.get(room.id);
+    expect(state.phase).toBe('deckbuilding');
+    const mine = state.draft!.players[a.id]!.pool.map((c) => c.id);
+    expect((await rooms.dispatch(room.id, a, { type: 'submitDraftDeck', main: mine, basics: [{ printingId: forest, quantity: 38 }] })).ok).toBe(true);
+
+    const list = (await call('GET', '/drafts/history', alice)).json();
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({ roomId: room.id, name: 'Friday night', format: 'Tiny', types: ['pickAndPass'], playerCount: 2, phase: 'deckbuilding', picks: 2 });
+    expect(list[0].players.map((p: { displayName: string }) => p.displayName)).toEqual(['Alice', 'Bob']);
+
+    const ours = (await call('GET', `/drafts/history/${room.id}`, alice)).json();
+    expect(ours.submitted).toBe(true);
+    expect(ours.deck.main.reduce((n: number, c: { quantity: number }) => n + c.quantity, 0)).toBe(2 + 38);
+    expect(ours.deck.sideboard).toEqual([]);
+    const theirs = (await call('GET', `/drafts/history/${room.id}`, bob)).json();
+    expect(theirs.submitted).toBe(false);
+    expect(theirs.deck.main).toEqual([]);
+    expect(theirs.deck.sideboard.reduce((n: number, c: { quantity: number }) => n + c.quantity, 0)).toBe(2);
+
+    expect((await call('GET', '/drafts/history/00000000-0000-4000-8000-000000000000', alice)).statusCode).toBe(404);
+    expect((await ctx.app.inject({ url: '/drafts/history' })).statusCode).toBe(401);
+  });
+});

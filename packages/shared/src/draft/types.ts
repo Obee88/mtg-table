@@ -283,3 +283,34 @@ export function allDecksSubmitted(state: DraftState): boolean {
 
 /** Smallest main deck (basics included) a drafter may submit. */
 export const MIN_DRAFT_DECK = 40;
+
+/** The drafter's deck as submitted, or, if they never submitted one, the whole pool as a sideboard. */
+export function draftDeckOrPool(state: DraftState, playerId: PlayerId): { submitted: boolean; deck: DeckContents } {
+  const submitted = draftDeckContents(state, playerId);
+  if (submitted) return { submitted: true, deck: submitted };
+  const counts = new Map<string, number>();
+  for (const c of state.players[playerId]?.pool ?? []) counts.set(c.printingId, (counts.get(c.printingId) ?? 0) + 1);
+  return { submitted: false, deck: { main: [], sideboard: [...counts].map(([printingId, quantity]) => ({ printingId, quantity })), commander: [] } };
+}
+
+/** A past draft the caller took part in: one entry per room, for the history page. */
+export interface DraftHistoryItem {
+  roomId: string;
+  name: string | null;
+  /** The draft format's name. */
+  format: string;
+  types: DraftPhaseConfig['type'][];
+  playerCount: number;
+  players: { id: PlayerId; displayName: string }[];
+  startedAt: string;
+  phase: 'lobby' | 'drafting' | 'deckbuilding' | 'playing' | 'ended';
+  /** How many cards the caller drafted. */
+  picks: number;
+}
+
+/** One past draft with the caller's own cards, ready to be saved as a deck. */
+export interface DraftHistoryDeck extends DraftHistoryItem {
+  /** Whether the caller submitted a deck in deckbuilding; otherwise the whole pool sits in the sideboard. */
+  submitted: boolean;
+  deck: DeckContents;
+}

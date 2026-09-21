@@ -8,6 +8,8 @@ import { CubeStatsPage } from './cubes/CubeStatsPage';
 import { PlayerStatsPage } from './stats/PlayerStatsPage';
 import { DraftConfigListPage } from './drafts/DraftConfigListPage';
 import { DraftConfigPage } from './drafts/DraftConfigPage';
+import { DraftHistoryDeckPage } from './drafts/DraftHistoryDeckPage';
+import { DraftHistoryPage } from './drafts/DraftHistoryPage';
 import { CubePage } from './cubes/CubePage';
 import { DeckImportPage } from './decks/DeckImportPage';
 import { DeckListPage } from './decks/DeckListPage';
@@ -43,6 +45,8 @@ export function App() {
         <Route path="/cubes/:id/stats" element={user ? <CubeStatsPage /> : <Navigate to="/login" replace />} />
         <Route path="/drafts" element={user ? <DraftConfigListPage /> : <Navigate to="/login" replace />} />
         <Route path="/drafts/new" element={user ? <DraftConfigPage /> : <Navigate to="/login" replace />} />
+        <Route path="/drafts/history" element={user ? <DraftHistoryPage /> : <Navigate to="/login" replace />} />
+        <Route path="/drafts/history/:roomId" element={user ? <DraftHistoryDeckPage /> : <Navigate to="/login" replace />} />
         <Route path="/drafts/:id" element={user ? <DraftConfigPage /> : <Navigate to="/login" replace />} />
         <Route path="/players/:id/stats" element={user ? <PlayerStatsPage /> : <Navigate to="/login" replace />} />
         <Route path="/rooms" element={user ? <RoomListPage /> : <Navigate to="/login" replace />} />
