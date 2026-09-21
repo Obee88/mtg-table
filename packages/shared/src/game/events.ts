@@ -74,6 +74,10 @@ export const gameEventSchema = z.discriminatedUnion('type', [
   // ---- players ----
   z.object({ type: z.literal('lifeChanged'), target: lifeTargetSchema, delta: z.number().int(), value: z.number().int() }),
   z.object({ type: z.literal('poisonChanged'), playerId: z.string(), delta: z.number().int(), value: z.number().int() }),
+  /** Floating mana: `value` is the resulting amount of that symbol. */
+  z.object({ type: z.literal('manaChanged'), playerId: z.string(), symbol: z.enum(['W', 'U', 'B', 'R', 'G', 'C']), delta: z.number().int(), value: z.number().int() }),
+  z.object({ type: z.literal('manaPoolToggled'), playerId: z.string(), open: z.boolean() }),
+  z.object({ type: z.literal('manaPoolEmptied'), playerId: z.string() }),
   z.object({ type: z.literal('commanderTaxChanged'), playerId: z.string(), delta: z.number().int(), value: z.number().int() }),
   /** Commander damage dealt to `playerId` by `fromPlayerId`'s commander. */
   z.object({ type: z.literal('commanderDamageChanged'), playerId: z.string(), fromPlayerId: z.string(), delta: z.number().int(), value: z.number().int() }),

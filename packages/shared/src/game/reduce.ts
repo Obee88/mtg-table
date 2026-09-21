@@ -259,6 +259,19 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
     case 'poisonChanged':
       return patchPlayer(state, event.playerId, { poison: event.value });
 
+    case 'manaChanged': {
+      const pool = state.game?.players[event.playerId]?.mana ?? {};
+      const mana = { ...pool, [event.symbol]: event.value };
+      if (event.value <= 0) delete mana[event.symbol];
+      return patchPlayer(state, event.playerId, { mana });
+    }
+
+    case 'manaPoolToggled':
+      return patchPlayer(state, event.playerId, { manaOpen: event.open });
+
+    case 'manaPoolEmptied':
+      return patchPlayer(state, event.playerId, { mana: {} });
+
     case 'commanderTaxChanged':
       return patchPlayer(state, event.playerId, { commanderTax: event.value });
 

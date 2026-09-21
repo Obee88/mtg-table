@@ -4,7 +4,7 @@ import type { DeckContents } from '../decks.js';
 import { dealDraft, decideDraft } from '../draft/decide.js';
 import { allDecksSubmitted, draftAbilityFor, draftDeckContents, type DraftCard } from '../draft/types.js';
 import { defaultVisibility } from './reduce.js';
-import { activePlayer, inMulligan, inSideboarding, isActive, seatedPlayers, shuffled, teamForSeat, type CardInstance, type GameState, type PlayerGameState, type RoomState } from './types.js';
+import { activePlayer, inMulligan, inSideboarding, isActive, manaTotal, seatedPlayers, shuffled, teamForSeat, type CardInstance, type GameState, type PlayerGameState, type RoomState } from './types.js';
 
 const HAND_SIZE = 7;
 const MAX_TIE_BREAK_ROUNDS = 20;
@@ -334,6 +334,31 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       const value = Math.max(0, pgs.poison + command.delta);
       if (value === pgs.poison) return accept();
       return accept({ type: 'poisonChanged', playerId: ctx.actorId, delta: value - pgs.poison, value });
+    }
+
+    case 'adjustMana': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      const had = pgs.mana?.[command.symbol] ?? 0;
+      const value = Math.max(0, had + command.delta);
+      if (value === had) return accept();
+      // Adding mana opens the pool, so the table can see what is floating.
+      const open: GameEvent[] = value > 0 && !pgs.manaOpen ? [{ type: 'manaPoolToggled', playerId: ctx.actorId, open: true }] : [];
+      return accept(...open, { type: 'manaChanged', playerId: ctx.actorId, symbol: command.symbol, delta: value - had, value });
+    }
+
+    case 'setManaPool': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      if ((pgs.manaOpen ?? false) === command.open) return accept();
+      return accept({ type: 'manaPoolToggled', playerId: ctx.actorId, open: command.open });
+    }
+
+    case 'emptyManaPool': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      if (manaTotal(pgs.mana ?? {}) === 0) return accept();
+      return accept({ type: 'manaPoolEmptied', playerId: ctx.actorId });
     }
 
     case 'adjustPlayerCounter': {

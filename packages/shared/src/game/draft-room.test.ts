@@ -4,7 +4,7 @@ import { decide, type CommandContext } from './decide.js';
 import type { RoomEvent } from './events.js';
 import { usableLibrarians } from '../draft/types.js';
 import { initialRoomState, reduce } from './reduce.js';
-import { decksFromGame, defaultDraftName, type RoomSettings, type RoomState } from './types.js';
+import { decksFromGame, defaultDraftName, manaTotal, type RoomSettings, type RoomState } from './types.js';
 import { applyRoomEvent, projectEvents, projectState } from './visibility.js';
 
 /** The house draft as a room would carry it. */
@@ -580,5 +580,50 @@ describe('putting a card into the library', () => {
     const last = hand()[0]!;
     room.run('a', { type: 'moveCard', instanceId: last, to: 'library', libraryPosition: 999 });
     expect(lib().at(-1)).toBe(last);
+  });
+});
+
+describe('the mana pool', () => {
+  const decks = { a: { main: [{ printingId: 'x', quantity: 9 }], sideboard: [], commander: [] }, b: { main: [{ printingId: 'y', quantity: 9 }], sideboard: [], commander: [] } };
+  function playing(): Room {
+    const room = new Room();
+    room.state = reduce(room.state, { type: 'roomCreated', ownerId: 'a', settings: { playerCount: 2, mode: '1v1', startingLife: 20, commander: false } });
+    for (const p of ['a', 'b']) {
+      room.run(p, { type: 'join' });
+      room.run(p, { type: 'selectDeck', deckId: 'd' });
+      room.run(p, { type: 'setReady', ready: true });
+    }
+    room.run('a', { type: 'start' }, { decks });
+    for (const p of ['a', 'b']) room.run(p, { type: 'finishSideboarding' });
+    for (const p of ['a', 'b']) room.run(p, { type: 'keepHand', bottom: [] });
+    return room;
+  }
+  const pool = (room: Room) => room.state.game!.players.a!;
+
+  it('opens when mana is added, never goes below zero, and empties in one go', () => {
+    const room = playing();
+    expect(pool(room).manaOpen).toBe(false);
+    expect(manaTotal(pool(room).mana)).toBe(0);
+
+    room.run('a', { type: 'adjustMana', symbol: 'G', delta: 2 });
+    expect(pool(room).mana).toEqual({ G: 2 });
+    expect(pool(room).manaOpen).toBe(true); // adding shows the table what is floating
+    room.run('a', { type: 'adjustMana', symbol: 'C', delta: 1 });
+    expect(manaTotal(pool(room).mana)).toBe(3);
+
+    room.run('a', { type: 'adjustMana', symbol: 'G', delta: -5 });
+    expect(pool(room).mana).toEqual({ C: 1 }); // clamped at zero and dropped
+    expect(decide(room.state, { type: 'adjustMana', symbol: 'G', delta: -1 }, ctx('a'))).toEqual({ ok: true, events: [] });
+
+    room.run('a', { type: 'emptyManaPool' });
+    expect(pool(room).mana).toEqual({});
+    expect(decide(room.state, { type: 'emptyManaPool' }, ctx('a'))).toEqual({ ok: true, events: [] });
+
+    // The pool can be closed again, and everyone sees it either way.
+    room.run('a', { type: 'setManaPool', open: false });
+    expect(pool(room).manaOpen).toBe(false);
+    expect(projectState(room.state, 'b').game!.players.a!.manaOpen).toBe(false);
+    room.run('a', { type: 'adjustMana', symbol: 'U', delta: 1 });
+    expect(projectState(room.state, 'b').game!.players.a!.mana).toEqual({ U: 1 });
   });
 });

@@ -53,6 +53,10 @@ export interface PlayerGameState {
   counters: Record<string, number>;
   commanderTax: number;
   commanderDamage: Record<PlayerId, number>;
+  /** Floating mana, by symbol (W U B R G C). Public while the pool is open. */
+  mana: Record<string, number>;
+  /** The player opened their mana pool, so everyone can see it. */
+  manaOpen: boolean;
   /** Top card of the library is permanently revealed to everyone. */
   topRevealed: boolean;
   /** Ordered instance ids per zone; library index 0 is the top. */
@@ -142,6 +146,8 @@ export function emptyPlayerGameState(startingLife: number): PlayerGameState {
     life: startingLife,
     poison: 0,
     counters: {},
+    mana: {},
+    manaOpen: false,
     commanderTax: 0,
     commanderDamage: {},
     topRevealed: false,
@@ -253,4 +259,13 @@ export function defaultDraftName(state: RoomState, now: Date): string {
   ];
   if (players.length > 0) parts.push(players.join(', '));
   return parts.join(' · ');
+}
+
+/** Mana symbols a pool can hold, in the usual order. */
+export const MANA_SYMBOLS = ['W', 'U', 'B', 'R', 'G', 'C'] as const;
+export type ManaSymbol = (typeof MANA_SYMBOLS)[number];
+
+/** Total floating mana in a pool. */
+export function manaTotal(pool: Record<string, number>): number {
+  return Object.values(pool).reduce((n, v) => n + Math.max(0, v), 0);
 }

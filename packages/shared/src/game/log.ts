@@ -99,6 +99,11 @@ export function describeEvent(e: RoomEvent, ctx: LogContext): string | null {
     }
     case 'poisonChanged':
       return `${ctx.playerName(ev.playerId)} ${ev.delta > 0 ? 'got' : 'removed'} ${Math.abs(ev.delta)} poison (${ev.value})`;
+    case 'manaChanged':
+    case 'manaPoolToggled':
+      return null; // mana moves constantly; the pool itself is on screen
+    case 'manaPoolEmptied':
+      return `${ctx.playerName(ev.playerId)} emptied their mana pool`;
     case 'commanderTaxChanged':
       return `${ctx.playerName(ev.playerId)}'s commander tax is now ${ev.value}`;
     case 'commanderDamageChanged':

@@ -79,6 +79,10 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
   // ---- players ----
   z.object({ type: z.literal('adjustLife'), delta: z.number().int().min(-999).max(999) }),
   z.object({ type: z.literal('adjustPoison'), delta: z.number().int().min(-99).max(99) }),
+  /** Floating mana in the own pool; opening it shows the pool to everyone. */
+  z.object({ type: z.literal('adjustMana'), symbol: z.enum(['W', 'U', 'B', 'R', 'G', 'C']), delta: z.number().int().min(-99).max(99) }),
+  z.object({ type: z.literal('setManaPool'), open: z.boolean() }),
+  z.object({ type: z.literal('emptyManaPool') }),
   z.object({ type: z.literal('adjustPlayerCounter'), kind: z.string().trim().min(1).max(32), delta: z.number().int().min(-999).max(999) }),
   z.object({ type: z.literal('adjustCommanderTax'), delta: z.number().int().min(-99).max(99) }),
   z.object({ type: z.literal('adjustCommanderDamage'), fromPlayerId: z.string(), delta: z.number().int().min(-99).max(99) }),

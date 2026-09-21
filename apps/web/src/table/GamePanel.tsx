@@ -1,5 +1,5 @@
 import type { GameCommand, RoomState } from '@mtg/shared';
-import { isActive, seatedPlayers } from '@mtg/shared';
+import { isActive, manaTotal, MANA_SYMBOLS, seatedPlayers } from '@mtg/shared';
 import { useState, type MouseEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Chip, ChipButton } from '../components/Chip';
@@ -47,7 +47,7 @@ export function GamePanel({ state, meId, run, leaveHref, onEndGame, onNewGame, o
 
   return (
     <>
-      <div className="absolute left-2 top-1/2 z-40 flex w-28 -translate-y-1/2 flex-col gap-1 rounded-xl border border-white/15 bg-black/50 p-2 shadow-2xl backdrop-blur-sm">
+      <div className="absolute left-2 top-1/2 z-40 flex max-h-[80%] w-32 -translate-y-1/2 flex-col gap-1 overflow-y-auto rounded-xl border border-white/15 bg-black/50 p-2 shadow-2xl backdrop-blur-sm">
         <span className="flex items-center gap-1">
           <Chip type="neutral" className="flex-1 justify-center uppercase tracking-wider">game {game.gameNumber ?? 1}</Chip>
           <ChipButton type="neutral" onClick={open} onContextMenu={open} title="Game actions">⋯</ChipButton>
@@ -64,18 +64,126 @@ export function GamePanel({ state, meId, run, leaveHref, onEndGame, onNewGame, o
               <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: playerColor(state, p) }} />
               <span className="min-w-0 flex-1 truncate text-[11px] text-white/70">{teams ? `Team ${p.team + 1}` : p.displayName}</span>
               <span className="min-w-[2.2ch] text-right text-base font-semibold tabular-nums text-white">{life}</span>
-              {mine && (
-                <span className="flex flex-col leading-none">
-                  <button type="button" className="touch-target px-0.5 text-[10px] text-white/50 hover:text-white" onClick={() => void run({ type: 'adjustLife', delta: 1 })} aria-label="life plus one">▲</button>
-                  <button type="button" className="touch-target px-0.5 text-[10px] text-white/50 hover:text-white" onClick={() => void run({ type: 'adjustLife', delta: -1 })} aria-label="life minus one">▼</button>
-                </span>
-              )}
+              {mine && <Stepper onDelta={(d) => void run({ type: 'adjustLife', delta: d })} label="life" />}
             </span>
           );
+        })}
+        {players.map((p) => {
+          const pgs = game.players[p.id];
+          if (!pgs) return null;
+          const mine = p.id === meId;
+          return <Resources key={p.id} player={p} pgs={pgs} mine={mine} single={players.length === 2} run={run} />;
         })}
         <Link to={leaveHref} className="mt-0.5 text-center text-[10px] text-white/40 hover:text-white/80">leave room</Link>
       </div>
       {menu && <ContextMenu x={menu.x} y={menu.y} items={items()} onClose={() => setMenu(null)} header="Game" />}
     </>
+  );
+}
+
+function Stepper({ onDelta, label }: { onDelta: (d: number) => void; label: string }) {
+  return (
+    <span className="flex flex-col leading-none">
+      <button type="button" className="touch-target px-0.5 text-[10px] text-white/50 hover:text-white" onClick={() => onDelta(1)} aria-label={`${label} plus one`}>▲</button>
+      <button type="button" className="touch-target px-0.5 text-[10px] text-white/50 hover:text-white" onClick={() => onDelta(-1)} aria-label={`${label} minus one`}>▼</button>
+    </span>
+  );
+}
+
+/** Resources a player tracks besides life. At zero they are just an icon; clicking one opens its counter. */
+const RESOURCES: { key: string; icon: string; label: string }[] = [
+  { key: 'poison', icon: '☠', label: 'Poison' },
+  { key: 'energy', icon: '⚡', label: 'Energy' },
+  { key: 'experience', icon: '★', label: 'Experience' },
+];
+
+function Resources({ player, pgs, mine, single, run }: { player: { id: string; displayName: string }; pgs: NonNullable<RoomState['game']>['players'][string]; mine: boolean; single: boolean; run: Run }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const [pool, setPool] = useState(false);
+  const value = (key: string) => (key === 'poison' ? pgs.poison : (pgs.counters[key] ?? 0));
+  const custom = Object.keys(pgs.counters).filter((k) => !RESOURCES.some((r) => r.key === k));
+  const kinds = [...RESOURCES, ...custom.map((key) => ({ key, icon: key.slice(0, 1).toUpperCase(), label: key }))];
+  const adjust = (key: string, delta: number) => void run(key === 'poison' ? { type: 'adjustPoison', delta } : { type: 'adjustPlayerCounter', kind: key, delta });
+  const manaShown = pgs.manaOpen || manaTotal(pgs.mana ?? {}) > 0 || (mine && pool);
+
+  return (
+    <div className="flex flex-col gap-1 border-t border-white/10 pt-1">
+      {!single && <span className="truncate text-[10px] text-white/40">{player.displayName}</span>}
+      <span className="flex flex-wrap items-center gap-0.5">
+        {kinds.map((r) => {
+          const n = value(r.key);
+          // Only what is in play shows a number; the rest stay icons until asked for.
+          const showValue = n > 0 || open === r.key;
+          if (!mine && n === 0) return null;
+          return (
+            <button
+              key={r.key}
+              type="button"
+              onClick={() => setOpen((o) => (o === r.key ? null : r.key))}
+              className={`touch-target rounded px-1 text-[11px] leading-none ${showValue ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white'}`}
+              title={`${r.label}${n > 0 ? `: ${n}` : ''}`}
+            >
+              {r.icon}{showValue ? ` ${n}` : ''}
+            </button>
+          );
+        })}
+        {mine && (
+          <>
+            <button type="button" onClick={() => { setPool((v) => !v); void run({ type: 'setManaPool', open: !manaShown }); }} className="touch-target rounded px-1 text-[11px] leading-none text-white/40 hover:text-white" title="Mana pool">◎</button>
+            <button
+              type="button"
+              onClick={() => {
+                const kind = prompt('Track which counter?');
+                if (kind?.trim()) adjust(kind.trim(), 1);
+              }}
+              className="touch-target rounded px-1 text-[11px] leading-none text-white/30 hover:text-white"
+              title="Track another counter"
+            >
+              +
+            </button>
+          </>
+        )}
+      </span>
+      {mine && open && (
+        <span className="flex items-center gap-1 rounded-md bg-white/10 px-1 py-0.5">
+          <span className="min-w-0 flex-1 truncate text-[10px] text-white/70">{kinds.find((r) => r.key === open)?.label ?? open}</span>
+          <span className="min-w-[2ch] text-right text-sm font-semibold tabular-nums text-white">{value(open)}</span>
+          <Stepper onDelta={(d) => adjust(open, d)} label={open} />
+        </span>
+      )}
+      {manaShown && <ManaPool pgs={pgs} mine={mine} run={run} />}
+    </div>
+  );
+}
+
+const MANA_COLOUR: Record<string, string> = { W: '#f3ead3', U: '#2f7fd0', B: '#5b4b6b', R: '#d64a3a', G: '#3f9a52', C: '#9aa2ad' };
+
+/** Floating mana: one icon per symbol, with the amount; the owner adds, spends and empties. */
+function ManaPool({ pgs, mine, run }: { pgs: NonNullable<RoomState['game']>['players'][string]; mine: boolean; run: Run }) {
+  const pool = pgs.mana ?? {};
+  return (
+    <span className="flex flex-wrap items-center gap-0.5 rounded-md bg-black/40 p-1">
+      {MANA_SYMBOLS.map((s) => {
+        const n = pool[s] ?? 0;
+        if (!mine && n === 0) return null;
+        return (
+          <button
+            key={s}
+            type="button"
+            disabled={!mine}
+            onClick={() => void run({ type: 'adjustMana', symbol: s, delta: 1 })}
+            onContextMenu={(e) => { e.preventDefault(); if (mine) void run({ type: 'adjustMana', symbol: s, delta: -1 }); }}
+            className={`touch-target flex items-center gap-0.5 rounded-full px-1 text-[11px] font-semibold leading-none ${n > 0 ? 'text-black' : 'text-black/40'}`}
+            style={{ background: MANA_COLOUR[s], opacity: n > 0 ? 1 : 0.35 }}
+            title={mine ? `${s}: click to add, right-click to spend` : `${s}: ${n}`}
+          >
+            {s}{n > 0 ? ` ${n}` : ''}
+          </button>
+        );
+      })}
+      {mine && manaTotal(pool) > 0 && (
+        <button type="button" onClick={() => void run({ type: 'emptyManaPool' })} className="touch-target rounded px-1 text-[10px] text-white/50 hover:text-white" title="Empty the pool">empty</button>
+      )}
+    </span>
   );
 }
