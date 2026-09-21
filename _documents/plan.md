@@ -189,6 +189,16 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [ ] Card image size slider in the deck builder (drafted pool / main / sideboard); reuse the control on the draft pack view and the table if it proves useful
 - [ ] "Auto basics" in the deck builder: fills the remaining slots up to 40 with basic lands in the ratio of coloured mana symbols in the main deck's mana costs (colourless-only deck → even split or a chosen colour)
 
+**M9 — UX redesign** (analysis in `_documents/ux-redesign.md`, written 2026-09-21)
+- [ ] Analysis sign-off: walk the user stories and target flows in `ux-redesign.md` with the group; resolve its open questions; update the document
+- [ ] App shell (Play · Decks · Cubes · Stats) and the Play home: rooms I am in with state and Rejoin, open lobbies with Join, New game / New draft; old routes redirect
+- [ ] New game / New draft wizard replacing the room-creation form: what → cube → format (house rules default, cube's saved formats, custom) → players → name → open or reserved seats
+- [ ] Cube as the drafting hub: Draft this cube, Formats tab (formats belong to a cube), tri-colour pool helper; Draft formats page folds into it
+- [ ] Lobby rework: single column, blocking reasons on Start, inline deck pick with import dialog, invite link, reserved seats
+- [ ] Attention cues: tab title, optional sound, opt-in browser notifications for your pick / your turn / everyone ready / result to confirm
+- [ ] End-of-game card with Play again and Stats links instead of the closed-room page
+- [ ] Visual pass: consistent chips, buttons, dialogs, empty states, first-run hints for a new account
+
 ---
 
 ## Still open
