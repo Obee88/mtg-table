@@ -1,6 +1,6 @@
 import { reduceDraft } from '../draft/reduce.js';
 import type { GameEvent } from './events.js';
-import { emptyPlayerGameState, type CardInstance, type GameState, type PlayerGameState, type RoomState, type ZoneName } from './types.js';
+import { emptyPlayerGameState, withRoomSeats, type CardInstance, type GameState, type PlayerGameState, type RoomState, type ZoneName } from './types.js';
 
 /** Who may see a card's identity by default when it enters a zone. */
 export function defaultVisibility(zone: ZoneName): CardInstance['visibleTo'] {
@@ -32,10 +32,10 @@ export function initialRoomState(id: string): RoomState {
 export function reduce(state: RoomState, event: GameEvent): RoomState {
   switch (event.type) {
     case 'roomCreated':
-      return { ...state, ownerId: event.ownerId, settings: event.settings };
+      return { ...state, ownerId: event.ownerId, settings: withRoomSeats(event.settings) };
 
     case 'settingsChanged':
-      return { ...state, settings: event.settings, players: mapPlayers(state, (p) => ({ ...p, ready: false })) };
+      return { ...state, settings: withRoomSeats(event.settings), players: mapPlayers(state, (p) => ({ ...p, ready: false })) };
 
     case 'playerJoined':
       return {

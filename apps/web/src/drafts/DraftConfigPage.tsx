@@ -98,7 +98,7 @@ export function DraftConfigPage() {
       <Card title="Table">
         <div className="flex flex-wrap items-end gap-3 text-sm">
           <label>
-            <span className="mb-1 block text-text-muted">Players</span>
+            <span className="mb-1 block text-text-muted" title="Only a default: the player count is chosen when the room is created">Default players</span>
             <select className={select} value={config.seats} onChange={(e) => set({ seats: Number(e.target.value) as 2 | 4 })}>
               <option value={2}>2</option>
               <option value={4}>4</option>

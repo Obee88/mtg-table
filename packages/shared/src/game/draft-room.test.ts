@@ -69,11 +69,29 @@ describe('draft rooms', () => {
     expect(decide(room.state, { type: 'leave' }, ctx('b'))).toEqual({ ok: false, error: 'Cannot leave a running game' });
   });
 
-  it('rejects a draft that does not match the seat count and a short pool', () => {
+  it('adapts the format to the room\'s player count and rejects a short pool', () => {
     const room = lobby();
-    expect(decide(room.state, { type: 'updateSettings', settings: { ...settings, playerCount: 4, draft: { ...house, seats: 2 } } }, ctx('a'))).toEqual({ ok: false, error: 'The draft is for a different number of players' });
+    // The format says four seats; the room decides, so attaching it re-seats it.
+    room.run('a', { type: 'updateSettings', settings: { ...settings, playerCount: 4, draft: { ...house, seats: 2 } } });
+    expect(room.state.settings.draft?.seats).toBe(4);
     for (const p of ['a', 'b', 'c', 'd']) room.run(p, { type: 'setReady', ready: true });
     expect(decide(room.state, { type: 'start' }, ctx('a', { draftPools: { tri: pools.tri, main: pools.main.slice(0, 100) } }))).toEqual({ ok: false, error: 'Phase 2 (Main) needs 180 cards but the pool has 100' });
+  });
+
+  it('deals a four-seat format for two players, taking only what they need', () => {
+    const room = new Room();
+    room.state = reduce(room.state, { type: 'roomCreated', ownerId: 'a', settings: { ...settings, playerCount: 2, mode: '1v1', draft: house } });
+    expect(room.state.settings.draft?.seats).toBe(2);
+    for (const p of ['a', 'b']) {
+      room.run(p, { type: 'join' });
+      room.run(p, { type: 'setReady', ready: true });
+    }
+    room.run('a', { type: 'start' }, { draftPools: pools });
+    const draft = room.state.draft!;
+    expect(draft.seats).toEqual(['a', 'b']);
+    // Two seats: one tri-colour pack each, then three rounds of one 15-card pack each.
+    expect(Object.keys(draft.packs)).toHaveLength(2 + 6);
+    expect(Object.values(draft.packs).flatMap((p) => p.cards)).toHaveLength(2 * 5 + 6 * 15);
   });
 
   it('runs to deckbuilding, and every viewer\'s client state always equals their projection', () => {

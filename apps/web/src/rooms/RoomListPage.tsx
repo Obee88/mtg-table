@@ -1,5 +1,5 @@
 import type { DraftConfigResponse, DraftConfigSummary, RoomListItem, RoomSettings, RoomState } from '@mtg/shared';
-import { describeDraftConfig } from '@mtg/shared';
+import { describeDraftConfig, withRoomSeats } from '@mtg/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
@@ -27,8 +27,9 @@ function DraftFormatPicker({ value, onChange }: { value: RoomSettings; onChange:
   const load = useMutation({
     mutationFn: (id: string) => api<DraftConfigResponse>(`/draft-configs/${id}`),
     onSuccess: ({ config }) => {
+      // The format's seat count is only a default: it fills the player count in, which stays editable.
       const mode = config.seats === 2 ? '1v1' : value.mode === '1v1' ? 'ffa' : value.mode;
-      onChange({ ...value, draft: config, playerCount: config.seats, mode });
+      onChange(withRoomSeats({ ...value, draft: config, playerCount: config.seats, mode }));
     },
   });
   const pick = (id: string) => {
@@ -45,7 +46,7 @@ function DraftFormatPicker({ value, onChange }: { value: RoomSettings; onChange:
           {formats.data?.map((f) => <option key={f.id} value={f.id}>{f.name} · {f.seats} players</option>)}
         </select>
       </label>
-      {value.draft && <Chip type="primary" className="mb-1.5">{describeDraftConfig(value.draft)}</Chip>}
+      {value.draft && <Chip type="primary" className="mb-1.5" title="The format adapts to the number of players you choose">{describeDraftConfig(value.draft)}</Chip>}
       {formats.data?.length === 0 && <Link to="/drafts/new" className="mb-2 text-accent hover:underline">Create a draft format</Link>}
       <ErrorText error={load.error} />
     </div>

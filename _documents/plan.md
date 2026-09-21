@@ -15,7 +15,7 @@ architecture, the data model, and the milestone order. Update it when decisions 
 | Persistence | Everything survives restarts. Rooms are event-sourced: append-only event log in Postgres + periodic snapshots. Reconnect replays from last seen sequence number. |
 | First milestone | 1v1 pre-constructed table (paste two decklists, play). Draft engine is built on top of the working table. |
 | Cube | A cube is a list of **specific printings** (Scryfall print IDs), so the artwork shown at the table is fixed by the cube. Users create/edit their own cubes; versioned. |
-| Draft config | Saved, user-owned recipe: ordered phases; each phase has a type (pick-and-pass, Winston, Grid, Winchester, Rotisserie), a pool (a cube version), and type-specific settings. House rules = one preset. Shareable with other players. Its seat count is only a default: the player count is picked when the room is created (M8). |
+| Draft config | Saved, user-owned recipe: ordered phases; each phase has a type (pick-and-pass, Winston, Grid, Winchester, Rotisserie), a pool (a cube version), and type-specific settings. House rules = one preset. Shareable with other players. Its seat count is only a default: the room's player count re-seats the format (`withRoomSeats`, applied by the reducer). |
 | Card images | Hotlinked from Scryfall CDN (no object storage on the platform). Card metadata ingested from Scryfall bulk data into Postgres. |
 
 ### House draft, corrected
@@ -185,7 +185,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] Card win-rate stats
 
 **M8 — Draft sessions and deckbuilding comfort** (requested 2026-09-21)
-- [ ] Seats out of the draft config: a format's seat count becomes its *default*; the player count is chosen when creating the room, on the same screen as the format (formats must still fit 2 or 4)
+- [x] Seats out of the draft config: a format’s seat count becomes its *default*; the player count is chosen when creating the room, on the same screen as the format
 - [ ] Named drafts: starting a draft asks for a name, defaulting to "<format> · <n> players · <date> · <player names>"; stored on the room
 - [ ] Draft history: a page listing past drafts (name, date, format, players) where a player can open their drafted pool / deck and save it to their deck list
 - [ ] Card image size slider in the deck builder (drafted pool / main / sideboard); reuse the control on the draft pack view and the table if it proves useful

@@ -80,7 +80,6 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       if (command.settings.playerCount < seated) return reject(`${seated} players are seated`);
       if (command.settings.mode === '2v2' && command.settings.playerCount !== 4) return reject('2v2 needs 4 players');
       if (command.settings.mode === '1v1' && command.settings.playerCount !== 2) return reject('1v1 needs 2 players');
-      if (command.settings.draft && command.settings.draft.seats !== command.settings.playerCount) return reject('The draft is for a different number of players');
       return accept({ type: 'settingsChanged', settings: command.settings });
     }
 

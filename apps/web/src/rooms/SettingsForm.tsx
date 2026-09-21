@@ -1,4 +1,5 @@
 import type { RoomSettings } from '@mtg/shared';
+import { withRoomSeats } from '@mtg/shared';
 import { useState } from 'react';
 
 const LIFE_PRESETS = [20, 30, 40] as const;
@@ -11,7 +12,8 @@ export function SettingsForm({ value, onChange, disabled = false }: { value: Roo
     // Keep mode and player count consistent.
     if (next.playerCount === 2) next.mode = '1v1';
     else if (next.mode === '1v1') next.mode = 'ffa';
-    onChange(next);
+    // A draft format seats as many as the room does.
+    onChange(withRoomSeats(next));
   };
   const select = 'rounded-md border border-border bg-surface px-2 py-1.5 text-sm text-text disabled:opacity-60';
 
@@ -19,7 +21,7 @@ export function SettingsForm({ value, onChange, disabled = false }: { value: Roo
     <div className="flex flex-wrap items-end gap-3 text-sm">
       <label>
         <span className="mb-1 block text-text-muted">Players</span>
-        <select className={select} value={value.playerCount} disabled={disabled || !!value.draft} title={value.draft ? 'Fixed by the draft format' : undefined} onChange={(e) => set({ playerCount: Number(e.target.value) as 2 | 4 })}>
+        <select className={select} value={value.playerCount} disabled={disabled} onChange={(e) => set({ playerCount: Number(e.target.value) as 2 | 4 })}>
           <option value={2}>2</option>
           <option value={4}>4</option>
         </select>

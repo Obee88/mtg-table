@@ -229,3 +229,13 @@ export function decksFromGame(state: RoomState): Record<PlayerId, { main: { prin
   for (const [id, t] of Object.entries(tallies)) out[id] = { main: list(t.main), sideboard: list(t.sideboard), commander: list(t.commander) };
   return out;
 }
+
+/**
+ * A draft format's seat count is only a default: the room decides how many
+ * play, so the format adapts when it is attached to a room or the player
+ * count changes. Applied by the reducer, so every replica agrees.
+ */
+export function withRoomSeats(settings: RoomSettings): RoomSettings {
+  if (!settings.draft || settings.draft.seats === settings.playerCount) return settings;
+  return { ...settings, draft: { ...settings.draft, seats: settings.playerCount } };
+}
