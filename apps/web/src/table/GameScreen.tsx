@@ -34,7 +34,7 @@ export function GameScreen({ room, meId, leaveHref = '/rooms' }: { room: GameRoo
       .map((p) => p.id);
     if (winners.length === 0) return;
     const names = winners.map((id) => room.state.players[id]?.displayName ?? '?').join(' & ');
-    if (confirm(`Forfeit game ${room.state.game?.gameNumber ?? 1}? ${names} win once everyone confirms, and the room closes.`)) {
+    if (confirm(`Forfeit game ${room.state.game?.gameNumber ?? 1}? ${names} win once everyone confirms, and the table clears.`)) {
       void room.send({ type: 'proposeResult', winners, then: 'end' });
     }
   };

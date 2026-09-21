@@ -51,11 +51,14 @@ export function ResultDialog({ state, then, onPropose, onClose }: { state: RoomS
           </label>
           {!untracked && chosen.length === 0 && <span className="text-xs text-text-muted">Nobody ticked = a draw (tracked).</span>}
         </div>
-        <p className="text-xs text-text-muted">{others > 0 ? `The other ${others === 1 ? 'player' : 'players'} must confirm before the game ${then === 'end' ? 'ends' : 'restarts'}.` : ''}</p>
+        <p className="text-xs text-text-muted">
+          {others > 0 && `The other ${others === 1 ? 'player' : 'players'} must confirm. `}
+          {then === 'end' ? 'The table clears and the room stays open for another game.' : 'New hands are dealt right away.'}
+        </p>
         {error && <p className="text-danger">{error}</p>}
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => void submit()} disabled={busy}>{then === 'end' ? 'Propose & end' : 'Propose & deal again'}</Button>
+          <Button onClick={() => void submit()} disabled={busy}>{then === 'end' ? 'End the game' : 'Deal a new game'}</Button>
         </div>
       </div>
     </Dialog>
@@ -84,6 +87,7 @@ export function PendingResultDialog({ state, meId, onConfirm, onReject }: { stat
     <Dialog title={pending.then === 'end' ? 'Ending the game' : 'Starting a new game'} onClose={() => undefined}>
       <div className="flex flex-col gap-4 text-sm">
         <p><span className="font-medium">{name(pending.proposedBy)}</span> says: {outcome}.</p>
+        <p className="text-xs text-text-muted">{pending.then === 'end' ? 'The table clears; the room stays open.' : 'New hands are dealt for everyone.'}</p>
         <p className="text-text-muted">{waiting.length > 0 ? `Waiting for ${waiting.join(', ')} to confirm.` : 'Everyone confirmed.'}</p>
         {error && <p className="text-danger">{error}</p>}
         <div className="flex justify-end gap-2">

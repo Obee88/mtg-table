@@ -339,6 +339,10 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
     case 'roomRenamed':
       return { ...state, name: event.name || null };
 
+    // The last game stays for reference (and to keep the numbering) while the room waits in the lobby.
+    case 'gameEnded':
+      return { ...state, phase: 'lobby' };
+
     // ---- draft: the draft state is its own reducer; the room only tracks the phase ----
     case 'draftStarted':
       return { ...state, phase: 'drafting', draft: reduceDraft(null, event) };

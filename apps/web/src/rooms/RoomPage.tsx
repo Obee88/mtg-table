@@ -54,6 +54,9 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
   const players = seatedPlayers(state);
   const allReady = players.length === state.settings.playerCount && players.every((p) => p.ready);
   const drafting = !!state.settings.draft;
+  // A draft that already happened: the next game deals the decks built from it.
+  const drafted = state.draft?.status === 'finished';
+  const played = state.results.length;
 
   const run = async (command: Parameters<typeof send>[0]) => {
     setError(null);
@@ -63,6 +66,21 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
 
   return (
     <>
+      {played > 0 && (
+        <Card title={`Games played · ${played}`}>
+          <ul className="flex flex-col gap-1 text-sm">
+            {state.results.map((r) => (
+              <li key={r.gameNumber} className="flex items-center gap-2">
+                <Chip type="neutral">game {r.gameNumber}</Chip>
+                <span>{r.winners.length === 0 ? 'a draw' : `${r.winners.map((id) => state.players[id]?.displayName ?? '?').join(' & ')} won`}</span>
+                {r.note && <span className="truncate text-text-muted">— {r.note}</span>}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-text-muted">Start another game below, or leave the room; the host can close it when you are done.</p>
+        </Card>
+      )}
+
       <Card title={`Seats · ${players.length}/${state.settings.playerCount}`}>
         <ul className="grid gap-2 sm:grid-cols-2">
           {Array.from({ length: state.settings.playerCount }, (_, seat) => {
@@ -102,7 +120,7 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
             <Button onClick={() => run({ type: 'join' })} disabled={players.length >= state.settings.playerCount}>Take a seat</Button>
           ) : (
             <>
-              {drafting && <span className="text-sm text-text-muted">Decks are built after the draft.</span>}
+              {drafting && <span className="text-sm text-text-muted">{drafted ? 'You play the deck you built from your draft pool.' : 'Decks are built after the draft.'}</span>}
               {!drafting && <label className="text-sm">
                 <span className="mb-1 block text-text-muted">Deck</span>
                 <select
@@ -123,7 +141,7 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
           )}
           {isOwner && (
             <span className="ml-auto flex items-center gap-3">
-              <Button onClick={() => (drafting ? setNaming(defaultDraftName(state, new Date())) : run({ type: 'start' }))} disabled={!allReady}>{drafting ? 'Start draft…' : 'Start game'}</Button>
+              <Button onClick={() => (drafting && !drafted ? setNaming(defaultDraftName(state, new Date())) : run({ type: 'start' }))} disabled={!allReady}>{drafting && !drafted ? 'Start draft…' : played > 0 ? 'Start another game' : 'Start game'}</Button>
               <Button variant="ghost" className="text-danger" onClick={() => confirm('Close this room?') && run({ type: 'closeRoom' })}>Close room</Button>
             </span>
           )}

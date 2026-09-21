@@ -94,7 +94,9 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       if (players.length !== state.settings.playerCount) return reject(`Waiting for ${state.settings.playerCount - players.length} more player(s)`);
       const notReady = players.filter((p) => !p.ready);
       if (notReady.length > 0) return reject(`Not ready: ${notReady.map((p) => p.displayName).join(', ')}`);
-      const dealt = state.settings.draft ? startDraft(state, ctx) : deal(state, ctx);
+      // A draft that already happened deals its decks again; a fresh draft room drafts first.
+      const drafted = state.draft?.status === 'finished';
+      const dealt = drafted ? deal(state, { ...ctx, decks: draftDecks(state) }) : state.settings.draft ? startDraft(state, ctx) : deal(state, ctx);
       // A name given at the start belongs to the same batch, so undo and replay keep them together.
       const named = command.name?.trim();
       return dealt.ok && named ? { ok: true, events: [{ type: 'roomRenamed', name: named }, ...dealt.events] } : dealt;
@@ -698,8 +700,9 @@ function normalizeWinners(state: RoomState, winners: string[]): string[] | undef
 function settle(state: RoomState, pending: NonNullable<GameState['pendingResult']>, ctx: CommandContext): GameEvent[] {
   const events: GameEvent[] = [];
   if (pending.winners !== null) events.push({ type: 'resultReported', gameNumber: state.game?.gameNumber ?? 1, reportedBy: pending.proposedBy, winners: pending.winners, note: null, at: ctx.now.toISOString() });
+  // Ending a game does not end the room: the table clears and everyone waits in the lobby.
   if (pending.then === 'end') {
-    events.push({ type: 'roomClosed' });
+    events.push({ type: 'gameEnded' });
     return events;
   }
   const dealt = deal(state, state.draft ? { ...ctx, decks: draftDecks(state) } : ctx);

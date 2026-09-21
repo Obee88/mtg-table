@@ -49,6 +49,8 @@ export function describeEvent(e: RoomEvent, ctx: LogContext): string | null {
       return `${ctx.playerName(ev.playerId)} is ${ev.ready ? 'ready' : 'not ready'}`;
     case 'roomRenamed':
       return `${actor} named this session "${ev.name}"`;
+    case 'gameEnded':
+      return 'The game ended; the room is open for another one';
     case 'roomClosed':
       return `${actor} closed the room`;
     case 'gameStarted': {

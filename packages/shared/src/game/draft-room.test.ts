@@ -431,9 +431,14 @@ describe('ending a game together', () => {
     expect(room.state.results).toEqual([]);
     expect(decide(room.state, { type: 'proposeResult', winners: [], then: 'end' }, ctx('b'))).toEqual({ ok: false, error: 'An outcome is already waiting for confirmation' });
     expect(decide(room.state, { type: 'confirmResult' }, ctx('a'))).toEqual({ ok: false, error: 'Already confirmed' });
-    room.run('b', { type: 'confirmResult' });
+    room.run('b', { type: 'confirmResult' }, { decks });
     expect(room.state.results).toEqual([{ gameNumber: 1, reportedBy: 'a', winners: ['b'], note: null, at: '2026-01-01T00:00:00.000Z' }]);
-    expect(room.state.phase).toBe('ended');
+    // The game is over, but the room stays open for another one.
+    expect(room.state.phase).toBe('lobby');
+    expect(room.state.game?.gameNumber).toBe(1);
+    room.run('a', { type: 'start' }, { decks });
+    expect(room.state.phase).toBe('playing');
+    expect(room.state.game?.gameNumber).toBe(2);
   });
 
   it('leaves untracked games out of the results and deals again when asked', () => {
