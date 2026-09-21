@@ -6,6 +6,8 @@ import { api } from '../lib/api';
 import { imageFor } from '../cards/CardImage';
 import { CardPreviewProvider, useCardPreview } from '../cards/CardPreview';
 import { CardZoom } from '../cards/CardZoom';
+import { useCardScale } from '../cards/cardScale';
+import { CardScaleSlider } from '../cards/CardScaleSlider';
 import { Chip } from '../components/Chip';
 import type { GameRoom } from '../table/GameScreen';
 import { LogPanel } from '../table/LogPanel';
@@ -14,7 +16,7 @@ import { longPressHandlers } from '../table/touch';
 import { useCards } from '../table/useCards';
 import { useMediaQuery } from '../lib/useMediaQuery';
 import { draftPrintingIds } from './ids';
-import { packLayout } from './layout';
+import { packLayout, scaledPackLayout } from './layout';
 import { groupPool, POOL_SORTS, type PoolEntry, type PoolSort } from './pool';
 
 /** Shows a card full screen; the touch stand-in for the hover preview, which needs a pointer. */
@@ -166,7 +168,8 @@ function PackView({ draft, pack, meId, printings, send }: { draft: DraftState; p
   const librarian = usableLibrarians(draft, meId)[0];
   const [useLibrarian, setUseLibrarian] = useState(false);
   const want = useLibrarian && librarian ? 2 : 1;
-  const layout = packLayout(pack.cards.length, area.w, area.h - 44);
+  const [scale, setScale] = useCardScale('pack');
+  const layout = scaledPackLayout(packLayout(pack.cards.length, area.w, area.h - 44), scale, area.w);
 
   const toggle = (id: string) => {
     setError(null);
@@ -208,17 +211,18 @@ function PackView({ draft, pack, meId, printings, send }: { draft: DraftState; p
           <input type="checkbox" checked={faceUp} onChange={(e) => setFaceUp(e.target.checked)} />
           face up
         </label>
+        <CardScaleSlider value={scale} onChange={setScale} className="ml-auto" />
         {error && <Chip type="error">{error}</Chip>}
         <button
           type="button"
           onClick={() => void pick()}
           disabled={selected.length !== want || busy}
-          className="ml-auto rounded-md bg-accent px-3 py-1 text-sm font-medium text-bg hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+          className="ml-2 rounded-md bg-accent px-3 py-1 text-sm font-medium text-bg hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
         >
           {selected.length === want ? `Pick ${names.join(' + ')}` : want === 2 ? `Choose ${2 - selected.length} more` : 'Choose a card'}
         </button>
       </div>
-      <div className="grid min-h-0 flex-1 content-start justify-center gap-2" style={{ gridTemplateColumns: `repeat(${layout.cols}, ${layout.cardW}px)` }}>
+      <div className="grid min-h-0 flex-1 content-start justify-center gap-2 overflow-y-auto" style={{ gridTemplateColumns: `repeat(${layout.cols}, ${layout.cardW}px)` }}>
         {pack.cards.map((c) => (
           <PackCard key={c.id} card={c} printing={printings.get(c.printingId)} w={layout.cardW} selected={selected.includes(c.id)} onClick={() => toggle(c.id)} onDoubleClick={() => { if (want === 1) { setSelected([c.id]); void send({ type: 'draftPick', cardId: c.id, faceUp }).then((r) => !r.ok && setError(r.error)); } }} />
         ))}
@@ -249,11 +253,12 @@ function PackCard({ card, printing, w, selected, onClick, onDoubleClick }: { car
 }
 
 /** A set of drafted cards sorted into columns of piled thumbnails; scrolls sideways when wide. Clicking a card calls `onCardClick`. */
-function Pool({ title, cards, printings, onCardClick, emptyText = 'Nothing picked yet.', className = 'flex-[2]', extra, selectedId = null }: { title: string; cards: DraftCard[]; printings: Map<string, CardPrinting>; onCardClick?: ((card: DraftCard) => void) | undefined; emptyText?: string; className?: string; extra?: ReactNode; selectedId?: string | null }) {
+function Pool({ title, cards, printings, onCardClick, emptyText = 'Nothing picked yet.', className = 'flex-[2]', extra, selectedId = null, slider = true }: { title: string; cards: DraftCard[]; printings: Map<string, CardPrinting>; onCardClick?: ((card: DraftCard) => void) | undefined; emptyText?: string; className?: string; extra?: ReactNode; selectedId?: string | null; /** Show the card size slider (every pool shares the size; one slider is enough per screen). */ slider?: boolean }) {
   const [sort, setSort] = useState<PoolSort>('colour');
   const entries: PoolEntry[] = cards.map((card, i) => ({ card, printing: printings.get(card.printingId), n: i + 1 }));
   const groups = groupPool(entries, sort);
-  const w = 72;
+  const [scale, setScale] = useCardScale('pool');
+  const w = Math.round(72 * scale);
   const overlap = Math.round(w * 0.32);
   return (
     <div className={`flex min-h-0 flex-col border-t border-white/10 bg-black/20 px-3 pb-2 ${className}`}>
@@ -263,6 +268,7 @@ function Pool({ title, cards, printings, onCardClick, emptyText = 'Nothing picke
         {POOL_SORTS.map((s) => (
           <button key={s.key} type="button" onClick={() => setSort(s.key)} className={`touch-target rounded px-1.5 py-0.5 ${sort === s.key ? 'bg-white/15 text-white' : 'hover:bg-white/10'}`}>{s.label}</button>
         ))}
+        {slider && <CardScaleSlider value={scale} onChange={setScale} className="ml-3" />}
         {onCardClick && <span className="ml-auto text-white/40">click a card to move it</span>}
       </div>
       <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto overflow-y-hidden">
@@ -364,7 +370,7 @@ function DeckBuilder({ draft, meId, printings, send, isOwner }: { draft: DraftSt
   return (
     <>
       <Pool title={`Main deck · ${main.size + basicCount} with basics`} cards={mainCards} printings={printings} onCardClick={toggle} emptyText="Click cards in the sideboard to add them to your main deck." className="flex-[3]" />
-      <Pool title="Sideboard" cards={sideCards} printings={printings} onCardClick={toggle} emptyText="Everything is in the main deck." className="flex-[2]" extra={basicsRow} />
+      <Pool title="Sideboard" cards={sideCards} printings={printings} onCardClick={toggle} emptyText="Everything is in the main deck." className="flex-[2]" extra={basicsRow} slider={false} />
     </>
   );
 }
