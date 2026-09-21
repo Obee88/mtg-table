@@ -73,6 +73,8 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('lookAtTop'), count: z.number().int().min(1).max(500) }),
   /** New order for the top cards; must be a permutation of the current top N. */
   z.object({ type: z.literal('reorderLibraryTop'), instanceIds: z.array(z.string()).min(1).max(500) }),
+  /** New order for the whole hand (dragging a card to another place in it). */
+  z.object({ type: z.literal('reorderHand'), instanceIds: z.array(z.string()).min(1).max(200) }),
   z.object({ type: z.literal('setTopRevealed'), enabled: z.boolean() }),
   /** Ends 'until dismissed' reveals on own cards (all of them, or the given ones). */
   z.object({ type: z.literal('dismissReveal'), instanceIds: z.array(z.string()).max(500).optional() }),

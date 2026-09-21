@@ -25,9 +25,11 @@ export function GamePanel({ state, meId, run, leaveHref, onEndGame, onNewGame, o
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const navigate = useNavigate();
   const game = state.game!;
-  const players = seatedPlayers(state);
   const me = state.players[meId];
   const teams = state.settings.mode === '2v2' && game.teamLife;
+  // Mirror the table: the others across from me, my own side at the bottom.
+  const ownSide = (p: { id: string; team: number }) => (teams && me ? Number(p.team === me.team) : Number(p.id === meId));
+  const players = [...seatedPlayers(state)].sort((a, b) => ownSide(a) - ownSide(b) || a.seat - b.seat);
 
   const items = (): (MenuItem | 'sep')[] => {
     const out: (MenuItem | 'sep')[] = [];

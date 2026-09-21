@@ -291,6 +291,12 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
     case 'visibilityChanged':
       return patchCard(state, event.instanceId, { visibleTo: event.visibleTo, revealUntil: event.revealUntil });
 
+    case 'handReordered': {
+      const pgs = state.game?.players[event.playerId];
+      if (!pgs) return state;
+      return patchPlayer(state, event.playerId, { zones: { ...pgs.zones, hand: event.order } });
+    }
+
     case 'libraryReordered': {
       const pgs = state.game?.players[event.playerId];
       if (!pgs) return state;

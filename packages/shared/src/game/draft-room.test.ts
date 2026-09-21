@@ -627,3 +627,35 @@ describe('the mana pool', () => {
     expect(projectState(room.state, 'b').game!.players.a!.mana).toEqual({ U: 1 });
   });
 });
+
+describe('arranging the hand', () => {
+  const decks = { a: { main: [{ printingId: 'x', quantity: 9 }], sideboard: [], commander: [] }, b: { main: [{ printingId: 'y', quantity: 9 }], sideboard: [], commander: [] } };
+  function playing(): Room {
+    const room = new Room();
+    room.state = reduce(room.state, { type: 'roomCreated', ownerId: 'a', settings: { playerCount: 2, mode: '1v1', startingLife: 20, commander: false } });
+    for (const p of ['a', 'b']) {
+      room.run(p, { type: 'join' });
+      room.run(p, { type: 'selectDeck', deckId: 'd' });
+      room.run(p, { type: 'setReady', ready: true });
+    }
+    room.run('a', { type: 'start' }, { decks });
+    for (const p of ['a', 'b']) room.run(p, { type: 'finishSideboarding' });
+    for (const p of ['a', 'b']) room.run(p, { type: 'keepHand', bottom: [] });
+    return room;
+  }
+
+  it('takes any permutation of the own hand and nothing else', () => {
+    const room = playing();
+    const hand = [...room.state.game!.players.a!.zones.hand];
+    const moved = [hand[3]!, ...hand.filter((_, i) => i !== 3)];
+    room.run('a', { type: 'reorderHand', instanceIds: moved });
+    expect(room.state.game!.players.a!.zones.hand).toEqual(moved);
+    // No change is not an event, and the cards stay in hand.
+    expect(decide(room.state, { type: 'reorderHand', instanceIds: moved }, ctx('a'))).toEqual({ ok: true, events: [] });
+    expect(room.state.game!.players.a!.zones.hand).toHaveLength(7);
+
+    expect(decide(room.state, { type: 'reorderHand', instanceIds: moved.slice(1) }, ctx('a'))).toEqual({ ok: false, error: 'That is not your hand' });
+    const theirs = room.state.game!.players.b!.zones.hand;
+    expect(decide(room.state, { type: 'reorderHand', instanceIds: theirs }, ctx('a'))).toEqual({ ok: false, error: 'That is not your hand' });
+  });
+});

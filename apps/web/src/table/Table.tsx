@@ -516,6 +516,27 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
     if (ids.length > 0) void run({ type: 'moveCards', instanceIds: ids, to: zone });
   };
 
+  /**
+   * Drop on a hand card: cards already in hand are rearranged around it (before
+   * or after, depending on which half was hit); anything else just comes to hand.
+   */
+  const dropInHand = (e: DragEvent<HTMLElement>, index: number) => {
+    const ids = parseIds(e);
+    if (ids.length === 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const hand = pgs.zones.hand;
+    const moving = ids.filter((id) => hand.includes(id));
+    if (moving.length === 0) return void run({ type: 'moveCards', instanceIds: ids, to: 'hand' });
+    const box = e.currentTarget.getBoundingClientRect();
+    const after = e.clientX > box.left + box.width / 2;
+    const target = hand[index];
+    const rest = hand.filter((id) => !moving.includes(id));
+    // Land before or after the card dropped on; it may itself be one of the moved cards.
+    const anchor = target && !moving.includes(target) ? rest.indexOf(target) + (after ? 1 : 0) : Math.min(index, rest.length);
+    void run({ type: 'reorderHand', instanceIds: [...rest.slice(0, anchor), ...moving, ...rest.slice(anchor)] });
+  };
+
   const battlefieldCards = zoneCards('battlefield');
   const rows = layoutRows(battlefieldCards, cards);
 
@@ -613,7 +634,15 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
         )}
       </span>
       <Hand count={handCards.length} onDragOver={allowDrop} onDrop={dropTo('hand')}>
-        {handCards.map((c) => <span key={c.id}>{cardEl(c)}</span>)}
+        {handCards.map((c, i) => (
+          <span
+            key={c.id}
+            onDragOver={mine ? allowDrop : undefined}
+            onDrop={mine ? (e) => dropInHand(e, i) : undefined}
+          >
+            {cardEl(c)}
+          </span>
+        ))}
         {handCards.length === 0 && <span className="px-2 text-xs text-white/25">empty hand</span>}
       </Hand>
       <div className="flex shrink-0 gap-2 py-1.5">

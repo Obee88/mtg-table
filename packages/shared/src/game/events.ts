@@ -70,6 +70,8 @@ export const gameEventSchema = z.discriminatedUnion('type', [
   // ---- visibility ----
   z.object({ type: z.literal('visibilityChanged'), instanceId: z.string(), visibleTo: visibilitySchema, revealUntil: z.enum(['dismissed', 'zoneChange']).nullable() }),
   z.object({ type: z.literal('libraryReordered'), playerId: z.string(), top: z.array(z.string()) }),
+  /** The owner rearranged their hand; `order` is the whole hand. */
+  z.object({ type: z.literal('handReordered'), playerId: z.string(), order: z.array(z.string()) }),
   z.object({ type: z.literal('topRevealedChanged'), playerId: z.string(), enabled: z.boolean() }),
   // ---- players ----
   z.object({ type: z.literal('lifeChanged'), target: lifeTargetSchema, delta: z.number().int(), value: z.number().int() }),

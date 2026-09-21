@@ -437,6 +437,16 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       return accept(...top.map((id) => revealEvent(state.game!.cards[id]!, ctx.actorId, [], 'dismissed')));
     }
 
+    case 'reorderHand': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      const order = [...new Set(command.instanceIds)];
+      const hand = pgs.zones.hand;
+      if (order.length !== hand.length || order.some((id) => !hand.includes(id))) return reject('That is not your hand');
+      if (order.every((id, i) => hand[i] === id)) return accept();
+      return accept({ type: 'handReordered', playerId: ctx.actorId, order });
+    }
+
     case 'reorderLibraryTop': {
       const pgs = ownGame(state, ctx.actorId);
       if ('error' in pgs) return reject(pgs.error);

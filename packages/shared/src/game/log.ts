@@ -113,6 +113,8 @@ export function describeEvent(e: RoomEvent, ctx: LogContext): string | null {
       const to = ev.visibleTo === 'all' ? 'everyone' : ev.visibleTo === 'owner' ? 'themselves' : ev.visibleTo.filter((p) => p !== e.actorId).map(ctx.playerName).join(', ') || 'themselves';
       return to === 'themselves' ? `${actor} looked at ${card(ev.instanceId)}` : `${actor} revealed ${card(ev.instanceId)} to ${to}`;
     }
+    case 'handReordered':
+      return null; // arranging one's own hand is nobody else's business
     case 'libraryReordered':
       return `${ctx.playerName(ev.playerId)} reordered the top ${ev.top.length} cards of their library`;
     case 'topRevealedChanged':
