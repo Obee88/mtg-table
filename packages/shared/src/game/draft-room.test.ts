@@ -664,3 +664,41 @@ describe('arranging the hand', () => {
     expect(decide(room.state, { type: 'reorderHand', instanceIds: theirs }, ctx('a'))).toEqual({ ok: false, error: 'That is not your hand' });
   });
 });
+
+describe('pointing at a card', () => {
+  const decks = { a: { main: [{ printingId: 'x', quantity: 9 }], sideboard: [], commander: [] }, b: { main: [{ printingId: 'y', quantity: 9 }], sideboard: [], commander: [] } };
+  function playing(): Room {
+    const room = new Room();
+    room.state = reduce(room.state, { type: 'roomCreated', ownerId: 'a', settings: { playerCount: 2, mode: '1v1', startingLife: 20, commander: false } });
+    for (const p of ['a', 'b']) {
+      room.run(p, { type: 'join' });
+      room.run(p, { type: 'selectDeck', deckId: 'd' });
+      room.run(p, { type: 'setReady', ready: true });
+    }
+    room.run('a', { type: 'start' }, { decks });
+    for (const p of ['a', 'b']) room.run(p, { type: 'finishSideboarding' });
+    for (const p of ['a', 'b']) room.run(p, { type: 'keepHand', bottom: [] });
+    return room;
+  }
+
+  it('marks a card on the table for both players and clears the marks when the turn passes', () => {
+    const room = playing();
+    const card = room.state.game!.players.a!.zones.hand[0]!;
+    expect(decide(room.state, { type: 'toggleTarget', instanceId: card }, ctx('b'))).toEqual({ ok: false, error: 'That card is not on the table' });
+    room.run('a', { type: 'moveCard', instanceId: card, to: 'battlefield' });
+
+    room.run('b', { type: 'toggleTarget', instanceId: card });
+    expect(room.state.game!.cards[card]!.targetedBy).toEqual(['b']);
+    // Everyone sees the mark, and several players can point at the same card.
+    expect(projectState(room.state, 'a').game!.cards[card]!.targetedBy).toEqual(['b']);
+    room.run('a', { type: 'toggleTarget', instanceId: card });
+    expect(room.state.game!.cards[card]!.targetedBy).toEqual(['b', 'a']);
+    // Clicking again takes only that player's mark back.
+    room.run('b', { type: 'toggleTarget', instanceId: card });
+    expect(room.state.game!.cards[card]!.targetedBy).toEqual(['a']);
+
+    const active = room.state.game!.activePlayerId;
+    room.run(active, { type: 'endTurn' });
+    expect(room.state.game!.cards[card]!.targetedBy).toEqual([]);
+  });
+});

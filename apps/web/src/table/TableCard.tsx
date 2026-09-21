@@ -32,7 +32,9 @@ export function faceImage(card: CardInstance, printing: CardPrinting | undefined
   return imageFor(printing, size);
 }
 
-export function TableCard({ card, printing, mine, selected = false, onClick, onContextMenu, onDragStart: onDragStartProp, onAdjustCounter, groupCount }: {
+export function TableCard({ card, printing, mine, selected = false, onClick, onContextMenu, onDragStart: onDragStartProp, onAdjustCounter, groupCount, targetColors = [] }: {
+  /** Seat colours of the players pointing at this card, if any. */
+  targetColors?: string[];
   card: CardInstance;
   printing: CardPrinting | undefined;
   mine: boolean;
@@ -118,6 +120,14 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
         </div>
       ) : (
         <img key={card.zone} src={src} alt={label ?? ''} draggable={false} className={`h-full w-full rounded-[4.5%] object-cover ${revealed ? 'card-revealed' : ''}`} />
+      )}
+      {targetColors.length > 0 && (
+        <span className="pointer-events-none absolute inset-0 rounded-[4.5%] ring-2 ring-offset-1 ring-offset-transparent" style={{ /* the first pointer's colour rings the card */ boxShadow: `0 0 0 2px ${targetColors[0]}, 0 0 12px ${targetColors[0]}` }} />
+      )}
+      {targetColors.length > 0 && (
+        <span className="absolute -top-1 left-1/2 flex -translate-x-1/2 gap-0.5" title="targeted">
+          {targetColors.map((c, i) => <span key={i} className="h-2.5 w-2.5 rounded-full border border-black/50" style={{ background: c }} />)}
+        </span>
       )}
       {card.isToken && !groupCount && <Chip type="primary" shape="pill" className="absolute left-0.5 top-0.5 shadow" title="token">T</Chip>}
       {groupCount && groupCount > 1 && <Chip type="primary" size="medium" className="absolute left-1 top-1 shadow-lg" title={`${groupCount} identical tokens`}>×{groupCount}</Chip>}

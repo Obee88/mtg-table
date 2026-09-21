@@ -31,6 +31,7 @@ function card(owner: string, name: string | null, zone: ZoneName, extra: Partial
     customName: null,
     visibleTo: zone === 'battlefield' || zone === 'graveyard' || zone === 'exile' || zone === 'stack' ? 'all' : zone === 'library' ? [] : 'owner',
     revealUntil: null,
+    targetedBy: [],
     position: null,
     ...extra,
   };

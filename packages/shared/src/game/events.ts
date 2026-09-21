@@ -63,6 +63,8 @@ export const gameEventSchema = z.discriminatedUnion('type', [
     libraryPosition: libraryPositionSchema.nullable(),
   }),
   z.object({ type: z.literal('cardTapped'), instanceId: z.string(), tapped: z.boolean() }),
+  /** Someone points at a card (targeting it); marks last until the turn passes. */
+  z.object({ type: z.literal('cardTargeted'), instanceId: z.string(), playerId: z.string(), targeted: z.boolean() }),
   z.object({ type: z.literal('cardTransformed'), instanceId: z.string(), transformed: z.boolean() }),
   z.object({ type: z.literal('cardFlipped'), instanceId: z.string(), flipped: z.boolean() }),
   z.object({ type: z.literal('cardFaceDownChanged'), instanceId: z.string(), faceDown: z.boolean() }),

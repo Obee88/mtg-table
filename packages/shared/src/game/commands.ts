@@ -31,6 +31,8 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
     libraryPosition: libraryPositionSchema.optional(),
   }),
   z.object({ type: z.literal('tapCard'), instanceId: z.string(), tapped: z.boolean() }),
+  /** Point at a card to show what a spell or ability is aimed at; clicking again takes the mark back. */
+  z.object({ type: z.literal('toggleTarget'), instanceId: z.string() }),
   /** Multi-select versions: one batch, one undo. `positions` gives battlefield spots per card. */
   z.object({
     type: z.literal('moveCards'),

@@ -63,6 +63,8 @@ export function describeEvent(e: RoomEvent, ctx: LogContext): string | null {
       if (ev.from === ev.to) return null; // repositioning is noise
       if (ev.to === 'library') return `${actor} put ${card(ev.instanceId)} on the ${ev.libraryPosition ?? 'top'} of ${ZONE_LABEL.library}`;
       return `${actor} moved ${card(ev.instanceId)} from ${ZONE_LABEL[ev.from]} to ${ZONE_LABEL[ev.to]}`;
+    case 'cardTargeted':
+      return ev.targeted ? `${actor} is pointing at ${card(ev.instanceId)}` : null;
     case 'cardTapped':
       return `${actor} ${ev.tapped ? 'tapped' : 'untapped'} ${card(ev.instanceId)}`;
     case 'cardTransformed':

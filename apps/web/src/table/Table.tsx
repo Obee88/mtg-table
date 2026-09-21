@@ -1,5 +1,5 @@
 import type { CardInstance, CardPrinting, GameCommand, PlayerGameState, RoomEvent, RoomPlayer, RoomState, ZoneName } from '@mtg/shared';
-import { inMulligan, inSideboarding, isActive, seatedPlayers } from '@mtg/shared';
+import { inMulligan, inSideboarding, isActive, PUBLIC_ZONES, seatedPlayers } from '@mtg/shared';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent, type ReactNode } from 'react';
 import { Chip, ChipButton } from '../components/Chip';
 
@@ -12,7 +12,7 @@ import { SideboardOverlay } from './SideboardOverlay';
 import { GENERAL_COUNTER } from './counters';
 import { Hand } from './Hand';
 import { LibraryDialog } from './LibraryDialog';
-import { PlayerStrip } from './PlayerStrip';
+import { playerColor, PlayerStrip } from './PlayerStrip';
 import { Toolbar } from './Toolbar';
 import { ShortcutsDialog } from './ShortcutsDialog';
 import { BattlefieldRow, columnStep, defaultRow, dropSlot, freeColumns, layoutRows } from './Battlefield';
@@ -181,7 +181,11 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
   }, [run, me, selected, game.cards, meId, moveSelection]);
 
   const onCardClick = (card: CardInstance, e: MouseEvent) => {
-    if (card.controllerId !== meId) return;
+    // Someone else's card: point at it (targeting), and click again to take the mark back.
+    if (card.controllerId !== meId) {
+      if (PUBLIC_ZONES.has(card.zone)) void run({ type: 'toggleTarget', instanceId: card.id });
+      return;
+    }
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
       const next = new Set(liveSelected);
       if (next.has(card.id)) next.delete(card.id);
@@ -598,7 +602,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
         mine={mine}
         selected={isSelected(c.id)}
         groupCount={group?.length}
-        onClick={extra.onClick === false ? undefined : ids && mine ? () => void run({ type: 'tapCards', instanceIds: ids, tapped: !c.tapped }) : (e) => onCardClick(c, e)}
+        onClick={extra.onClick === false && mine ? undefined : ids && mine ? () => void run({ type: 'tapCards', instanceIds: ids, tapped: !c.tapped }) : (e) => onCardClick(c, e)}
         onContextMenu={ids && mine && onGroupMenu ? onGroupMenu(group!) : onCardMenu && (mine || c.printingId !== null) ? onCardMenu(c) : undefined}
         onDragStart={
           ids && mine
@@ -612,6 +616,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
               : undefined
         }
         onAdjustCounter={mine ? (kind, delta) => void run({ type: 'addCounter', instanceId: c.id, kind, delta }) : undefined}
+        targetColors={(c.targetedBy ?? []).map((id) => (state.players[id] ? playerColor(state, state.players[id]!) : '#fff'))}
       />
     );
   };

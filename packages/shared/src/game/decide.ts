@@ -3,7 +3,7 @@ import type { GameEvent } from './events.js';
 import type { DeckContents } from '../decks.js';
 import { dealDraft, decideDraft } from '../draft/decide.js';
 import { allDecksSubmitted, draftAbilityFor, draftDeckContents, type DraftCard } from '../draft/types.js';
-import { defaultVisibility } from './reduce.js';
+import { defaultVisibility, PUBLIC_ZONES } from './reduce.js';
 import { activePlayer, inMulligan, inSideboarding, isActive, manaTotal, seatedPlayers, shuffled, teamForSeat, type CardInstance, type GameState, type PlayerGameState, type RoomState } from './types.js';
 
 const HAND_SIZE = 7;
@@ -145,6 +145,15 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
         },
         ...commanderTaxOnCast(state, card, command.to),
       );
+    }
+
+    case 'toggleTarget': {
+      if (state.phase !== 'playing' || !state.game) return reject('Game not running');
+      if (!me) return reject('Not in the room');
+      const card = state.game.cards[command.instanceId];
+      if (!card) return reject('No such card');
+      if (!PUBLIC_ZONES.has(card.zone)) return reject('That card is not on the table');
+      return accept({ type: 'cardTargeted', instanceId: card.id, playerId: ctx.actorId, targeted: !(card.targetedBy ?? []).includes(ctx.actorId) });
     }
 
     case 'tapCard': {
