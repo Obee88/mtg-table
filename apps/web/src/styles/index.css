@@ -120,6 +120,12 @@ body {
 .half:focus-within .reveal-on-hover {
   opacity: 1;
 }
+/* No hover on touch screens: keep the controls visible. */
+@media (hover: none) {
+  .reveal-on-hover {
+    opacity: 1;
+  }
+}
 
 /* ---- Chips: labels and badges (see _documents/table-design.md § chips) ----
    One palette (six-step ramps + neutral scale), semantic tokens per type/emphasis/theme.

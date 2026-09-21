@@ -179,7 +179,9 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] Rotisserie phase type (whole pool face up, snake order, one card per pick)
 - [x] Moxfield / Archidekt import
 - ~~Passkeys / YubiKey~~ — dropped (email + password is enough for the group)
-- [ ] Tablet layout
+- [x] Tablet (a): touch input on the table — long-press opens context menus, cards drag and drop by touch, hover-only controls stay visible on touch screens
+- [ ] Tablet (b): tablet-sized layout — log column as an overlay on narrow screens, larger touch targets, safe areas
+- [ ] Tablet (c): draft and deckbuilding screens on touch
 - [ ] Card win-rate stats
 
 **M8 — Draft sessions and deckbuilding comfort** (requested 2026-09-21)

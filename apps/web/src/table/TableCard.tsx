@@ -1,5 +1,6 @@
 import type { CardInstance, CardPrinting } from '@mtg/shared';
-import type { DragEvent, MouseEvent } from 'react';
+import type { DragEvent, MouseEvent, PointerEvent } from 'react';
+import { isTouchPointer, startTouchGesture } from './touch';
 import { imageFor } from '../cards/CardImage';
 import { useCardPreview } from '../cards/CardPreview';
 import { Chip } from '../components/Chip';
@@ -59,6 +60,31 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
     e.dataTransfer.setData('text/instance-ids', JSON.stringify([card.id]));
     e.dataTransfer.effectAllowed = 'move';
   };
+  /** The ids a drag of this card carries (the selection, when it is part of one), via the same handler. */
+  const dragIds = (): string[] => {
+    const data: Record<string, string> = {};
+    onDragStart({ dataTransfer: { setData: (k: string, v: string) => { data[k] = v; }, effectAllowed: 'move' } } as unknown as DragEvent);
+    try {
+      return JSON.parse(data['text/instance-ids'] ?? '[]') as string[];
+    } catch {
+      return [card.id];
+    }
+  };
+  // Touch: hold for the menu, move to drag; a click right after a long press is ignored.
+  const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (!isTouchPointer(e) || (!mine && !onContextMenu)) return;
+    startTouchGesture(e.currentTarget, e, { ids: dragIds, canDrag: mine, canMenu: !!onContextMenu });
+  };
+  const onClickGuarded = onClick
+    ? (e: MouseEvent) => {
+        const el = e.currentTarget as HTMLElement;
+        if (el.dataset.suppressClick) {
+          delete el.dataset.suppressClick;
+          return;
+        }
+        onClick(e);
+      }
+    : undefined;
 
   const view = counterView(card.counters);
   const label = card.customName ?? (hidden ? null : printing?.name);
@@ -69,11 +95,12 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
     <div
       draggable={mine}
       onDragStart={mine ? onDragStart : undefined}
-      onClick={onClick}
+      onPointerDown={onPointerDown}
+      onClick={onClickGuarded}
       onContextMenu={onContextMenu}
       {...preview}
       data-instance-id={card.id}
-      className={`card-enter card-shadow card-lift relative select-none rounded-[4.5%] transition-[transform,box-shadow] duration-150 ${mine ? 'cursor-grab active:cursor-grabbing' : ''} ${card.tapped ? 'rotate-90' : ''} ${card.flipped ? 'rotate-180' : ''} ${selected ? 'rounded-[4.5%] ring-2 ring-accent ring-offset-1 ring-offset-bg' : ''}`}
+      className={`card-enter card-shadow card-lift relative select-none touch-none rounded-[4.5%] transition-[transform,box-shadow] duration-150 ${mine ? 'cursor-grab active:cursor-grabbing' : ''} ${card.tapped ? 'rotate-90' : ''} ${card.flipped ? 'rotate-180' : ''} ${selected ? 'rounded-[4.5%] ring-2 ring-accent ring-offset-1 ring-offset-bg' : ''}`}
       style={{ width: w, height: h }}
       title={label ?? undefined}
     >
