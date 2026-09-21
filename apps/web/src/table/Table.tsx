@@ -31,6 +31,7 @@ type Run = (c: GameCommand) => Promise<void>;
 type Menu = { x: number; y: number; card: CardInstance };
 
 const DRAG_MIME = 'text/instance-ids';
+const STACK_SHOWN = 'mtg-table:stack-shown';
 
 /**
  * The whole game view. Fills its container (no page scroll): one row per
@@ -46,6 +47,12 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
   const [menu, setMenu] = useState<Menu | null>(null);
   const [pileMenu, setPileMenu] = useState<{ x: number; y: number } | null>(null);
   const [handMenu, setHandMenu] = useState<{ x: number; y: number } | null>(null);
+  // The stack is out of the way until someone needs it; the choice is this player's and it sticks.
+  const [stackShown, setStackShown] = useState(() => localStorage.getItem(STACK_SHOWN) === '1');
+  const showStack = (show: boolean) => {
+    setStackShown(show);
+    localStorage.setItem(STACK_SHOWN, show ? '1' : '0');
+  };
   const [tokenDialog, setTokenDialog] = useState(false);
   const [libraryDialog, setLibraryDialog] = useState(false);
   const [drawDialog, setDrawDialog] = useState(false);
@@ -424,8 +431,10 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
     <CardSizeProvider size={sizeFor(1, 0.5)}>
       <div ref={rootRef} className="relative h-full min-h-0 w-full">
       {layout}
-      <GamePanel state={state} meId={meId} run={run} leaveHref={leaveHref} onEndGame={onEndGame} onNewGame={onNewGame} onForfeit={me && onForfeit ? onForfeit : undefined} />
-      <StackZone state={state} meId={meId} printings={printings} run={run} onCardMenu={openMenu} onCardDragStart={onCardDragStart} onCardClick={onCardClick} isSelected={isSelected} />
+      <GamePanel state={state} meId={meId} run={run} leaveHref={leaveHref} onEndGame={onEndGame} onNewGame={onNewGame} onForfeit={me && onForfeit ? onForfeit : undefined} stackShown={stackShown} onShowStack={showStack} />
+      {(stackShown || (game.stack?.length ?? 0) > 0) && (
+        <StackZone state={state} meId={meId} printings={printings} run={run} onCardMenu={openMenu} onCardDragStart={onCardDragStart} onCardClick={onCardClick} isSelected={isSelected} onHide={() => showStack(false)} />
+      )}
       {inSideboarding(game) ? <SideboardOverlay state={state} meId={meId} run={run} /> : inMulligan(game) && <MulliganOverlay state={state} meId={meId} printings={printings} run={run} />}
       </div>
       {menu && (

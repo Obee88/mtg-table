@@ -13,7 +13,7 @@ type Run = (c: GameCommand) => Promise<void>;
  * the stack on the right. Life totals for everyone at a glance (own and
  * teammates' adjustable), and the actions that end or leave the game.
  */
-export function GamePanel({ state, meId, run, leaveHref, onEndGame, onNewGame, onForfeit }: {
+export function GamePanel({ state, meId, run, leaveHref, onEndGame, onNewGame, onForfeit, stackShown = false, onShowStack }: {
   state: RoomState;
   meId: string;
   run: Run;
@@ -21,6 +21,9 @@ export function GamePanel({ state, meId, run, leaveHref, onEndGame, onNewGame, o
   onEndGame?: (() => void) | undefined;
   onNewGame?: (() => void) | undefined;
   onForfeit?: (() => void) | undefined;
+  /** The stack overlay is a per-player preference, offered here and from its own label. */
+  stackShown?: boolean;
+  onShowStack?: ((show: boolean) => void) | undefined;
 }) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const navigate = useNavigate();
@@ -33,6 +36,7 @@ export function GamePanel({ state, meId, run, leaveHref, onEndGame, onNewGame, o
 
   const items = (): (MenuItem | 'sep')[] => {
     const out: (MenuItem | 'sep')[] = [];
+    if (onShowStack) out.push({ label: stackShown ? 'Hide the stack' : 'Show the stack', onSelect: () => onShowStack(!stackShown) });
     if (onForfeit) out.push({ label: 'Forfeit this game', onSelect: onForfeit });
     if (onNewGame) out.push({ label: 'New game…', onSelect: onNewGame });
     if (onEndGame) out.push({ label: 'End game…', onSelect: onEndGame });

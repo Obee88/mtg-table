@@ -1,9 +1,10 @@
 import type { CardInstance, CardPrinting, GameCommand, RoomState } from '@mtg/shared';
-import type { DragEvent, MouseEvent } from 'react';
+import { useState, type DragEvent, type MouseEvent } from 'react';
 import { PILE_DX, PILE_DY } from './Battlefield';
 import { useCardSize } from './cardSize';
 import { playerColor } from './PlayerStrip';
-import { Chip } from '../components/Chip';
+import { Chip, ChipButton } from '../components/Chip';
+import { ContextMenu } from './ContextMenu';
 import { TableCard } from './TableCard';
 
 type Run = (c: GameCommand) => Promise<void>;
@@ -16,7 +17,7 @@ const PAD = 14;
  * down and to the right of the one below); the panel widens with the pile.
  * Anyone can drop their own cards here; each is edged in its owner's colour.
  */
-export function StackZone({ state, meId, printings, run, onCardMenu, onCardDragStart, onCardClick, isSelected = () => false }: {
+export function StackZone({ state, meId, printings, run, onCardMenu, onCardDragStart, onCardClick, isSelected = () => false, onHide }: {
   state: RoomState;
   meId: string;
   printings: Map<string, CardPrinting>;
@@ -26,8 +27,11 @@ export function StackZone({ state, meId, printings, run, onCardMenu, onCardDragS
   /** Click selects (so the g / e / h / b shortcuts and the selection menu apply). */
   onCardClick?: ((card: CardInstance, e: MouseEvent) => void) | undefined;
   isSelected?: ((id: string) => boolean) | undefined;
+  /** Offered from the label; the stack must be empty to disappear. */
+  onHide?: (() => void) | undefined;
 }) {
   const { w, h } = useCardSize();
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const game = state.game!;
   const cards = (game.stack ?? []).map((id) => game.cards[id]).filter((c): c is CardInstance => !!c);
 
@@ -58,7 +62,13 @@ export function StackZone({ state, meId, printings, run, onCardMenu, onCardDragS
       onDrop={onDrop}
       title="The stack — drop a spell here while it is being cast"
     >
-      <Chip type={n > 0 ? 'primary' : 'neutral'} className="mb-1.5 self-center uppercase tracking-wider">stack{n > 0 && ` · ${n}`}</Chip>
+      {onHide ? (
+        <ChipButton type={n > 0 ? 'primary' : 'neutral'} className="mb-1.5 self-center uppercase tracking-wider" onClick={(e) => setMenu({ x: e.clientX, y: e.clientY })} onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }} title="Stack actions">
+          stack{n > 0 && ` · ${n}`} ▾
+        </ChipButton>
+      ) : (
+        <Chip type={n > 0 ? 'primary' : 'neutral'} className="mb-1.5 self-center uppercase tracking-wider">stack{n > 0 && ` · ${n}`}</Chip>
+      )}
       {n === 0 ? (
         <span className="flex w-full flex-1 items-center justify-center px-1 text-center text-[10px] leading-snug text-white/25">drop a spell here</span>
       ) : (
@@ -87,6 +97,15 @@ export function StackZone({ state, meId, printings, run, onCardMenu, onCardDragS
             );
           })}
         </div>
+      )}
+      {menu && onHide && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={[{ label: 'Hide the stack', disabled: n > 0, onSelect: onHide }]}
+          onClose={() => setMenu(null)}
+          header={n > 0 ? 'Empty it first' : 'Stack'}
+        />
       )}
     </div>
   );
