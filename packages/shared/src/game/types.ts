@@ -67,6 +67,8 @@ export interface GameState {
   firstPlayerId: PlayerId;
   /** Shared stack of spells/abilities being cast, in cast order (last = top). Cards there are public. */
   stack: InstanceId[];
+  /** Sideboarding before the opening hands: swaps between sideboard and deck until every seat is done. */
+  sideboarding: Record<PlayerId, SideboardingState>;
   /** Opening-hand decisions; play is blocked until every seated player has kept. */
   mulligans: Record<PlayerId, MulliganState>;
   /** Whose turn it is (starts with the roll winner) and the turn number (1-based). */
@@ -163,6 +165,17 @@ export function shuffled<T>(items: readonly T[], random: () => number): T[] {
     [out[i], out[j]] = [out[j]!, out[i]!];
   }
   return out;
+}
+
+export interface SideboardingState {
+  done: boolean;
+  /** Any card crossed the sideboard line: the hand is redrawn when the player finishes. */
+  changed: boolean;
+}
+
+/** True while at least one seated player has not finished sideboarding (games from before this step count as done). */
+export function inSideboarding(game: GameState): boolean {
+  return Object.values(game.sideboarding ?? {}).some((s) => !s.done);
 }
 
 export interface MulliganState {

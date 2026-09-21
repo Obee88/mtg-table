@@ -127,6 +127,7 @@ export function fixtureRoom(playerCount: 2 | 4 = 2): RoomState {
       startedAt: new Date().toISOString(),
       gameNumber: 1,
       pendingResult: null,
+      sideboarding: {},
     },
     seq: 1,
   };

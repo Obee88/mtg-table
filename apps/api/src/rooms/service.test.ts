@@ -171,6 +171,8 @@ describe('undo', () => {
     await service.dispatch(room.id, bob, { type: 'setReady', ready: true });
     const started = await service.dispatch(room.id, alice, { type: 'start' });
     if (!started.ok) throw new Error(started.error);
+    await service.dispatch(room.id, alice, { type: 'finishSideboarding' });
+    await service.dispatch(room.id, bob, { type: 'finishSideboarding' });
     await service.dispatch(room.id, alice, { type: 'keepHand', bottom: [] });
     await service.dispatch(room.id, bob, { type: 'keepHand', bottom: [] });
     return { service, roomId: room.id };
@@ -312,15 +314,15 @@ describe('deckbuilding over the service', () => {
 
     const mine = state.draft!.players[alice.id]!.pool.map((c) => c.id);
     expect(await service.dispatch(room.id, alice, { type: 'submitDraftDeck', main: mine, basics: [{ printingId: cardIds[0]!, quantity: 1 }] })).toEqual({ ok: false, error: 'Only basic lands can be added for free' });
-    expect((await service.dispatch(room.id, alice, { type: 'submitDraftDeck', main: mine, basics: [{ printingId: forest, quantity: 3 }] })).ok).toBe(true);
+    expect((await service.dispatch(room.id, alice, { type: 'submitDraftDeck', main: mine, basics: [{ printingId: forest, quantity: 38 }] })).ok).toBe(true);
     expect(await service.dispatch(room.id, alice, { type: 'undo' })).toEqual({ ok: false, error: 'That action cannot be undone' });
     const theirs = state.draft!.players[bob.id]!.pool.map((c) => c.id);
-    expect((await service.dispatch(room.id, bob, { type: 'submitDraftDeck', main: theirs.slice(0, 1), basics: [] })).ok).toBe(true);
+    expect((await service.dispatch(room.id, bob, { type: 'submitDraftDeck', main: theirs.slice(0, 1), basics: [{ printingId: forest, quantity: 39 }] })).ok).toBe(true);
     expect((await service.dispatch(room.id, alice, { type: 'start' })).ok).toBe(true);
     state = await new RoomService(db, silentLog).get(room.id);
     expect(state.phase).toBe('playing');
     const a = state.game!.players[alice.id]!.zones;
-    expect(a.library.length + a.hand.length).toBe(2 + 3);
+    expect(a.library.length + a.hand.length).toBe(2 + 38);
     expect(state.game!.players[bob.id]!.zones.sideboard).toHaveLength(1);
   });
 });

@@ -601,9 +601,14 @@ describe('battlefield slots', () => {
   });
 });
 
-/** Everyone keeps their opening hand so ordinary actions are allowed. */
+/** Everyone finishes sideboarding without changes. */
+function finishAll(s: ReturnType<typeof initialRoomState>) {
+  return Object.keys(s.players).reduce((acc, p) => run(acc, p, { type: 'finishSideboarding' }), s);
+}
+
+/** Everyone finishes sideboarding and keeps their opening hand so ordinary actions are allowed. */
 function keepAll(s: ReturnType<typeof initialRoomState>) {
-  return Object.keys(s.players).reduce((acc, p) => run(acc, p, { type: 'keepHand', bottom: [] }), s);
+  return Object.keys(s.players).reduce((acc, p) => run(acc, p, { type: 'keepHand', bottom: [] }), finishAll(s));
 }
 
 describe('mulligan phase', () => {
@@ -630,7 +635,7 @@ describe('mulligan phase', () => {
   };
 
   it('blocks play until everyone has kept', () => {
-    let s = dealt();
+    let s = finishAll(dealt());
     expect(inMulligan(s.game!)).toBe(true);
     const hand = s.game!.players.a!.zones.hand[0]!;
     expect(decide(s, { type: 'moveCard', instanceId: hand, to: 'battlefield' }, ctx('a'))).toEqual({ ok: false, error: 'Waiting for everyone to keep their opening hand' });
@@ -645,7 +650,7 @@ describe('mulligan phase', () => {
   });
 
   it('a mulligan redraws seven and keeping then bottoms one card per mulligan', () => {
-    let s = dealt();
+    let s = finishAll(dealt());
     const before = s.game!.players.a!.zones.hand;
     s = runFull(s, 'a', { type: 'mulligan' });
     expect(s.game!.mulligans.a).toEqual({ taken: 1, kept: false });

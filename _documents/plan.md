@@ -165,6 +165,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 
 **M6 — Stats**
 - [x] Report-result step and `game_results`
+- [x] Sideboarding step before every game (swap by printing from the server-side deck list, everyone finishes, changed decks redraw), draft decks need 40 cards with basics
 - [x] End game / new game from the toolbar: anyone proposes who won (or "nobody won — don't track"), every seat confirms, then the room ends or new hands are dealt
 - [x] Card stats per cube/version (avg pick, pick-rate-when-seen, first-pick rate, most-passed)
 - [x] Player stats (W/L per format, head-to-head, draft tendencies, deck history)

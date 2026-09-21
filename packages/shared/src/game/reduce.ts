@@ -87,6 +87,7 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
         phase: 'playing',
         game: {
           cards, players, teamLife, firstPlayerId: event.firstPlayerId, openingRoll: event.openingRoll, stack: [], startedAt: '',
+          sideboarding: Object.fromEntries(Object.keys(event.players).map((id) => [id, { done: false, changed: false }])),
           mulligans: Object.fromEntries(Object.keys(event.players).map((id) => [id, { taken: 0, kept: false }])),
           activePlayerId: event.firstPlayerId,
           turn: 1,
@@ -166,7 +167,7 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
       let stack = state.game.stack ?? [];
       if (event.from === 'stack' || event.to === 'stack') stack = stack.filter((id) => id !== card.id);
       if (event.to === 'stack') stack = [...stack, card.id];
-      return { ...state, game: { ...state.game, cards, stack, players: { ...state.game.players, [card.ownerId]: { ...owner, zones } } } };
+      return { ...state, game: { ...state.game, cards, stack, players: { ...state.game.players, [card.ownerId]: { ...owner, zones } }, sideboarding: sideboardTouched(state.game, card.ownerId, event.from, event.to) } };
     }
 
     case 'cardTapped': {
@@ -288,6 +289,12 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
       // Full restore; the caller sets `seq` from the envelope.
       return { ...event.state, id: state.id };
 
+    case 'sideboardingDone': {
+      if (!state.game) return state;
+      const s = state.game.sideboarding?.[event.playerId] ?? { done: false, changed: false };
+      return { ...state, game: { ...state.game, sideboarding: { ...(state.game.sideboarding ?? {}), [event.playerId]: { ...s, done: true } }, mulligans: { ...(state.game.mulligans ?? {}), [event.playerId]: { taken: 0, kept: false } } } };
+    }
+
     case 'mulliganTaken': {
       if (!state.game) return state;
       const m = state.game.mulligans?.[event.playerId] ?? { taken: 0, kept: false };
@@ -349,4 +356,11 @@ function patchPlayer(state: RoomState, playerId: string, patch: Partial<PlayerGa
   const pgs = state.game?.players[playerId];
   if (!state.game || !pgs) return state;
   return { ...state, game: { ...state.game, players: { ...state.game.players, [playerId]: { ...pgs, ...patch } } } };
+}
+
+/** Marks a player's sideboarding as changed when a card crosses the sideboard line before they are done. */
+function sideboardTouched(game: GameState, ownerId: string, from: ZoneName, to: ZoneName): GameState['sideboarding'] {
+  const s = game.sideboarding?.[ownerId];
+  if (!s || s.done || s.changed || (from !== 'sideboard' && to !== 'sideboard')) return game.sideboarding ?? {};
+  return { ...game.sideboarding, [ownerId]: { ...s, changed: true } };
 }

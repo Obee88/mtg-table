@@ -26,6 +26,7 @@ function game(settings: RoomSettings, ids: string[]): { state: RoomState; log: R
     step(id, { type: 'setReady', ready: true });
   }
   step(ids[0]!, { type: 'start' }, startCtx(ids[0]!, decks));
+  for (const id of ids) step(id, { type: 'finishSideboarding' });
   for (const id of ids) step(id, { type: 'keepHand', bottom: [] });
   return { state, log };
 }
@@ -313,6 +314,8 @@ describe('top card revealed across shuffles', () => {
       run(p, { type: 'setReady', ready: true });
     }
     run('a', { type: 'start' }, { decks });
+    run('a', { type: 'finishSideboarding' });
+    run('b', { type: 'finishSideboarding' });
     run('a', { type: 'keepHand', bottom: [] });
     run('b', { type: 'keepHand', bottom: [] });
     run('a', { type: 'setTopRevealed', enabled: true });

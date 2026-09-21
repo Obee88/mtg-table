@@ -1,5 +1,5 @@
 import type { CardPrinting, DraftCard, DraftState, RoomState } from '@mtg/shared';
-import { allDecksSubmitted, gridLine, nextPile, nextSeat, rotisserieSeat, usableLibrarians } from '@mtg/shared';
+import { allDecksSubmitted, gridLine, MIN_DRAFT_DECK, nextPile, nextSeat, rotisserieSeat, usableLibrarians } from '@mtg/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
@@ -328,7 +328,8 @@ function DeckBuilder({ draft, meId, printings, send, isOwner }: { draft: DraftSt
       <span className="ml-auto flex items-center gap-2">
         {error && <Chip type="error">{error}</Chip>}
         {submitted && !dirty && <Chip type="success">submitted</Chip>}
-        <button type="button" onClick={() => void submit()} disabled={busy || main.size === 0 || !dirty} className="rounded-md bg-accent px-3 py-1 text-sm font-medium text-bg hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40">
+        <Chip type={main.size + basicCount >= MIN_DRAFT_DECK ? 'success' : 'warning'} title={`A deck needs at least ${MIN_DRAFT_DECK} cards, basics included`}>{main.size + basicCount} / {MIN_DRAFT_DECK}</Chip>
+        <button type="button" onClick={() => void submit()} disabled={busy || main.size === 0 || main.size + basicCount < MIN_DRAFT_DECK || !dirty} className="rounded-md bg-accent px-3 py-1 text-sm font-medium text-bg hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40">
           {submitted ? 'Update deck' : 'Submit deck'}
         </button>
         {isOwner && (

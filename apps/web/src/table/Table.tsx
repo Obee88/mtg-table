@@ -1,5 +1,5 @@
 import type { CardInstance, CardPrinting, GameCommand, PlayerGameState, RoomEvent, RoomPlayer, RoomState, ZoneName } from '@mtg/shared';
-import { inMulligan, isActive, seatedPlayers } from '@mtg/shared';
+import { inMulligan, inSideboarding, isActive, seatedPlayers } from '@mtg/shared';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent, type ReactNode } from 'react';
 import { Chip, ChipButton } from '../components/Chip';
 
@@ -8,6 +8,7 @@ import { CardSizeProvider, cardSizeFor, DEFAULT_CARD_SIZE, useCardSize, type Car
 import { ContextMenu, type MenuItem } from './ContextMenu';
 import { DrawByNameDialog } from './DrawByNameDialog';
 import { MulliganOverlay } from './MulliganOverlay';
+import { SideboardOverlay } from './SideboardOverlay';
 import { GENERAL_COUNTER } from './counters';
 import { Hand } from './Hand';
 import { LibraryDialog } from './LibraryDialog';
@@ -394,7 +395,7 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
       <div ref={rootRef} className="relative h-full min-h-0 w-full">
       {layout}
       <StackZone state={state} meId={meId} printings={printings} run={run} onCardMenu={openMenu} onCardDragStart={onCardDragStart} onCardClick={onCardClick} isSelected={isSelected} />
-      {inMulligan(game) && <MulliganOverlay state={state} meId={meId} printings={printings} run={run} />}
+      {inSideboarding(game) ? <SideboardOverlay state={state} meId={meId} run={run} /> : inMulligan(game) && <MulliganOverlay state={state} meId={meId} printings={printings} run={run} />}
       </div>
       {menu && (
         <ContextMenu

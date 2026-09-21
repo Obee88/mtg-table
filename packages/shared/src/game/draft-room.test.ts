@@ -179,6 +179,7 @@ describe('deckbuilding and the handoff to the table', () => {
     expect(decide(room.state, { type: 'start' }, ctx('a'))).toEqual({ ok: false, error: 'Waiting for everyone to submit a deck' });
 
     const main = poolOfA.slice(0, 23).map((c) => c.id);
+    expect(decide(room.state, { type: 'submitDraftDeck', main, basics: [{ printingId: 'forest', quantity: 16 }] }, ctx('a'))).toEqual({ ok: false, error: 'A deck needs at least 40 cards, basics included (you have 39)' });
     room.run('a', { type: 'submitDraftDeck', main: [...main, main[0]!], basics: [{ printingId: 'forest', quantity: 17 }, { printingId: 'island', quantity: 0 }] });
     expect(room.state.draft!.decks.a).toEqual({ main, basics: [{ printingId: 'forest', quantity: 17 }] });
     // Others learn only that a deck was submitted.
@@ -438,4 +439,62 @@ describe('ending a game together', () => {
     expect(room.state.game?.pendingResult).toBeNull();
     expect(decide(room.state, { type: 'rejectResult' }, ctx('zed'))).toEqual({ ok: false, error: 'Not in the room' });
   });
+});
+
+describe('sideboarding before the opening hands', () => {
+  const decks = {
+    a: { main: [{ printingId: 'bolt', quantity: 9 }], sideboard: [{ printingId: 'rip', quantity: 2 }], commander: [] },
+    b: { main: [{ printingId: 'bear', quantity: 9 }], sideboard: [], commander: [] },
+  };
+  function playing(): Room {
+    const room = new Room();
+    room.state = reduce(room.state, { type: 'roomCreated', ownerId: 'a', settings: { playerCount: 2, mode: '1v1', startingLife: 20, commander: false } });
+    for (const p of ['a', 'b']) {
+      room.run(p, { type: 'join' });
+      room.run(p, { type: 'selectDeck', deckId: 'd' });
+      room.run(p, { type: 'setReady', ready: true });
+    }
+    room.run('a', { type: 'start' }, { decks });
+    return room;
+  }
+  const zones = (room: Room, p: string) => room.state.game!.players[p]!.zones;
+  const printing = (room: Room, id: string) => room.state.game!.cards[id]!.printingId;
+
+  it('blocks mulligans until everyone is done, swaps by printing, and redraws only changed decks', () => {
+    const room = playing();
+    expect(decide(room.state, { type: 'keepHand', bottom: [] }, ctx('b'))).toEqual({ ok: false, error: 'Waiting for everyone to finish sideboarding' });
+    expect(decide(room.state, { type: 'mulligan' }, ctx('a'))).toEqual({ ok: false, error: 'Waiting for everyone to finish sideboarding' });
+    expect(decide(room.state, { type: 'sideboardSwap', toMain: [{ printingId: 'rip', quantity: 3 }], toSide: [] }, ctx('a'))).toEqual({ ok: false, error: 'Not that many copies in the sideboard' });
+
+    room.run('a', { type: 'sideboardSwap', toMain: [{ printingId: 'rip', quantity: 2 }], toSide: [{ printingId: 'bolt', quantity: 2 }] });
+    expect(zones(room, 'a').sideboard.map((id) => printing(room, id))).toEqual(['bolt', 'bolt']);
+    expect(zones(room, 'a').hand.length + zones(room, 'a').library.length).toBe(9);
+    expect(zones(room, 'a').library.slice(0, 2).map((id) => printing(room, id))).toEqual(['rip', 'rip']);
+    expect(room.state.game!.sideboarding.a).toEqual({ done: false, changed: true });
+
+    const handBefore = zones(room, 'a').hand;
+    room.run('a', { type: 'finishSideboarding' });
+    expect(room.state.game!.sideboarding.a).toEqual({ done: true, changed: true });
+    expect(zones(room, 'a').hand).toHaveLength(7);
+    expect(zones(room, 'a').hand).not.toEqual(handBefore); // re-keyed by the shuffle
+    expect(decide(room.state, { type: 'sideboardSwap', toMain: [], toSide: [] }, ctx('a'))).toEqual({ ok: false, error: 'Sideboarding is over' });
+
+    const bobHand = zones(room, 'b').hand;
+    room.run('b', { type: 'finishSideboarding' });
+    expect(zones(room, 'b').hand).toEqual(bobHand); // no change, no redraw
+    expect(decide(room.state, { type: 'keepHand', bottom: [] }, ctx('b')).ok).toBe(true);
+  });
+
+  it('runs again before every game', () => {
+    const room = playing();
+    room.run('a', { type: 'finishSideboarding' });
+    room.run('b', { type: 'finishSideboarding' });
+    room.run('a', { type: 'keepHand', bottom: [] });
+    room.run('b', { type: 'keepHand', bottom: [] });
+    room.run('a', { type: 'proposeResult', winners: null, then: 'restart' });
+    room.run('b', { type: 'confirmResult' }, { decks });
+    expect(room.state.game!.gameNumber).toBe(2);
+    expect(Object.values(room.state.game!.sideboarding).every((s) => !s.done)).toBe(true);
+  });
+
 });

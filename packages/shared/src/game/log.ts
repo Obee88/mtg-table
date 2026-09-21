@@ -71,6 +71,8 @@ export function describeEvent(e: RoomEvent, ctx: LogContext): string | null {
       return `${ctx.playerName(ev.playerId)} ended the turn — ${ctx.playerName(ev.nextPlayerId)}'s turn (${ev.turn})`;
     case 'mulliganTaken':
       return `${ctx.playerName(ev.playerId)} took a mulligan (${ev.taken})`;
+    case 'sideboardingDone':
+      return `${ctx.playerName(ev.playerId)} is done sideboarding`;
     case 'handKept':
       return `${ctx.playerName(ev.playerId)} kept their hand${ev.bottomed ? ` (${ev.bottomed} to the bottom)` : ''}`;
     case 'libraryShuffled':

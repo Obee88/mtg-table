@@ -40,6 +40,14 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('draw'), count: z.number().int().min(1).max(20) }),
   z.object({ type: z.literal('untapAll') }),
   z.object({ type: z.literal('shuffleLibrary') }),
+  /** Sideboarding (before the opening hands): copies to bring in from the sideboard and copies to send out, by printing. */
+  z.object({
+    type: z.literal('sideboardSwap'),
+    toMain: z.array(z.object({ printingId: z.string(), quantity: z.number().int().min(1).max(60) })).max(60),
+    toSide: z.array(z.object({ printingId: z.string(), quantity: z.number().int().min(1).max(60) })).max(60),
+  }),
+  /** Done sideboarding; the hand is redrawn if anything changed. */
+  z.object({ type: z.literal('finishSideboarding') }),
   /** Opening-hand mulligan (London): hand back, shuffle, draw seven again. */
   z.object({ type: z.literal('mulligan') }),
   /** Keep the opening hand, putting exactly one card per mulligan taken on the bottom. */

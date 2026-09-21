@@ -4,7 +4,7 @@ import type { DeckContents } from '../decks.js';
 import { dealDraft, decideDraft } from '../draft/decide.js';
 import { allDecksSubmitted, draftAbilityFor, draftDeckContents, type DraftCard } from '../draft/types.js';
 import { defaultVisibility } from './reduce.js';
-import { activePlayer, inMulligan, isActive, seatedPlayers, shuffled, teamForSeat, type CardInstance, type GameState, type PlayerGameState, type RoomState } from './types.js';
+import { activePlayer, inMulligan, inSideboarding, isActive, seatedPlayers, shuffled, teamForSeat, type CardInstance, type GameState, type PlayerGameState, type RoomState } from './types.js';
 
 const HAND_SIZE = 7;
 const MAX_TIE_BREAK_ROUNDS = 20;
@@ -173,9 +173,55 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       return accept(shuffleEvent(state, ctx.actorId, pgs.zones.library, ctx.random, ctx.newId));
     }
 
+    case 'sideboardSwap': {
+      const pgs = ownGame(state, ctx.actorId, { duringMulligan: true });
+      if ('error' in pgs) return reject(pgs.error);
+      const sb = state.game!.sideboarding?.[ctx.actorId];
+      if (!sb || sb.done) return reject('Sideboarding is over');
+      const cards = state.game!.cards;
+      const events: GameEvent[] = [];
+      const used = new Set<string>();
+      const take = (pool: readonly string[], printingId: string, quantity: number): string[] | null => {
+        const ids = pool.filter((id) => !used.has(id) && cards[id]?.printingId === printingId).slice(0, quantity);
+        if (ids.length < quantity) return null;
+        ids.forEach((id) => used.add(id));
+        return ids;
+      };
+      for (const c of command.toMain) {
+        const ids = take(pgs.zones.sideboard, c.printingId, c.quantity);
+        if (!ids) return reject('Not that many copies in the sideboard');
+        for (const instanceId of ids) events.push({ type: 'cardMoved', instanceId, from: 'sideboard', to: 'library', position: null, libraryPosition: 'top' });
+      }
+      for (const c of command.toSide) {
+        const ids = take([...pgs.zones.hand, ...pgs.zones.library], c.printingId, c.quantity);
+        if (!ids) return reject('Not that many copies in the deck');
+        for (const instanceId of ids) events.push({ type: 'cardMoved', instanceId, from: cards[instanceId]!.zone, to: 'sideboard', position: null, libraryPosition: null });
+      }
+      return accept(...events);
+    }
+
+    case 'finishSideboarding': {
+      const pgs = ownGame(state, ctx.actorId, { duringMulligan: true });
+      if ('error' in pgs) return reject(pgs.error);
+      const sb = state.game!.sideboarding?.[ctx.actorId];
+      if (!sb || sb.done) return reject('Sideboarding is over');
+      const events: GameEvent[] = [];
+      if (sb.changed) {
+        // The deck changed: hand back, shuffle everything, draw a fresh seven.
+        if (!ctx.random || !ctx.newId) return reject('Randomness unavailable');
+        events.push(...pgs.zones.hand.map((instanceId): GameEvent => ({ type: 'cardMoved', instanceId, from: 'hand', to: 'library', position: null, libraryPosition: 'top' })));
+        const shuffle = shuffleEvent(state, ctx.actorId, [...pgs.zones.hand, ...pgs.zones.library], ctx.random, ctx.newId);
+        events.push(shuffle);
+        for (const c of shuffle.cards.slice(0, HAND_SIZE)) events.push({ type: 'cardMoved', instanceId: c.id, from: 'library', to: 'hand', position: null, libraryPosition: null });
+      }
+      events.push({ type: 'sideboardingDone', playerId: ctx.actorId });
+      return accept(...events);
+    }
+
     case 'mulligan': {
       const pgs = ownGame(state, ctx.actorId, { duringMulligan: true });
       if ('error' in pgs) return reject(pgs.error);
+      if (inSideboarding(state.game!)) return reject(SIDEBOARD_WAIT);
       const m = state.game!.mulligans?.[ctx.actorId];
       if (!m || m.kept) return reject('You have already kept your hand');
       if (!ctx.random || !ctx.newId) return reject('Randomness unavailable');
@@ -192,6 +238,7 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
     case 'keepHand': {
       const pgs = ownGame(state, ctx.actorId, { duringMulligan: true });
       if ('error' in pgs) return reject(pgs.error);
+      if (inSideboarding(state.game!)) return reject(SIDEBOARD_WAIT);
       const m = state.game!.mulligans?.[ctx.actorId];
       if (!m || m.kept) return reject('You have already kept your hand');
       const bottom = [...new Set(command.bottom)];
@@ -527,6 +574,7 @@ function startDraft(state: RoomState, ctx: CommandContext): Decision {
 }
 
 const MULLIGAN_WAIT = 'Waiting for everyone to keep their opening hand';
+const SIDEBOARD_WAIT = 'Waiting for everyone to finish sideboarding';
 
 function ownCard(state: RoomState, actorId: string, instanceId: string): { card: CardInstance } | { error: string } {
   if (state.phase !== 'playing' || !state.game) return { error: 'Game not running' };

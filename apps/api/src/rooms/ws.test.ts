@@ -182,11 +182,12 @@ describe('projection over the wire', () => {
     expect(gs.players[bobId]!.hand.every((c) => c.printingId === card!.id)).toBe(true);
     expect(gs.players[bobId]!.library.every((c) => c.printingId === null)).toBe(true);
 
-    // Both keep their opening hands (two event batches Bob also receives).
+    // Both finish sideboarding and keep their opening hands (four event batches Bob also receives).
+    await http(alice, { type: 'finishSideboarding' });
+    await http(bob, { type: 'finishSideboarding' });
     await http(alice, { type: 'keepHand', bottom: [] });
     await http(bob, { type: 'keepHand', bottom: [] });
-    await b.nextOf('events');
-    await b.nextOf('events');
+    for (let i = 0; i < 4; i++) await b.nextOf('events');
     // Alice plays a card: Bob learns its identity via `revealed`.
     await http(alice, { type: 'moveCard', instanceId: aHand[0], to: 'battlefield' });
     const played = await b.nextOf('events');

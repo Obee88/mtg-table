@@ -1,6 +1,6 @@
 import type { DraftCommand } from './commands.js';
 import type { DraftEvent } from './events.js';
-import { cardsNeeded, gridLine, nextPile, usableLibrarians, type DraftCard, type DraftConfig, type DraftState } from './types.js';
+import { cardsNeeded, gridLine, MIN_DRAFT_DECK, nextPile, usableLibrarians, type DraftCard, type DraftConfig, type DraftState } from './types.js';
 
 export type DraftDecision = { ok: true; events: DraftEvent[] } | { ok: false; error: string };
 const reject = (error: string): DraftDecision => ({ ok: false, error });
@@ -81,6 +81,8 @@ export function decideDraft(state: DraftState | null, command: DraftCommand, act
       const main = [...new Set(command.main)];
       if (main.length === 0) return reject('Put at least one card in your main deck');
       if (main.some((id) => !pool.has(id))) return reject('Only cards from your own pool can go in the deck');
+      const size = main.length + command.basics.reduce((n, b) => n + b.quantity, 0);
+      if (size < MIN_DRAFT_DECK) return reject(`A deck needs at least ${MIN_DRAFT_DECK} cards, basics included (you have ${size})`);
       const basics = command.basics.filter((b) => b.quantity > 0);
       return { ok: true, events: [{ type: 'draftDeckSubmitted', playerId: actorId, main, basics }] };
     }

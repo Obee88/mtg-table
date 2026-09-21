@@ -1,4 +1,4 @@
-import { gameCommandSchema, projectEvents, projectState, roomSettingsSchema, type DraftPickSummary, type RoomListItem, type RoomState } from '@mtg/shared';
+import { decksFromGame, gameCommandSchema, projectEvents, projectState, roomSettingsSchema, type DeckContents, type DraftPickSummary, type RoomListItem, type RoomState } from '@mtg/shared';
 import { asc, desc, eq, inArray } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -71,6 +71,14 @@ export async function roomRoutes(app: FastifyInstance): Promise<void> {
     if (state.draft?.status !== 'finished') throw badRequest('The draft is not over yet');
     const rows = await db.select().from(schema.draftPicks).where(eq(schema.draftPicks.roomId, id)).orderBy(asc(schema.draftPicks.overallPick));
     return rows.map((r) => ({ n: r.overallPick, playerId: r.playerId, printingId: r.cardId, phase: r.phase, round: r.round, packId: r.packId, pickInPack: r.pickInPack, packContents: r.packContents, double: r.doublePick }));
+  });
+
+  /** The caller's own deck as it sits at the table (main = hand + library, by printing), for sideboarding. */
+  app.get('/rooms/:id/deck', async (req): Promise<DeckContents> => {
+    const { id } = parse(idParam, req.params);
+    const state = await app.rooms.get(id);
+    if (!state.players[req.user!.id]) throw badRequest('Not in the room');
+    return decksFromGame(state)[req.user!.id] ?? { main: [], sideboard: [], commander: [] };
   });
 
   app.post('/rooms/:id/commands', async (req) => {

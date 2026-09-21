@@ -280,3 +280,6 @@ export function draftDeckContents(state: DraftState, playerId: PlayerId): DeckCo
 export function allDecksSubmitted(state: DraftState): boolean {
   return state.seats.every((id) => !!state.decks?.[id]);
 }
+
+/** Smallest main deck (basics included) a drafter may submit. */
+export const MIN_DRAFT_DECK = 40;
