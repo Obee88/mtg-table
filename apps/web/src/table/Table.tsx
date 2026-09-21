@@ -158,6 +158,10 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const ids = [...selected].filter((id) => game.cards[id]?.controllerId === meId);
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        return void run({ type: 'advanceStep' });
+      }
       switch (e.key) {
         case 'd': return void run({ type: 'draw', count: 1 });
         case 'u': return void run({ type: 'untapAll' });
@@ -264,6 +268,25 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
     const moves: [ZoneName, string][] = [['stack', 'the stack (cast)'], ['battlefield', 'battlefield'], ['hand', 'hand (h)'], ['graveyard', 'graveyard (g)'], ['exile', 'exile (e)']];
     if (card.isCommander) moves.push(['command', 'the command zone']);
     for (const [zone, label] of moves) if (zone !== card.zone) items.push({ label: `Move to ${label}`, onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: zone }) });
+    if (card.zone === 'battlefield') {
+      const setNoUntap = (value: 'always' | number | null) => void run({ type: 'setNoUntap', instanceId: card.id, value });
+      items.push({
+        label: card.noUntap ? `Untaps again (now: ${card.noUntap === 'always' ? 'never untaps' : `skips ${card.noUntap}`})` : "Doesn't untap",
+        items: card.noUntap
+          ? [{ label: 'Untaps normally again', onSelect: () => setNoUntap(null) }]
+          : [
+              { label: 'Permanently', onSelect: () => setNoUntap('always') },
+              { label: 'Next turn', onSelect: () => setNoUntap(1) },
+              {
+                label: 'Next n turns…',
+                onSelect: () => {
+                  const n = Number(prompt('Skip how many untap steps?', '2'));
+                  if (Number.isInteger(n) && n >= 1) setNoUntap(Math.min(n, 20));
+                },
+              },
+            ],
+      });
+    }
     const toLibrary = (libraryPosition: 'top' | 'bottom' | number) => void run({ type: 'moveCard', instanceId: card.id, to: 'library', libraryPosition });
     items.push({
       label: 'Into the library',
@@ -383,8 +406,6 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
           onHandMenu={isMe ? (e) => { e.preventDefault(); setHandMenu({ x: e.clientX, y: e.clientY }); } : undefined}
           onToken={isMe ? () => setTokenDialog(true) : undefined}
           onHelp={isMe ? () => setHelpDialog(true) : undefined}
-          onEndGame={isMe ? onEndGame : undefined}
-          onNewGame={isMe ? onNewGame : undefined}
           isSelected={isMe ? isSelected : () => false}
           onMarquee={isMe ? onMarquee : undefined}
           selectedCount={isMe ? liveSelected.size : 0}
@@ -477,9 +498,7 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
   );
 }
 
-function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run, flipped = false, collapsed = false, onCardClick, onCardMenu, onGroupMenu, onCardDragStart, onToken, onHelp, onEndGame, onNewGame, onLibraryMenu, onHandMenu, isSelected, highlighted, onMarquee, selectedCount = 0, banner, bannerKind = 'error', onFocus, focused = false }: {
-  onEndGame?: (() => void) | undefined;
-  onNewGame?: (() => void) | undefined;
+function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run, flipped = false, collapsed = false, onCardClick, onCardMenu, onGroupMenu, onCardDragStart, onToken, onHelp, onLibraryMenu, onHandMenu, isSelected, highlighted, onMarquee, selectedCount = 0, banner, bannerKind = 'error', onFocus, focused = false }: {
   /** Strip only (other opponents while focused on one board). */
   collapsed?: boolean;
   /** Toggle focus on this board (name click); present on 3+ player tables. */
@@ -641,15 +660,16 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
 
   const handCards = zoneCards('hand');
   const tray = (
-    <div className="tray flex min-w-0 items-center gap-3 px-2">
-      <span className="shrink-0 self-end pb-1.5">
+    <div className="tray relative flex min-w-0 items-center gap-3 px-2">
+      {/* The label floats over the fan so it costs the hand no width. */}
+      <span className={`absolute left-3 z-30 `}>
         {mine && onHandMenu ? (
           <ChipButton type="neutral" onClick={onHandMenu} onContextMenu={(e) => { e.preventDefault(); onHandMenu(e); }} title="Hand actions">Hand · {handCards.length} ▾</ChipButton>
         ) : (
           <Chip type="neutral">Hand · {handCards.length}</Chip>
         )}
       </span>
-      <Hand count={handCards.length} onDragOver={allowDrop} onDrop={dropTo('hand')}>
+      <Hand count={handCards.length} onDragOver={allowDrop} onDrop={dropTo('hand')} className="pl-16">
         {handCards.map((c, i) => (
           <span
             key={c.id}
@@ -689,7 +709,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
         mine={mine}
         connected={connected}
         run={run}
-        toolbar={mine ? <Toolbar run={run} onToken={onToken ?? (() => undefined)} onHelp={onHelp ?? (() => undefined)} onEndGame={onEndGame} onNewGame={onNewGame} myTurn={isActive(state, player.id)} /> : undefined}
+        toolbar={mine ? <Toolbar run={run} onToken={onToken ?? (() => undefined)} onHelp={onHelp ?? (() => undefined)} /> : undefined}
         onFocus={onFocus}
         focused={focused}
       />

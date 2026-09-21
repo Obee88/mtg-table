@@ -73,7 +73,7 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
             cards[c.id] = {
               id: c.id, printingId: c.printingId, ownerId: playerId, controllerId: playerId, zone,
               tapped: false, transformed: false, flipped: false, faceDown: false, counters: {}, attachedTo: null,
-              note: null, isToken: false, isCommander: zone === 'command', customName: null, visibleTo: defaultVisibility(zone), revealUntil: null, targetedBy: [], position: null,
+              note: null, isToken: false, isCommander: zone === 'command', customName: null, visibleTo: defaultVisibility(zone), revealUntil: null, targetedBy: [], noUntap: null, position: null,
             };
             pgs.zones[zone].push(c.id);
           }
@@ -92,6 +92,8 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
           mulligans: Object.fromEntries(Object.keys(event.players).map((id) => [id, { taken: 0, kept: false }])),
           activePlayerId: event.firstPlayerId,
           turn: 1,
+          turns: { [event.firstPlayerId]: 1 },
+          step: 'untap',
           gameNumber: (state.game?.gameNumber ?? 0) + 1,
           pendingResult: null,
         },
@@ -196,7 +198,7 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
         cards[c.id] = {
           id: c.id, printingId: c.printingId, ownerId: event.playerId, controllerId: event.playerId, zone: 'library',
           tapped: false, transformed: false, flipped: false, faceDown: false, counters: {}, attachedTo: null,
-          note: null, isToken: false, isCommander: false, customName: null, visibleTo: [], revealUntil: null, targetedBy: [], position: null,
+          note: null, isToken: false, isCommander: false, customName: null, visibleTo: [], revealUntil: null, targetedBy: [], noUntap: null, position: null,
         };
       }
       const zones = { ...owner.zones, library: event.cards.map((c) => c.id) };
@@ -248,7 +250,7 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
         cards[t.id] = {
           id: t.id, printingId: t.printingId, ownerId: event.controllerId, controllerId: event.controllerId, zone: 'battlefield',
           tapped: false, transformed: false, flipped: false, faceDown: false, counters: {}, attachedTo: null, note: null,
-          isToken: true, isCommander: false, customName: t.customName, visibleTo: 'all', revealUntil: null, targetedBy: [], position: event.position,
+          isToken: true, isCommander: false, customName: t.customName, visibleTo: 'all', revealUntil: null, targetedBy: [], noUntap: null, position: event.position,
         };
       }
       const zones = { ...owner.zones, battlefield: [...owner.zones.battlefield, ...event.cards.map((t) => t.id)] };
@@ -340,8 +342,17 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
       if (!state.game) return state;
       // Targets are for the turn that just ended.
       const cards = Object.fromEntries(Object.entries(state.game.cards).map(([id, c]) => [id, (c.targetedBy?.length ?? 0) > 0 ? { ...c, targetedBy: [] } : c]));
-      return { ...state, game: { ...state.game, cards, activePlayerId: event.nextPlayerId, turn: event.turn } };
+      // Everyone counts their own turns, so the number only rises when a player comes round again.
+      const turns = { ...(state.game.turns ?? {}), [event.nextPlayerId]: event.turn };
+      return { ...state, game: { ...state.game, cards, activePlayerId: event.nextPlayerId, turn: event.turn, turns, step: 'untap' } };
     }
+
+    case 'stepChanged':
+      if (!state.game) return state;
+      return { ...state, game: { ...state.game, step: event.step } };
+
+    case 'noUntapChanged':
+      return patchCard(state, event.instanceId, { noUntap: event.value });
 
     case 'roomClosed':
       return { ...state, phase: 'ended' };

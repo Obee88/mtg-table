@@ -1,7 +1,8 @@
 import type { GameCommand, PlayerGameState, RoomPlayer, RoomState } from '@mtg/shared';
 import { colorIndex, isActive } from '@mtg/shared';
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { Chip, ChipButton } from '../components/Chip';
+import { Chip } from '../components/Chip';
+import { PhaseTracker } from './PhaseTracker';
 
 type Run = (c: GameCommand) => Promise<void>;
 
@@ -26,8 +27,8 @@ export function PlayerStrip({ state, player, pgs, mine, connected, run, toolbar,
   run: Run;
   toolbar?: ReactNode;
 }) {
-  const shared = state.settings.mode === '2v2' && state.game?.teamLife;
-  const life = shared ? (state.game!.teamLife![player.team] ?? pgs.life) : pgs.life;
+  // Each player counts their own turns.
+  const turn = state.game?.turns?.[player.id] ?? state.game?.turn ?? 1;
   const opponents = Object.values(state.players).filter((p) => p.id !== player.id);
   const first = state.game?.firstPlayerId === player.id;
   const myTurn = isActive(state, player.id);
@@ -45,10 +46,9 @@ export function PlayerStrip({ state, player, pgs, mine, connected, run, toolbar,
       )}
       {first && !myTurn && <Chip type="neutral" title="rolled highest">1st</Chip>}
       {team && <Chip type="neutral" title="team">team {player.team + 1}</Chip>}
-      {myTurn && <Chip type="primary" title={`turn ${state.game?.turn ?? 1}`}>{mine ? (team ? "Your team's turn" : 'Your turn') : team ? `Team ${player.team + 1}'s turn` : `${player.displayName}'s turn`} · {state.game?.turn ?? 1}</Chip>}
-
-      <Stat label={shared ? `team ${player.team + 1}` : 'life'} value={life} big mine={mine} onDelta={(d) => void run({ type: 'adjustLife', delta: d })} quick={[-5, -3, 3, 5]} />
-      {(pgs.poison > 0 || mine) && <Stat label="poison" value={pgs.poison} mine={mine} onDelta={(d) => void run({ type: 'adjustPoison', delta: d })} dim={pgs.poison === 0} />}
+      {myTurn && <Chip type="primary" title={`their own turn ${turn}`}>{mine ? (team ? "Your team's turn" : 'Your turn') : team ? `Team ${player.team + 1}'s turn` : `${player.displayName}'s turn`} · {turn}</Chip>}
+      {/* Life, poison and the other resources live in the game panel now. */}
+      <PhaseTracker step={state.game?.step ?? 'main1'} active={myTurn} mine={mine} run={run} />
       {state.settings.commander && (
         <>
           <Stat label="tax" value={pgs.commanderTax} mine={mine} onDelta={(d) => void run({ type: 'adjustCommanderTax', delta: d })} dim={pgs.commanderTax === 0} />
@@ -57,23 +57,6 @@ export function PlayerStrip({ state, player, pgs, mine, connected, run, toolbar,
           ))}
         </>
       )}
-      {Object.entries(pgs.counters).map(([kind, value]) => (
-        <Stat key={kind} label={kind} value={value} mine={mine} onDelta={(d) => void run({ type: 'adjustPlayerCounter', kind, delta: d })} />
-      ))}
-      {mine && (
-        <ChipButton
-          type="neutral"
-          className="reveal-on-hover"
-          title="Add a named counter (energy, experience…)"
-          onClick={() => {
-            const kind = prompt('Counter name (energy, experience, …):');
-            if (kind?.trim()) void run({ type: 'adjustPlayerCounter', kind: kind.trim(), delta: 1 });
-          }}
-        >
-          + counter
-        </ChipButton>
-      )}
-
       {toolbar && <span className="ml-auto flex shrink-0 items-center gap-1">{toolbar}</span>}
     </div>
   );

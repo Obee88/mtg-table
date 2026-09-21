@@ -32,6 +32,7 @@ function card(owner: string, name: string | null, zone: ZoneName, extra: Partial
     visibleTo: zone === 'battlefield' || zone === 'graveyard' || zone === 'exile' || zone === 'stack' ? 'all' : zone === 'library' ? [] : 'owner',
     revealUntil: null,
     targetedBy: [],
+    noUntap: null,
     position: null,
     ...extra,
   };
@@ -124,6 +125,8 @@ export function fixtureRoom(playerCount: 2 | 4 = 2): RoomState {
       teamLife: playerCount === 4 ? { 0: 24, 1: 19 } : null,
       activePlayerId: ME,
       turn: 3,
+      turns: Object.fromEntries(ids.map((id) => [id, 3])),
+      step: 'main1' as const,
       stack: cards.filter((c) => c.zone === 'stack').map((c) => c.id),
       openingRoll: { [ME]: 9, [OPP]: 14 },
       startedAt: new Date().toISOString(),

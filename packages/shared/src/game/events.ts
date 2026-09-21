@@ -100,6 +100,10 @@ export const gameEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('mulliganTaken'), playerId: z.string(), taken: z.number().int() }),
   z.object({ type: z.literal('handKept'), playerId: z.string(), bottomed: z.number().int() }),
   z.object({ type: z.literal('turnEnded'), playerId: z.string(), nextPlayerId: z.string(), turn: z.number().int() }),
+  /** The active player moved to another step of their turn. */
+  z.object({ type: z.literal('stepChanged'), playerId: z.string(), step: z.enum(['untap', 'upkeep', 'draw', 'main1', 'combat', 'main2', 'end']) }),
+  /** A permanent that skips untapping: 'always', a number of untap steps, or null to clear. */
+  z.object({ type: z.literal('noUntapChanged'), instanceId: z.string(), value: z.union([z.literal('always'), z.number().int().min(1), z.null()]) }),
   /** Library re-keyed: every card gets a fresh id so nobody can track one through the shuffle. Identities are stripped by projection. */
   z.object({
     type: z.literal('libraryShuffled'),

@@ -705,10 +705,66 @@ describe('turns', () => {
     expect(decide(s, { type: 'endTurn' }, ctx(other))).toEqual({ ok: false, error: 'It is not your turn' });
     s = run(s, first, { type: 'endTurn' });
     expect(activePlayer(s.game!)).toBe(other);
-    expect(s.game!.turn).toBe(2);
+    // Everyone counts their own turns: this is the other player's first, not turn two of the game.
+    expect(s.game!.turn).toBe(1);
+    expect(s.game!.turns).toEqual({ [first]: 1, [other]: 1 });
     s = run(s, other, { type: 'endTurn' });
     expect(activePlayer(s.game!)).toBe(first);
-    expect(s.game!.turn).toBe(3);
+    expect(s.game!.turn).toBe(2);
+    expect(s.game!.step).toBe('untap');
+  });
+
+  it('walks the steps with the play button, untapping, drawing and passing', () => {
+    let n = 0;
+    let r = 0;
+    let s = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings });
+    for (const p of ['a', 'b']) {
+      s = run(s, p, { type: 'join' });
+      s = run(s, p, { type: 'selectDeck', deckId: 'd' });
+      s = run(s, p, { type: 'setReady', ready: true });
+    }
+    const d = decide(s, { type: 'start' }, { ...ctx('a'), decks, random: () => ((r += 7) % 11) / 11, newId: () => `t${++n}` });
+    if (!d.ok) throw new Error(d.error);
+    s = keepAll(reduceAll(s, d.events));
+    const first = s.game!.firstPlayerId;
+    const other = first === 'a' ? 'b' : 'a';
+    const play = (who: string) => (s = run(s, who, { type: 'advanceStep' }));
+    const hand = () => s.game!.players[first]!.zones.hand.length;
+
+    expect(s.game!.step).toBe('untap');
+    expect(decide(s, { type: 'advanceStep' }, ctx(other))).toEqual({ ok: false, error: 'It is not your turn' });
+
+    // A tapped permanent untaps, unless it is marked not to.
+    const card = s.game!.players[first]!.zones.hand[0]!;
+    s = run(s, first, { type: 'moveCard', instanceId: card, to: 'battlefield' });
+    s = run(s, first, { type: 'tapCard', instanceId: card, tapped: true });
+    s = run(s, first, { type: 'setNoUntap', instanceId: card, value: 2 });
+    play(first);
+    expect(s.game!.step).toBe('upkeep');
+    expect(s.game!.cards[card]!.tapped).toBe(true);
+    expect(s.game!.cards[card]!.noUntap).toBe(1); // one more untap step to skip
+
+    const before = hand();
+    play(first); // upkeep → draw
+    play(first); // draw: whoever went first skips their first draw
+    expect(s.game!.step).toBe('main1');
+    expect(hand()).toBe(before);
+
+    play(first); // main1 → combat
+    play(first); // combat → main2
+    play(first); // main2 → end
+    expect(s.game!.step).toBe('end');
+    play(first); // end → the turn passes
+    expect(activePlayer(s.game!)).toBe(other);
+    expect(s.game!.step).toBe('untap');
+
+    // The second player does draw on their first turn.
+    const theirs = s.game!.players[other]!.zones.hand.length;
+    play(other);
+    play(other);
+    play(other);
+    expect(s.game!.players[other]!.zones.hand).toHaveLength(theirs + 1);
+    expect(s.game!.step).toBe('main1');
   });
 });
 

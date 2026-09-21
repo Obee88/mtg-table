@@ -4,7 +4,7 @@ import { columnStep, defaultRow, dropSlot, freeColumns, gapFor, layoutRows, norm
 
 const card = (id: string, row: number, col: number, attachedTo: string | null = null): CardInstance => ({
   id, printingId: 'p', ownerId: 'a', controllerId: 'a', zone: 'battlefield', tapped: false, transformed: false, flipped: false, faceDown: false,
-  counters: {}, attachedTo, note: null, isToken: false, isCommander: false, customName: null, visibleTo: 'all', revealUntil: null, targetedBy: [], position: { row, col },
+  counters: {}, attachedTo, note: null, isToken: false, isCommander: false, customName: null, visibleTo: 'all', revealUntil: null, targetedBy: [], noUntap: null, position: { row, col },
 });
 
 describe('layoutRows', () => {

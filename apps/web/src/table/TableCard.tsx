@@ -129,6 +129,11 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
           {targetColors.map((c, i) => <span key={i} className="h-2.5 w-2.5 rounded-full border border-black/50" style={{ background: c }} />)}
         </span>
       )}
+      {card.noUntap && (
+        <Chip type="warning" shape="pill" className="absolute right-0.5 top-0.5 shadow" title={card.noUntap === 'always' ? 'Does not untap' : `Skips ${card.noUntap} untap step${card.noUntap === 1 ? '' : 's'}`}>
+          {card.noUntap === 'always' ? '∅' : `∅${card.noUntap}`}
+        </Chip>
+      )}
       {card.isToken && !groupCount && <Chip type="primary" shape="pill" className="absolute left-0.5 top-0.5 shadow" title="token">T</Chip>}
       {groupCount && groupCount > 1 && <Chip type="primary" size="medium" className="absolute left-1 top-1 shadow-lg" title={`${groupCount} identical tokens`}>×{groupCount}</Chip>}
       {revealed && <Chip type="success" shape="pill" className="absolute left-0.5 bottom-5 shadow" title="revealed">👁</Chip>}

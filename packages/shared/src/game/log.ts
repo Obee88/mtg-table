@@ -73,6 +73,10 @@ export function describeEvent(e: RoomEvent, ctx: LogContext): string | null {
       return `${actor} ${ev.flipped ? 'flipped' : 'unflipped'} ${card(ev.instanceId)}`;
     case 'cardFaceDownChanged':
       return `${actor} turned ${card(ev.instanceId)} face ${ev.faceDown ? 'down' : 'up'}`;
+    case 'stepChanged':
+      return null; // the tracker shows it
+    case 'noUntapChanged':
+      return ev.value === null ? `${actor} let ${card(ev.instanceId)} untap again` : `${actor} set ${card(ev.instanceId)} not to untap ${ev.value === 'always' ? 'at all' : `for ${ev.value} turn${ev.value === 1 ? '' : 's'}`}`;
     case 'turnEnded':
       return `${ctx.playerName(ev.playerId)} ended the turn — ${ctx.playerName(ev.nextPlayerId)}'s turn (${ev.turn})`;
     case 'mulliganTaken':

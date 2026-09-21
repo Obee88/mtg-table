@@ -71,8 +71,19 @@ export function GamePanel({ state, meId, run, leaveHref, onEndGame, onNewGame, o
             <span key={p.id} className={`flex items-center gap-1 rounded-md px-1 py-0.5 ${isActive(state, p.id) ? 'bg-white/10' : ''}`} title={isActive(state, p.id) ? `${p.displayName} · their turn` : p.displayName}>
               <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: playerColor(state, p) }} />
               <span className="min-w-0 flex-1 truncate text-[11px] text-white/70">{teams ? `Team ${p.team + 1}` : p.displayName}</span>
-              <span className="min-w-[2.2ch] text-right text-base font-semibold tabular-nums text-white">{life}</span>
-              {mine && <Stepper onDelta={(d) => void run({ type: 'adjustLife', delta: d })} label="life" />}
+              {mine ? (
+                <button
+                  type="button"
+                  onClick={() => void run({ type: 'adjustLife', delta: 1 })}
+                  onContextMenu={(e) => { e.preventDefault(); void run({ type: 'adjustLife', delta: -1 }); }}
+                  className="touch-target min-w-[2.2ch] rounded px-1 text-right text-base font-semibold tabular-nums text-white hover:bg-white/10"
+                  title="Click to gain a life, right-click to lose one"
+                >
+                  {life}
+                </button>
+              ) : (
+                <span className="min-w-[2.2ch] text-right text-base font-semibold tabular-nums text-white">{life}</span>
+              )}
             </span>
           );
         })}
@@ -86,15 +97,6 @@ export function GamePanel({ state, meId, run, leaveHref, onEndGame, onNewGame, o
       </div>
       {menu && <ContextMenu x={menu.x} y={menu.y} items={items()} onClose={() => setMenu(null)} header="Game" />}
     </>
-  );
-}
-
-function Stepper({ onDelta, label }: { onDelta: (d: number) => void; label: string }) {
-  return (
-    <span className="flex flex-col leading-none">
-      <button type="button" className="touch-target px-0.5 text-[10px] text-white/50 hover:text-white" onClick={() => onDelta(1)} aria-label={`${label} plus one`}>▲</button>
-      <button type="button" className="touch-target px-0.5 text-[10px] text-white/50 hover:text-white" onClick={() => onDelta(-1)} aria-label={`${label} minus one`}>▼</button>
-    </span>
   );
 }
 
@@ -155,8 +157,15 @@ function Resources({ player, pgs, mine, single, run }: { player: { id: string; d
       {mine && open && (
         <span className="flex items-center gap-1 rounded-md bg-white/10 px-1 py-0.5">
           <span className="min-w-0 flex-1 truncate text-[10px] text-white/70">{kinds.find((r) => r.key === open)?.label ?? open}</span>
-          <span className="min-w-[2ch] text-right text-sm font-semibold tabular-nums text-white">{value(open)}</span>
-          <Stepper onDelta={(d) => adjust(open, d)} label={open} />
+          <button
+            type="button"
+            onClick={() => adjust(open, 1)}
+            onContextMenu={(e) => { e.preventDefault(); adjust(open, -1); }}
+            className="touch-target min-w-[2ch] rounded px-1 text-right text-sm font-semibold tabular-nums text-white hover:bg-white/10"
+            title="Click to add one, right-click to remove one"
+          >
+            {value(open)}
+          </button>
         </span>
       )}
       {manaShown && <ManaPool pgs={pgs} mine={mine} run={run} />}

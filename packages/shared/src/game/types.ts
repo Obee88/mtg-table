@@ -21,6 +21,11 @@ export interface RoomSettings {
 
 export type Visibility = 'owner' | 'all' | PlayerId[];
 
+/** The steps of a turn, in order. No rules engine: players walk through them with the play button. */
+export const STEPS = ['untap', 'upkeep', 'draw', 'main1', 'combat', 'main2', 'end'] as const;
+export type Step = (typeof STEPS)[number];
+export const STEP_LABELS: Record<Step, string> = { untap: 'Untap', upkeep: 'Upkeep', draw: 'Draw', main1: 'Main 1', combat: 'Combat', main2: 'Main 2', end: 'End' };
+
 export interface CardInstance {
   id: InstanceId;
   /** Null when the viewer is not allowed to know the identity. */
@@ -44,6 +49,8 @@ export interface CardInstance {
   revealUntil: 'dismissed' | 'zoneChange' | null;
   /** Players pointing at this card this turn; cleared when the turn passes. */
   targetedBy: PlayerId[];
+  /** Skips the untap step: 'always', or for that many more untap steps. */
+  noUntap: 'always' | number | null;
   /** Battlefield placement: row (0 = front, 1 = back/lands) and an order key within the row.
    *  Cards sharing (row, col) form a pile, later in the zone list = on top. */
   position: { row: number; col: number } | null;
@@ -77,9 +84,14 @@ export interface GameState {
   sideboarding: Record<PlayerId, SideboardingState>;
   /** Opening-hand decisions; play is blocked until every seated player has kept. */
   mulligans: Record<PlayerId, MulliganState>;
-  /** Whose turn it is (starts with the roll winner) and the turn number (1-based). */
+  /** Whose turn it is (starts with the roll winner). */
   activePlayerId: PlayerId;
+  /** The active player's own turn number: everyone counts their own turns. */
   turn: number;
+  /** Turns each player has taken so far. */
+  turns: Record<PlayerId, number>;
+  /** Where in the turn the active player is. */
+  step: Step;
   /** d20 each player rolled for first; ties were re-rolled. */
   openingRoll: Record<PlayerId, number>;
   startedAt: string;
@@ -270,4 +282,15 @@ export type ManaSymbol = (typeof MANA_SYMBOLS)[number];
 /** Total floating mana in a pool. */
 export function manaTotal(pool: Record<string, number>): number {
   return Object.values(pool).reduce((n, v) => n + Math.max(0, v), 0);
+}
+
+/** The step after `step`, or null at the end of the turn. */
+export function nextStep(step: Step): Step | null {
+  const i = STEPS.indexOf(step);
+  return i < 0 || i === STEPS.length - 1 ? null : STEPS[i + 1]!;
+}
+
+/** Whether a card untaps in its controller's untap step. */
+export function untapsNormally(card: CardInstance): boolean {
+  return card.noUntap === null || card.noUntap === undefined;
 }

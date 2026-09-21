@@ -5,8 +5,8 @@ type Run = (c: GameCommand) => Promise<void>;
 
 const btn = 'touch-target rounded px-1.5 py-1 text-[11px] text-text-muted hover:bg-white/10 hover:text-text disabled:opacity-40';
 
-/** The owner's actions; lives in the strip and is dimmed until the half is hovered. */
-export function Toolbar({ run, onToken, onHelp, onEndGame, onNewGame, myTurn = false }: { run: Run; onToken: () => void; onHelp: () => void; onEndGame?: (() => void) | undefined; onNewGame?: (() => void) | undefined; myTurn?: boolean }) {
+/** Table actions in the player's own strip: tokens, dice, undo and the shortcut list. */
+export function Toolbar({ run, onToken, onHelp }: { run: Run; onToken: () => void; onHelp: () => void }) {
   const [dice, setDice] = useState(false);
   const [expr, setExpr] = useState('2d6');
   const ref = useRef<HTMLSpanElement>(null);
@@ -25,8 +25,6 @@ export function Toolbar({ run, onToken, onHelp, onEndGame, onNewGame, myTurn = f
 
   return (
     <span className="reveal-on-hover flex items-center gap-0.5">
-      {myTurn && <button type="button" className="touch-target rounded bg-accent px-2 py-1 text-[11px] font-semibold text-bg hover:bg-accent-hover" onClick={() => void run({ type: 'endTurn' })}>End turn <kbd>n</kbd></button>}
-      <button type="button" className={btn} onClick={() => void run({ type: 'untapAll' })}>Untap all <kbd>u</kbd></button>
       <button type="button" className={btn} onClick={onToken}>Token <kbd>t</kbd></button>
       <span ref={ref} className="relative">
         <button type="button" className={btn} onClick={() => setDice((d) => !d)}>Dice</button>
@@ -42,9 +40,6 @@ export function Toolbar({ run, onToken, onHelp, onEndGame, onNewGame, myTurn = f
       </span>
       <button type="button" className={btn} onClick={() => void run({ type: 'undo' })} title="Undo your last action if nobody acted since">Undo <kbd>⌃Z</kbd></button>
       <button type="button" className={btn} onClick={onHelp} title="Keyboard shortcuts">?</button>
-      {(onNewGame || onEndGame) && <span className="mx-1 h-4 w-px bg-white/15" />}
-      {onNewGame && <button type="button" className={btn} onClick={onNewGame} title="Say who won; once everyone confirms, new hands are dealt">New game</button>}
-      {onEndGame && <button type="button" className={btn} onClick={onEndGame} title="Say who won; once everyone confirms, the room ends">End game</button>}
     </span>
   );
 }

@@ -4,7 +4,7 @@ import type { DeckContents } from '../decks.js';
 import { dealDraft, decideDraft } from '../draft/decide.js';
 import { allDecksSubmitted, draftAbilityFor, draftDeckContents, type DraftCard } from '../draft/types.js';
 import { defaultVisibility, PUBLIC_ZONES } from './reduce.js';
-import { activePlayer, inMulligan, inSideboarding, isActive, manaTotal, seatedPlayers, shuffled, teamForSeat, type CardInstance, type GameState, type PlayerGameState, type RoomState } from './types.js';
+import { activePlayer, inMulligan, inSideboarding, isActive, manaTotal, nextStep, seatedPlayers, shuffled, teamForSeat, type CardInstance, type GameState, type PlayerGameState, type RoomState } from './types.js';
 
 const HAND_SIZE = 7;
 const MAX_TIE_BREAK_ROUNDS = 20;
@@ -175,8 +175,38 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
     case 'untapAll': {
       const pgs = ownGame(state, ctx.actorId);
       if ('error' in pgs) return reject(pgs.error);
-      const tapped = pgs.zones.battlefield.filter((id) => state.game!.cards[id]?.tapped);
-      return accept(...tapped.map((instanceId): GameEvent => ({ type: 'cardTapped', instanceId, tapped: false })));
+      return accept(...untapEvents(state, pgs));
+    }
+
+    case 'setNoUntap': {
+      const found = ownCard(state, ctx.actorId, command.instanceId);
+      if ('error' in found) return reject(found.error);
+      if (found.card.zone !== 'battlefield') return reject('Only permanents can skip untapping');
+      if ((found.card.noUntap ?? null) === command.value) return accept();
+      return accept({ type: 'noUntapChanged', instanceId: found.card.id, value: command.value });
+    }
+
+    case 'advanceStep': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      const game = state.game!;
+      if (!isActive(state, ctx.actorId)) return reject('It is not your turn');
+      const step = game.step ?? 'main1';
+      const after = nextStep(step);
+      if (!after) {
+        const order = seatedPlayers(state).map((p) => p.id);
+        const next = order[(order.indexOf(activePlayer(game)) + 1) % order.length]!;
+        return accept(endTurnEvent(state, ctx.actorId, next));
+      }
+      const events: GameEvent[] = [];
+      if (step === 'untap') events.push(...untapEvents(state, pgs));
+      // Whoever went first skips their first draw, as on paper.
+      if (step === 'draw' && !((game.turns?.[ctx.actorId] ?? 1) === 1 && game.firstPlayerId === ctx.actorId)) {
+        const top = pgs.zones.library[0];
+        if (top) events.push({ type: 'cardMoved', instanceId: top, from: 'library', to: 'hand', position: null, libraryPosition: null });
+      }
+      events.push({ type: 'stepChanged', playerId: ctx.actorId, step: after });
+      return accept(...events);
     }
 
     case 'shuffleLibrary': {
@@ -530,7 +560,7 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       const order = seatedPlayers(state).map((p) => p.id);
       const idx = order.indexOf(activePlayer(game));
       const next = order[(idx + 1) % order.length]!;
-      return accept({ type: 'turnEnded', playerId: ctx.actorId, nextPlayerId: next, turn: (game.turn ?? 1) + 1 });
+      return accept(endTurnEvent(state, ctx.actorId, next));
     }
 
     case 'reportResult': {
@@ -717,5 +747,27 @@ function settle(state: RoomState, pending: NonNullable<GameState['pendingResult'
   const dealt = deal(state, state.draft ? { ...ctx, decks: draftDecks(state) } : ctx);
   if (dealt.ok) events.push(...dealt.events);
   else events.push({ type: 'resultRejected', playerId: pending.proposedBy });
+  return events;
+}
+
+/** The turn passes: the next player counts one more turn of their own. */
+function endTurnEvent(state: RoomState, actorId: string, nextPlayerId: string): GameEvent {
+  const turns = state.game?.turns ?? {};
+  return { type: 'turnEnded', playerId: actorId, nextPlayerId, turn: (turns[nextPlayerId] ?? 0) + 1 };
+}
+
+/** Untapping a player's permanents, skipping the ones marked not to (and counting those marks down). */
+function untapEvents(state: RoomState, pgs: PlayerGameState): GameEvent[] {
+  const events: GameEvent[] = [];
+  for (const id of pgs.zones.battlefield) {
+    const card = state.game?.cards[id];
+    if (!card) continue;
+    if (card.noUntap === 'always') continue;
+    if (typeof card.noUntap === 'number' && card.noUntap > 0) {
+      events.push({ type: 'noUntapChanged', instanceId: id, value: card.noUntap > 1 ? card.noUntap - 1 : null });
+      continue;
+    }
+    if (card.tapped) events.push({ type: 'cardTapped', instanceId: id, tapped: false });
+  }
   return events;
 }
