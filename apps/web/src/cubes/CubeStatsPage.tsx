@@ -1,5 +1,5 @@
 import type { CardStat, CubeStatsResponse } from '@mtg/shared';
-import { mostPassed } from '@mtg/shared';
+import { MIN_WINRATE_GAMES, mostPassed } from '@mtg/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
@@ -8,12 +8,13 @@ import { Card, ErrorText } from '../components';
 import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
 
-type Column = 'name' | 'pickRate' | 'avgPick' | 'firstPickRate' | 'seen' | 'taken' | 'passed';
+type Column = 'name' | 'pickRate' | 'avgPick' | 'firstPickRate' | 'seen' | 'taken' | 'passed' | 'winRate';
 const COLUMNS: { key: Column; label: string; title: string }[] = [
   { key: 'name', label: 'Card', title: 'Card name' },
   { key: 'pickRate', label: 'Pick rate', title: 'Taken ÷ times seen in a pack when a pick was made' },
   { key: 'avgPick', label: 'Avg pick', title: 'Mean position in the pack when taken (1 = first pick)' },
   { key: 'firstPickRate', label: 'First-pick', title: 'First-picked ÷ times it was in an untouched pack' },
+  { key: 'winRate', label: 'Win rate', title: `Games won by decks holding the card ÷ games they played (from ${MIN_WINRATE_GAMES} games on)` },
   { key: 'seen', label: 'Seen', title: 'Times in a pack when a pick was made' },
   { key: 'taken', label: 'Taken', title: 'Times drafted' },
   { key: 'passed', label: 'Passed', title: 'Times someone chose another card over it' },
@@ -32,10 +33,12 @@ export function CubeStatsPage() {
 
   if (query.isPending) return <main className="p-6 text-text-muted">Loading…</main>;
   if (query.isError) return <main className="p-6"><ErrorText error={query.error} /></main>;
-  const { cube, stats, printings, drafts, picks } = query.data;
+  const { cube, stats, printings, drafts, picks, records, games } = query.data;
   const byId = new Map(printings.map((p) => [p.id, p]));
+  const recordOf = new Map(records.map((r) => [r.printingId, r]));
   const name = (s: CardStat) => byId.get(s.printingId)?.name ?? s.printingId;
-  const value = (s: CardStat, key: Column): number | string => (key === 'name' ? name(s) : (s[key] ?? -1));
+  const value = (s: CardStat, key: Column): number | string =>
+    key === 'name' ? name(s) : key === 'winRate' ? (recordOf.get(s.printingId)?.winRate ?? -1) : (s[key] ?? -1);
   const rows = [...stats].sort((a, b) => {
     const x = value(a, sort.key);
     const y = value(b, sort.key);
@@ -50,7 +53,7 @@ export function CubeStatsPage() {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="truncate text-2xl font-semibold">{cube.name} · draft stats</h1>
-          <p className="text-sm text-text-muted">{drafts} draft{drafts === 1 ? '' : 's'} · {picks} picks</p>
+          <p className="text-sm text-text-muted">{drafts} draft{drafts === 1 ? '' : 's'} · {picks} picks · {games} reported game{games === 1 ? '' : 's'}</p>
         </div>
         <div className="flex items-center gap-3 text-sm">
           <label className="flex items-center gap-2">
@@ -83,6 +86,7 @@ export function CubeStatsPage() {
                 <tbody>
                   {rows.map((s) => {
                     const p = byId.get(s.printingId);
+                    const rec = recordOf.get(s.printingId);
                     return (
                       <tr key={s.printingId} className="border-t border-border/50 hover:bg-surface-raised">
                         <td className="py-1 pr-3">
@@ -94,6 +98,9 @@ export function CubeStatsPage() {
                         <td className="text-right tabular-nums">{pct(s.pickRate)}</td>
                         <td className="text-right tabular-nums">{num(s.avgPick)}</td>
                         <td className="text-right tabular-nums">{pct(s.firstPickRate)}<span className="text-text-muted"> /{s.firstPickChances}</span></td>
+                        <td className="text-right tabular-nums" title={rec ? `${rec.wins} of ${rec.games} games` : 'never played'}>
+                          {rec && rec.winRate !== null ? pct(rec.winRate) : <span className="text-text-muted">{rec ? `${rec.games}g` : '—'}</span>}
+                        </td>
                         <td className="text-right tabular-nums">{s.seen}</td>
                         <td className="text-right tabular-nums">{s.taken}</td>
                         <td className="text-right tabular-nums">{s.passed}</td>

@@ -158,10 +158,26 @@ describe('cube draft statistics', () => {
       expect((await call('POST', `/rooms/${room}/commands`, cookie, { type: 'draftPick', cardId: pack.cards[0].id })).statusCode).toBe(200);
     }
 
+    // A reported game from that draft feeds the win rates.
+    const { schema: s } = await import('../db/index.js');
+    const aliceId = (await ctx.app.inject({ url: '/me', headers: { cookie: alice } })).json().id as string;
+    const bobId = (await ctx.app.inject({ url: '/me', headers: { cookie: bob } })).json().id as string;
+    await db.insert(s.gameResults).values({
+      roomId: room, gameNumber: 1, reportedBy: aliceId, winners: [aliceId], mode: '1v1', playerCount: 2, commander: false, draftName: 'Tiny', note: null,
+      players: [
+        { playerId: aliceId, seat: 0, team: 0, deck: { main: [{ printingId: cardIds[0]!, quantity: 1 }], sideboard: [], commander: [] } },
+        { playerId: bobId, seat: 1, team: 1, deck: { main: [{ printingId: cardIds[1]!, quantity: 1 }], sideboard: [], commander: [] } },
+      ],
+    });
+
     const res = await call('GET', `/cubes/${cubeId}/stats`, alice);
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body).toMatchObject({ drafts: 1, picks: 4 });
+    expect(body).toMatchObject({ drafts: 1, picks: 4, games: 1 });
+    expect(body.records).toEqual([
+      { printingId: cardIds[0], games: 1, wins: 1, winRate: null },
+      { printingId: cardIds[1], games: 1, wins: 0, winRate: null },
+    ]);
     expect(body.versions).toHaveLength(1);
     expect(body.stats).toHaveLength(4);
     expect(body.stats.reduce((n: number, s: { taken: number }) => n + s.taken, 0)).toBe(4);

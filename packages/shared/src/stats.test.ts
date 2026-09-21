@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computePlayerStats, formatOf, type PlayerPick, type ResultRecord } from './stats.js';
+import { computeCardWinRates, computePlayerStats, formatOf, type PlayerPick, type ResultRecord } from './stats.js';
 
 const game = (roomId: string, n: number, winners: string[], players: string[], extra: Partial<ResultRecord> = {}): ResultRecord => ({
   roomId, gameNumber: n, winners, mode: players.length === 2 ? '1v1' : 'ffa', playerCount: players.length as 2 | 4, commander: false, draftName: null,
@@ -63,5 +63,34 @@ describe('computePlayerStats', () => {
     expect(s.draft.timing.compared).toBe(3);
     expect(s.draft.timing.earlierBy).toBeCloseTo(-5 / 3);
     expect(computePlayerStats('zed', [], [], new Map()).draft.timing).toEqual({ earlierBy: null, compared: 0 });
+  });
+});
+
+describe('computeCardWinRates', () => {
+  const deck = (...ids: string[]) => ({ main: ids.map((printingId) => ({ printingId, quantity: 1 })), sideboard: [{ printingId: 'side', quantity: 3 }], commander: [] });
+  const played = (n: number, winners: string[], decks: Record<string, string[]>): ResultRecord => ({
+    roomId: 'r', gameNumber: n, winners, mode: '1v1', playerCount: 2, commander: false, draftName: 'House',
+    players: Object.entries(decks).map(([playerId, ids], seat) => ({ playerId, seat, team: seat, deck: deck(...ids) })),
+    reportedAt: `2026-01-0${n}T00:00:00.000Z`,
+  });
+
+  it('counts a game per deck holding the card and a win when that seat won', () => {
+    const results = [
+      played(1, ['a'], { a: ['bolt', 'bolt', 'bear'], b: ['bear'] }),
+      played(2, ['b'], { a: ['bolt'], b: ['bear'] }),
+      played(3, [], { a: ['bolt'], b: ['bear'] }), // a draw: games, no wins
+    ];
+    const by = Object.fromEntries(computeCardWinRates(results).map((r) => [r.printingId, r]));
+    expect(by.bolt).toEqual({ printingId: 'bolt', games: 3, wins: 1, winRate: 1 / 3 }); // duplicates count once per deck
+    expect(by.bear).toEqual({ printingId: 'bear', games: 4, wins: 2, winRate: 0.5 });
+    expect(by.side).toBeUndefined(); // sideboards do not count
+  });
+
+  it('withholds the rate below the sample threshold and sorts the best first', () => {
+    const results = [played(1, ['a'], { a: ['x'], b: ['y'] })];
+    const rates = computeCardWinRates(results);
+    expect(rates.every((r) => r.winRate === null)).toBe(true);
+    expect(computeCardWinRates(results, 1).map((r) => [r.printingId, r.winRate])).toEqual([['x', 1], ['y', 0]]);
+    expect(computeCardWinRates([])).toEqual([]);
   });
 });

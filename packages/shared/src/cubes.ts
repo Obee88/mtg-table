@@ -1,5 +1,6 @@
 import type { CardPrinting } from './cards.js';
 import type { CardStat } from './draft/stats.js';
+import type { CardRecord } from './stats.js';
 import type { DeckImportResponse } from './decks.js';
 
 export interface CubeCard {
@@ -138,5 +139,9 @@ export interface CubeStatsResponse {
   drafts: number;
   picks: number;
   stats: CardStat[];
+  /** Win rate of decks that held each card, in games played from this cube's drafts. */
+  records: CardRecord[];
+  /** Reported games behind those records. */
+  games: number;
   printings: CardPrinting[];
 }

@@ -182,7 +182,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] Tablet (a): touch input on the table — long-press opens context menus, cards drag and drop by touch, hover-only controls stay visible on touch screens
 - [x] Tablet (b): tablet-sized layout — log column as an overlay on narrow screens, larger touch targets, safe areas
 - [x] Tablet (c): draft and deckbuilding screens on touch
-- [ ] Card win-rate stats
+- [x] Card win-rate stats
 
 **M8 — Draft sessions and deckbuilding comfort** (requested 2026-09-21)
 - [ ] Seats out of the draft config: a format's seat count becomes its *default*; the player count is chosen when creating the room, on the same screen as the format (formats must still fit 2 or 4)

@@ -1,4 +1,4 @@
-import { computeCardStats, diffCubeVersions, type CubeCard, type CubeDiffResponse, type CubeResponse, type CubeStatsResponse, type CubeSummary, type CubeVersionSummary } from '@mtg/shared';
+import { computeCardStats, computeCardWinRates, diffCubeVersions, type CubeCard, type CubeDiffResponse, type CubeResponse, type CubeStatsResponse, type CubeSummary, type CubeVersionSummary } from '@mtg/shared';
 import { and, asc, desc, eq, gte, inArray, lte, or, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -203,13 +203,22 @@ export async function cubeRoutes(app: FastifyInstance): Promise<void> {
     if (to) conditions.push(lte(schema.draftPicks.createdAt, to));
     const rows = versions.length ? await db.select().from(schema.draftPicks).where(and(...conditions)) : [];
     const stats = computeCardStats(rows.map((r) => ({ printingId: r.cardId, pickInPack: r.pickInPack, packContents: r.packContents, double: r.doublePick })));
+    // Win rates come from the games played in the rooms that drafted this cube.
+    const roomIds = [...new Set(rows.map((r) => r.roomId))];
+    const results = roomIds.length ? await db.select().from(schema.gameResults).where(inArray(schema.gameResults.roomId, roomIds)) : [];
+    const records = computeCardWinRates(results.map((g) => ({
+      roomId: g.roomId, gameNumber: g.gameNumber, winners: g.winners, mode: g.mode as '1v1' | 'ffa' | '2v2', playerCount: g.playerCount,
+      commander: g.commander, draftName: g.draftName, players: g.players, reportedAt: g.reportedAt.toISOString(),
+    })));
     return {
       cube: { id: cube.id, name: cube.name },
       versions,
-      drafts: new Set(rows.map((r) => r.roomId)).size,
+      drafts: roomIds.length,
       picks: rows.length,
       stats,
-      printings: await getPrintings(db, stats.map((s) => s.printingId)),
+      records,
+      games: results.length,
+      printings: await getPrintings(db, [...new Set([...stats.map((s) => s.printingId), ...records.map((r) => r.printingId)])]),
     };
   });
 

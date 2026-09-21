@@ -146,3 +146,41 @@ export interface PlayerStatsResponse {
   names: Record<PlayerId, string>;
   printings: CardPrinting[];
 }
+
+/** How decks containing a card fared. */
+export interface CardRecord {
+  printingId: string;
+  /** Games in which someone's main deck (or command zone) held the card. */
+  games: number;
+  wins: number;
+  /** wins / games; null below `minGames`, where the number would be noise. */
+  winRate: number | null;
+}
+
+/** Below this many games a win rate says nothing; the field is left null. */
+export const MIN_WINRATE_GAMES = 3;
+
+/**
+ * Win rate per card across reported games: every seat whose deck held the card
+ * counts one game, and a win when that seat is among the winners. Draws count
+ * as games without a win; sideboards do not count (the card never had to be
+ * drawn), duplicates count once per deck.
+ */
+export function computeCardWinRates(results: readonly ResultRecord[], minGames = MIN_WINRATE_GAMES): CardRecord[] {
+  const acc = new Map<string, { games: number; wins: number }>();
+  for (const r of results) {
+    for (const p of r.players) {
+      if (!p.deck) continue;
+      const won = r.winners.includes(p.playerId);
+      for (const printingId of new Set([...p.deck.main, ...p.deck.commander].map((c) => c.printingId))) {
+        const a = acc.get(printingId) ?? { games: 0, wins: 0 };
+        a.games++;
+        if (won) a.wins++;
+        acc.set(printingId, a);
+      }
+    }
+  }
+  return [...acc]
+    .map(([printingId, a]) => ({ printingId, games: a.games, wins: a.wins, winRate: a.games >= minGames ? a.wins / a.games : null }))
+    .sort((x, y) => (y.winRate ?? -1) - (x.winRate ?? -1) || y.games - x.games || x.printingId.localeCompare(y.printingId));
+}
