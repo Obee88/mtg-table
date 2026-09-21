@@ -2,7 +2,7 @@
 
 Online Magic: The Gathering table (no rules engine) with cube drafting. Product notes in
 `_documents/idea.md`, architecture and milestones in `_documents/plan.md`, hosting in
-`_documents/deployment.md`. Read `plan.md` before starting a milestone.
+`_documents/deployment.md`, UX redesign analysis in `_documents/ux-redesign.md`. Read `plan.md` before starting a milestone.
 
 ## Layout
 
