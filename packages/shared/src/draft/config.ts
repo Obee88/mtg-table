@@ -4,6 +4,10 @@ import { cardsNeeded, type DraftConfig, type DraftPhaseConfig, type RotisserieCo
 export interface DraftConfigSummary {
   id: string;
   name: string;
+  ownerId: string;
+  ownerName: string;
+  /** Shared with the caller by its owner (read-only, but usable to start drafts). */
+  shared: boolean;
   seats: 2 | 4;
   phaseCount: number;
   updatedAt: string;
@@ -24,6 +28,8 @@ export interface DraftConfigResponse {
   name: string;
   config: DraftConfig;
   pools: DraftPoolInfo[];
+  /** Players the owner shares the format with. */
+  members: { id: string; displayName: string }[];
   createdAt: string;
   updatedAt: string;
 }

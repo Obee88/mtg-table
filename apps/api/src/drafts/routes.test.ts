@@ -69,7 +69,7 @@ describe('draft configs', () => {
     const config = houseRulesPreset({ triColour: theirs, main: theirs });
     const res = await call('POST', '/draft-configs', alice, { name: 'Nope', config });
     expect(res.statusCode).toBe(400);
-    expect(res.json().message).toBe('Every phase must draw from a version of one of your cubes');
+    expect(res.json().message).toBe('Every phase must draw from a version of one of your cubes, or a cube shared with you');
     expect((await call('POST', '/draft-configs', alice, { name: 'Nope', config: { ...config, phases: [] } })).statusCode).toBe(400);
     expect((await call('POST', '/draft-configs', alice, { name: 'Nope', config: { ...config, seats: 3 } })).statusCode).toBe(400);
     expect((await ctx.app.inject({ url: '/draft-configs' })).statusCode).toBe(401);

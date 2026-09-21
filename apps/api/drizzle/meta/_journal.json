@@ -71,6 +71,20 @@
       "when": 1789923984171,
       "tag": "0009_fat_christian_walker",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789977828161,
+      "tag": "0010_parched_morlun",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789977971976,
+      "tag": "0011_nappy_tempest",
+      "breakpoints": true
     }
   ]
 }

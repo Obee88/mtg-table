@@ -29,7 +29,7 @@ export function CubeListPage() {
             <li key={c.id} className="flex items-center justify-between gap-3 rounded-md px-2 py-2 text-sm hover:bg-surface-raised">
               <Link to={`/cubes/${c.id}`} className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{c.name}</span>
-                <span className="mt-0.5 flex items-center gap-2 text-text-muted"><Chip type="neutral">v{c.latestVersion}</Chip>{c.cardCount} cards · {new Date(c.updatedAt).toLocaleDateString()}</span>
+                <span className="mt-0.5 flex items-center gap-2 text-text-muted"><Chip type="neutral">v{c.latestVersion}</Chip>{c.shared && <Chip type="primary" title="shared with you">by {c.ownerName}</Chip>}{c.cardCount} cards · {new Date(c.updatedAt).toLocaleDateString()}</span>
               </Link>
               <Button variant="ghost" className="text-danger" onClick={() => confirm(`Delete “${c.name}” and all its versions?`) && remove.mutate(c.id)} disabled={remove.isPending}>Delete</Button>
             </li>

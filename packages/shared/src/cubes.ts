@@ -20,6 +20,10 @@ export interface CubeVersionSummary {
 export interface CubeSummary {
   id: string;
   name: string;
+  ownerId: string;
+  ownerName: string;
+  /** Shared with the caller by its owner (read-only, but usable in drafts). */
+  shared: boolean;
   latestVersion: number;
   cardCount: number;
   updatedAt: string;
@@ -28,6 +32,8 @@ export interface CubeSummary {
 /** A cube with one version's contents (the latest unless a version was requested). */
 export interface CubeResponse {
   cube: { id: string; name: string; ownerId: string; createdAt: string; updatedAt: string };
+  /** Players the owner shares the cube with. */
+  members: { id: string; displayName: string }[];
   version: CubeVersionSummary & { cards: CubeCard[] };
   versions: CubeVersionSummary[];
   /** Every printing referenced by the shown version. */

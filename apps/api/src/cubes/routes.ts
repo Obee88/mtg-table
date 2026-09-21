@@ -1,5 +1,5 @@
 import { computeCardStats, diffCubeVersions, type CubeCard, type CubeDiffResponse, type CubeResponse, type CubeStatsResponse, type CubeSummary, type CubeVersionSummary } from '@mtg/shared';
-import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lte, or, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { importCubeCobra } from './cubecobra.js';
@@ -19,6 +19,8 @@ const versionQuery = z.object({ version: z.coerce.number().int().min(1).optional
 const cobraInput = z.object({ ref: z.string().trim().min(1).max(300) });
 const diffQuery = z.object({ from: z.coerce.number().int().min(1).optional(), to: z.coerce.number().int().min(1).optional() });
 const restoreInput = z.object({ version: z.number().int().min(1) });
+const memberInput = z.object({ userId: z.uuid() });
+const memberParam = z.object({ id: z.uuid(), userId: z.uuid() });
 const statsQuery = z.object({ version: z.coerce.number().int().min(1).optional(), from: z.coerce.date().optional(), to: z.coerce.date().optional() });
 
 const count = (cards: { quantity: number }[]) => cards.reduce((n, c) => n + c.quantity, 0);
@@ -47,6 +49,25 @@ export async function cubeRoutes(app: FastifyInstance): Promise<void> {
     const [row] = await db.select().from(schema.cubes).where(and(eq(schema.cubes.id, id), eq(schema.cubes.ownerId, userId)));
     if (!row) throw notFound('Cube not found');
     return row;
+  }
+
+  /** A cube the caller owns or was given access to (read-only for members). */
+  async function accessibleCube(id: string, userId: string): Promise<CubeRow> {
+    const [row] = await db.select().from(schema.cubes).where(eq(schema.cubes.id, id));
+    if (!row) throw notFound('Cube not found');
+    if (row.ownerId === userId) return row;
+    const [member] = await db.select().from(schema.cubeMembers).where(and(eq(schema.cubeMembers.cubeId, id), eq(schema.cubeMembers.userId, userId)));
+    if (!member) throw notFound('Cube not found');
+    return row;
+  }
+
+  async function membersOf(cubeId: string): Promise<{ id: string; displayName: string }[]> {
+    return db
+      .select({ id: schema.users.id, displayName: schema.users.displayName })
+      .from(schema.cubeMembers)
+      .innerJoin(schema.users, eq(schema.users.id, schema.cubeMembers.userId))
+      .where(eq(schema.cubeMembers.cubeId, cubeId))
+      .orderBy(asc(schema.users.displayName));
   }
 
   async function versionSummaries(cubeId: string): Promise<CubeVersionSummary[]> {
@@ -81,6 +102,7 @@ export async function cubeRoutes(app: FastifyInstance): Promise<void> {
     const cards = rows.map((r) => ({ printingId: r.cardId, quantity: r.quantity }));
     return {
       cube: { id: cube.id, name: cube.name, ownerId: cube.ownerId, createdAt: cube.createdAt.toISOString(), updatedAt: cube.updatedAt.toISOString() },
+      members: await membersOf(cube.id),
       version: { ...shown, cards },
       versions,
       printings: await getPrintings(db, cards.map((c) => c.printingId)),
@@ -93,14 +115,47 @@ export async function cubeRoutes(app: FastifyInstance): Promise<void> {
     return importCubeCobra(db, ref, app.cubeCobraFetch);
   });
 
+  /** Own cubes first, then cubes shared with the caller. */
   app.get('/cubes', async (req): Promise<CubeSummary[]> => {
-    const rows = await db.select().from(schema.cubes).where(eq(schema.cubes.ownerId, req.user!.id)).orderBy(desc(schema.cubes.updatedAt));
+    const me = req.user!.id;
+    const shared = await db.select({ id: schema.cubeMembers.cubeId }).from(schema.cubeMembers).where(eq(schema.cubeMembers.userId, me));
+    const rows = await db
+      .select({ cube: schema.cubes, ownerName: schema.users.displayName })
+      .from(schema.cubes)
+      .innerJoin(schema.users, eq(schema.users.id, schema.cubes.ownerId))
+      .where(shared.length ? or(eq(schema.cubes.ownerId, me), inArray(schema.cubes.id, shared.map((s) => s.id))) : eq(schema.cubes.ownerId, me))
+      .orderBy(desc(schema.cubes.updatedAt));
     const out: CubeSummary[] = [];
-    for (const cube of rows) {
+    for (const { cube, ownerName } of rows) {
       const [latest] = await versionSummaries(cube.id);
-      out.push({ id: cube.id, name: cube.name, latestVersion: latest?.number ?? 0, cardCount: latest?.cardCount ?? 0, updatedAt: cube.updatedAt.toISOString() });
+      out.push({ id: cube.id, name: cube.name, ownerId: cube.ownerId, ownerName, shared: cube.ownerId !== me, latestVersion: latest?.number ?? 0, cardCount: latest?.cardCount ?? 0, updatedAt: cube.updatedAt.toISOString() });
     }
-    return out;
+    return out.sort((a, b) => Number(a.shared) - Number(b.shared));
+  });
+
+  /** Who may draft with this cube besides the owner. */
+  app.get('/cubes/:id/members', async (req) => {
+    const { id } = parse(idParam, req.params);
+    await accessibleCube(id, req.user!.id);
+    return { members: await membersOf(id) };
+  });
+
+  app.post('/cubes/:id/members', async (req, reply) => {
+    const { id } = parse(idParam, req.params);
+    const { userId } = parse(memberInput, req.body);
+    const cube = await ownedCube(id, req.user!.id);
+    if (userId === cube.ownerId) throw badRequest('You already own this cube');
+    const [user] = await db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.id, userId));
+    if (!user) throw notFound('User not found');
+    await db.insert(schema.cubeMembers).values({ cubeId: id, userId }).onConflictDoNothing();
+    return reply.code(201).send({ members: await membersOf(id) });
+  });
+
+  app.delete('/cubes/:id/members/:userId', async (req) => {
+    const { id, userId } = parse(memberParam, req.params);
+    await ownedCube(id, req.user!.id);
+    await db.delete(schema.cubeMembers).where(and(eq(schema.cubeMembers.cubeId, id), eq(schema.cubeMembers.userId, userId)));
+    return { members: await membersOf(id) };
   });
 
   app.post('/cubes', async (req, reply) => {
@@ -114,7 +169,7 @@ export async function cubeRoutes(app: FastifyInstance): Promise<void> {
   app.get('/cubes/:id', async (req): Promise<CubeResponse> => {
     const { id } = parse(idParam, req.params);
     const { version } = parse(versionQuery, req.query);
-    return respond(await ownedCube(id, req.user!.id), version);
+    return respond(await accessibleCube(id, req.user!.id), version);
   });
 
   app.put('/cubes/:id', async (req): Promise<CubeResponse> => {
@@ -139,7 +194,7 @@ export async function cubeRoutes(app: FastifyInstance): Promise<void> {
   app.get('/cubes/:id/stats', async (req): Promise<CubeStatsResponse> => {
     const { id } = parse(idParam, req.params);
     const { version, from, to } = parse(statsQuery, req.query);
-    const cube = await ownedCube(id, req.user!.id);
+    const cube = await accessibleCube(id, req.user!.id);
     const all = await versionSummaries(cube.id);
     const versions = version ? all.filter((v) => v.number === version) : all;
     if (version && versions.length === 0) throw notFound('Version not found');
@@ -161,7 +216,7 @@ export async function cubeRoutes(app: FastifyInstance): Promise<void> {
   app.get('/cubes/:id/diff', async (req): Promise<CubeDiffResponse> => {
     const { id } = parse(idParam, req.params);
     const q = parse(diffQuery, req.query);
-    const cube = await ownedCube(id, req.user!.id);
+    const cube = await accessibleCube(id, req.user!.id);
     const versions = await versionSummaries(cube.id);
     const to = q.to ? versions.find((v) => v.number === q.to) : versions[0];
     const from = q.from ? versions.find((v) => v.number === q.from) : versions.find((v) => v.number === (to?.number ?? 0) - 1) ?? to;

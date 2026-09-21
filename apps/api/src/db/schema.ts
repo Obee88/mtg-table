@@ -300,3 +300,33 @@ export const gameResults = pgTable(
 );
 
 export type GameResultRow = typeof gameResults.$inferSelect;
+
+/** Players a cube owner shares a cube with: they may draft with it and build formats on it. */
+export const cubeMembers = pgTable(
+  'cube_members',
+  {
+    cubeId: uuid('cube_id')
+      .notNull()
+      .references(() => cubes.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.cubeId, t.userId] }), index('cube_members_user_id_idx').on(t.userId)],
+);
+
+/** Players a format owner shares a draft format with: they may start drafts with it. */
+export const draftConfigMembers = pgTable(
+  'draft_config_members',
+  {
+    configId: uuid('config_id')
+      .notNull()
+      .references(() => draftConfigs.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.configId, t.userId] }), index('draft_config_members_user_id_idx').on(t.userId)],
+);

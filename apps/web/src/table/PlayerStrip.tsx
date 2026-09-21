@@ -101,7 +101,7 @@ function Stat({ label, value, mine, onDelta, big = false, dim = false, quick = [
   return (
     <span ref={ref} className={`relative inline-flex items-center gap-1 ${big ? 'rounded px-1.5 py-0.5' : 'chip'} ${dim ? 'opacity-50' : ''} ${mine && big ? 'hover:bg-white/5' : ''}`} style={big ? undefined : ({ '--chip-bg': 'var(--chip-soft-neutral-bg)', '--chip-fg': 'var(--chip-soft-neutral-fg)', '--chip-bd': 'var(--chip-soft-neutral-bd)' } as CSSProperties)}>
       <button type="button" disabled={!mine} className="inline-flex items-baseline gap-1 disabled:cursor-default" onClick={() => setOpen((o) => !o)}>
-        <span className={`tabular-nums ${big ? 'text-xl font-semibold text-text' : 'text-text'}`}>{value}</span>
+        <span className={`inline-block text-center tabular-nums ${big ? 'min-w-[2.2ch] text-xl font-semibold text-text' : 'min-w-[1.4ch] text-text'}`}>{value}</span>
         <span className={big ? 'text-[11px] text-text-muted' : 'opacity-80'}>{label}</span>
       </button>
       {mine && (

@@ -90,7 +90,8 @@ PickAndPassSettings { packSize, packsPerPlayer, rounds, direction: 'alternate' |
 - `users`, `invites`, `sessions`
 - `cards` (Scryfall printings cache)
 - `cubes(id, owner_id, name)` · `cube_versions(id, cube_id, number, note, created_by, created_at)` · `cube_version_cards(version_id, card_id, quantity)` — every save is a full snapshot (migration 0005)
-- `draft_configs(id, owner_id, name, config)` — saved recipes; a room copies the config into its settings at creation (migration 0007)
+- `draft_configs(id, owner_id, name, config)` — saved recipes; a room copies the config into its settings at creation (migration 0007) · `draft_config_members(config_id, user_id)` (0011)
+- `cube_members(cube_id, user_id)` — players a cube is shared with (0010)
 - `decks(id, owner_id, name, json)` — main / sideboard / commander as printing ids
 - `rooms(id, owner_id, settings_json, phase, created_at)` — a draft room is a room whose settings carry a `draft` config; phase runs lobby → drafting → deckbuilding → playing → ended · `room_players(room_id, user_id, seat)`
 - `room_events(room_id, seq, actor_id, type, payload, created_at)` · `room_snapshots(room_id, seq, state)`
@@ -165,6 +166,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 
 **M6 — Stats**
 - [x] Report-result step and `game_results`
+- [x] Cubes and draft formats can be shared with other players (cube_members, draft_config_members): members use them for drafts and formats, read-only; `GET /users` lists the group
 - [x] Sideboarding step before every game (swap by printing from the server-side deck list, everyone finishes, changed decks redraw), draft decks need 40 cards with basics
 - [x] End game / new game from the toolbar: anyone proposes who won (or "nobody won — don't track"), every seat confirms, then the room ends or new hands are dealt
 - [x] Card stats per cube/version (avg pick, pick-rate-when-seen, first-pick rate, most-passed)

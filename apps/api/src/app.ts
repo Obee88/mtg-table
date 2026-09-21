@@ -15,6 +15,7 @@ import { fetchDeckSite, type DeckSiteFetch } from './decks/external.js';
 import { deckRoutes } from './decks/routes.js';
 import { draftConfigRoutes } from './drafts/routes.js';
 import { statsRoutes } from './stats/routes.js';
+import { userRoutes } from './users/routes.js';
 import type { Db, UserRow } from './db/index.js';
 import { HttpError } from './errors.js';
 import { healthRoutes } from './routes/health.js';
@@ -110,6 +111,7 @@ export async function buildApp(config: Config, db: Db, deps: AppDeps = {}): Prom
   await app.register(cubeRoutes);
   await app.register(draftConfigRoutes);
   await app.register(statsRoutes);
+  await app.register(userRoutes);
   await app.register(roomRoutes);
   await app.register(roomSocketRoutes);
 

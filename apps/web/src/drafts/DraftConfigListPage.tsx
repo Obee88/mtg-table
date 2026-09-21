@@ -29,9 +29,9 @@ export function DraftConfigListPage() {
             <li key={c.id} className="flex items-center justify-between gap-3 rounded-md px-2 py-2 text-sm hover:bg-surface-raised">
               <Link to={`/drafts/${c.id}`} className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{c.name}</span>
-                <span className="mt-0.5 flex items-center gap-2 text-text-muted"><Chip type="neutral">{c.seats} players</Chip>{c.phaseCount} phase{c.phaseCount === 1 ? '' : 's'} · {new Date(c.updatedAt).toLocaleDateString()}</span>
+                <span className="mt-0.5 flex items-center gap-2 text-text-muted"><Chip type="neutral">{c.seats} players</Chip>{c.shared && <Chip type="primary" title="shared with you">by {c.ownerName}</Chip>}{c.phaseCount} phase{c.phaseCount === 1 ? '' : 's'} · {new Date(c.updatedAt).toLocaleDateString()}</span>
               </Link>
-              <Button variant="ghost" className="text-danger" onClick={() => confirm(`Delete “${c.name}”?`) && remove.mutate(c.id)} disabled={remove.isPending}>Delete</Button>
+              {!c.shared && <Button variant="ghost" className="text-danger" onClick={() => confirm(`Delete “${c.name}”?`) && remove.mutate(c.id)} disabled={remove.isPending}>Delete</Button>}
             </li>
           ))}
         </ul>

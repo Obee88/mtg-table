@@ -37,3 +37,9 @@ export interface ApiError {
   error: string;
   message: string;
 }
+
+/** A member of the group, as shown in pickers. */
+export interface UserSummary {
+  id: string;
+  displayName: string;
+}

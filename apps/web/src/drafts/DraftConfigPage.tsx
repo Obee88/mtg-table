@@ -5,7 +5,9 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Button, Card, ErrorText } from '../components';
 import { Chip } from '../components/Chip';
+import { ShareCard } from '../components/ShareCard';
 import { api } from '../lib/api';
+import { useMe } from '../lib/auth';
 
 const select = 'rounded-md border border-border bg-surface px-2 py-1.5 text-sm text-text';
 const number = `${select} w-20`;
@@ -16,6 +18,9 @@ export function DraftConfigPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const existing = useQuery({ queryKey: ['draft-configs', id], queryFn: () => api<DraftConfigResponse>(`/draft-configs/${id}`), enabled: !!id });
+  const me = useMe();
+  // A shared format is read-only for everyone but its owner.
+  const canEdit = !id || (!!existing.data && existing.data.ownerId === me.data?.id);
   const cubes = useQuery({ queryKey: ['cubes'], queryFn: () => api<CubeSummary[]>('/cubes') });
   const [config, setConfig] = useState<DraftConfig>(() => ({ name: 'New format', seats: 4, startDirection: 'right', phases: [emptyPhase()] }));
   /** Cube chosen per phase (the config itself only stores the version). */
@@ -81,10 +86,15 @@ export function DraftConfigPage() {
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
       <header className="flex items-center justify-between gap-3">
-        <input className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent text-2xl font-semibold hover:border-border focus:border-border" value={config.name} onChange={(e) => set({ name: e.target.value })} aria-label="format name" />
+        <input className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent text-2xl font-semibold hover:border-border focus:border-border disabled:hover:border-transparent" value={config.name} disabled={!canEdit} onChange={(e) => set({ name: e.target.value })} aria-label="format name" />
         <Link to="/drafts" className="text-sm text-accent hover:underline">Formats</Link>
       </header>
+      {!canEdit && <p className="text-sm text-text-muted">Shared with you by the owner: you can start drafts with this format, but not change it.</p>}
+      {id && canEdit && existing.data && (
+        <ShareCard description="These players can start drafts with this format." members={existing.data.members} ownerId={existing.data.ownerId} basePath={`/draft-configs/${id}`} onChanged={() => void qc.invalidateQueries({ queryKey: ['draft-configs', id] })} />
+      )}
 
+      <fieldset disabled={!canEdit} className="contents">
       <Card title="Table">
         <div className="flex flex-wrap items-end gap-3 text-sm">
           <label>
@@ -237,9 +247,10 @@ export function DraftConfigPage() {
         <Button variant="ghost" disabled={config.phases.length >= 6} onClick={() => setPhases([...config.phases, emptyPhase(config.phases[config.phases.length - 1]?.poolCubeVersionId)], [...phaseCubes, phaseCubes[phaseCubes.length - 1] ?? ''])}>Add phase</Button>
         <span className="ml-auto flex items-center gap-3">
           {problems.length > 0 && <Chip type="warning">{problems[0]}</Chip>}
-          <Button onClick={() => save.mutate(config)} disabled={save.isPending || problems.length > 0 || !config.name.trim()}>{id ? 'Save' : 'Create'}</Button>
+          {canEdit && <Button onClick={() => save.mutate(config)} disabled={save.isPending || problems.length > 0 || !config.name.trim()}>{id ? 'Save' : 'Create'}</Button>}
         </span>
       </div>
+      </fieldset>
       <ErrorText error={save.error ?? existing.error} />
       {save.isSuccess && <p className="text-sm text-success">Saved. Pick this format when creating a room.</p>}
     </main>
