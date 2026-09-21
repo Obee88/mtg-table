@@ -17,7 +17,7 @@ const PAD = 14;
  * down and to the right of the one below); the panel widens with the pile.
  * Anyone can drop their own cards here; each is edged in its owner's colour.
  */
-export function StackZone({ state, meId, printings, run, onCardMenu, onCardDragStart, onCardClick, isSelected = () => false, onHide }: {
+export function StackZone({ state, meId, printings, run, onCardMenu, onCardDragStart, onCardClick, isSelected = () => false, onHide, side = 'right' }: {
   state: RoomState;
   meId: string;
   printings: Map<string, CardPrinting>;
@@ -29,6 +29,8 @@ export function StackZone({ state, meId, printings, run, onCardMenu, onCardDragS
   isSelected?: ((id: string) => boolean) | undefined;
   /** Offered from the label; the stack must be empty to disappear. */
   onHide?: (() => void) | undefined;
+  /** Which edge of the battlefield it hugs; the game panel takes the other one. */
+  side?: 'left' | 'right';
 }) {
   const { w, h } = useCardSize();
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
@@ -56,7 +58,7 @@ export function StackZone({ state, meId, printings, run, onCardMenu, onCardDragS
 
   return (
     <div
-      className={`absolute right-2 top-1/2 z-40 flex -translate-y-1/2 flex-col items-start rounded-xl transition-[width,background-color] duration-150 ${n === 0 ? 'border border-dashed border-white/15 bg-black/30 hover:border-white/40' : 'border border-white/15 bg-black/60 shadow-2xl backdrop-blur-sm'}`}
+      className={`absolute ${side === 'right' ? 'right-2' : 'left-2'} top-1/2 z-40 flex -translate-y-1/2 flex-col items-start rounded-xl transition-[width,background-color] duration-150 ${n === 0 ? 'border border-dashed border-white/15 bg-black/30 hover:border-white/40' : 'border border-white/15 bg-black/60 shadow-2xl backdrop-blur-sm'}`}
       style={{ width: pileW + PAD * 2, padding: `${PAD - 6}px ${PAD}px ${PAD}px`, minHeight: n === 0 ? Math.round(h * 0.9) : undefined }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDrop}

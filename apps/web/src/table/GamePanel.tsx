@@ -13,7 +13,7 @@ type Run = (c: GameCommand) => Promise<void>;
  * the stack on the right. Life totals for everyone at a glance (own and
  * teammates' adjustable), and the actions that end or leave the game.
  */
-export function GamePanel({ state, meId, run, leaveHref, onEndGame, onNewGame, onForfeit, stackShown = false, onShowStack }: {
+export function GamePanel({ state, meId, run, leaveHref, onEndGame, onNewGame, onForfeit, stackShown = false, onShowStack, side = 'left' }: {
   state: RoomState;
   meId: string;
   run: Run;
@@ -24,6 +24,8 @@ export function GamePanel({ state, meId, run, leaveHref, onEndGame, onNewGame, o
   /** The stack overlay is a per-player preference, offered here and from its own label. */
   stackShown?: boolean;
   onShowStack?: ((show: boolean) => void) | undefined;
+  /** Which edge of the battlefield it hugs; the stack takes the other one. */
+  side?: 'left' | 'right';
 }) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const navigate = useNavigate();
@@ -53,7 +55,7 @@ export function GamePanel({ state, meId, run, leaveHref, onEndGame, onNewGame, o
 
   return (
     <>
-      <div className="absolute left-2 top-1/2 z-40 flex max-h-[80%] w-32 -translate-y-1/2 flex-col gap-1 overflow-y-auto rounded-xl border border-white/15 bg-black/50 p-2 shadow-2xl backdrop-blur-sm">
+      <div className={`absolute ${side === 'left' ? 'left-2' : 'right-2'} top-1/2 z-40 flex max-h-[80%] w-32 -translate-y-1/2 flex-col gap-1 overflow-y-auto rounded-xl border border-white/15 bg-black/50 p-2 shadow-2xl backdrop-blur-sm`}>
         <span className="flex items-center gap-1">
           <Chip type="neutral" className="flex-1 justify-center uppercase tracking-wider">game {game.gameNumber ?? 1}</Chip>
           <ChipButton type="neutral" onClick={open} onContextMenu={open} title="Game actions">⋯</ChipButton>

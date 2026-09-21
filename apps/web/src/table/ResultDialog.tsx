@@ -16,10 +16,12 @@ function outcomeOptions(state: RoomState) {
 }
 
 /** Proposes the outcome of the current game before ending it or dealing a new one. */
-export function ResultDialog({ state, then, onPropose, onClose }: { state: RoomState; then: Then; onPropose: (winners: string[] | null) => Promise<string | null>; onClose: () => void }) {
+export function ResultDialog({ state, then, onPropose, onClose }: { state: RoomState; then: Then; onPropose: (winners: string[] | null, then: Then) => Promise<string | null>; onClose: () => void }) {
   const options = outcomeOptions(state);
   const [chosen, setChosen] = useState<string[]>([]);
   const [untracked, setUntracked] = useState(false);
+  /** Ticked: deal the next game straight away instead of going back to the lobby. */
+  const [again, setAgain] = useState(then === 'restart');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const others = seatedPlayers(state).length - 1;
@@ -27,7 +29,7 @@ export function ResultDialog({ state, then, onPropose, onClose }: { state: RoomS
   const submit = async () => {
     setBusy(true);
     const winners = untracked ? null : options.filter((o) => chosen.includes(o.key)).flatMap((o) => o.ids);
-    const err = await onPropose(winners);
+    const err = await onPropose(winners, again ? 'restart' : 'end');
     setBusy(false);
     if (err) setError(err);
     else onClose();
@@ -51,14 +53,18 @@ export function ResultDialog({ state, then, onPropose, onClose }: { state: RoomS
           </label>
           {!untracked && chosen.length === 0 && <span className="text-xs text-text-muted">Nobody ticked = a draw (tracked).</span>}
         </div>
+        <label className="flex items-center gap-2 border-t border-border pt-3">
+          <input type="checkbox" checked={again} onChange={(e) => setAgain(e.target.checked)} />
+          Start a new game right away
+        </label>
         <p className="text-xs text-text-muted">
           {others > 0 && `The other ${others === 1 ? 'player' : 'players'} must confirm. `}
-          {then === 'end' ? 'The table clears and the room stays open for another game.' : 'New hands are dealt right away.'}
+          {again ? 'New hands are dealt for everyone.' : 'The table clears and the room stays open for another game.'}
         </p>
         {error && <p className="text-danger">{error}</p>}
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => void submit()} disabled={busy}>{then === 'end' ? 'End the game' : 'Deal a new game'}</Button>
+          <Button onClick={() => void submit()} disabled={busy}>{again ? 'End & deal again' : 'End the game'}</Button>
         </div>
       </div>
     </Dialog>
