@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 
 type Run = (c: GameCommand) => Promise<void>;
 
-const btn = 'rounded px-1.5 py-1 text-[11px] text-text-muted hover:bg-white/10 hover:text-text disabled:opacity-40';
+const btn = 'touch-target rounded px-1.5 py-1 text-[11px] text-text-muted hover:bg-white/10 hover:text-text disabled:opacity-40';
 
 /** The owner's actions; lives in the strip and is dimmed until the half is hovered. */
 export function Toolbar({ run, onToken, onHelp, onEndGame, onNewGame, myTurn = false }: { run: Run; onToken: () => void; onHelp: () => void; onEndGame?: (() => void) | undefined; onNewGame?: (() => void) | undefined; myTurn?: boolean }) {
@@ -25,7 +25,7 @@ export function Toolbar({ run, onToken, onHelp, onEndGame, onNewGame, myTurn = f
 
   return (
     <span className="reveal-on-hover flex items-center gap-0.5">
-      {myTurn && <button type="button" className="rounded bg-accent px-2 py-1 text-[11px] font-semibold text-bg hover:bg-accent-hover" onClick={() => void run({ type: 'endTurn' })}>End turn <kbd>n</kbd></button>}
+      {myTurn && <button type="button" className="touch-target rounded bg-accent px-2 py-1 text-[11px] font-semibold text-bg hover:bg-accent-hover" onClick={() => void run({ type: 'endTurn' })}>End turn <kbd>n</kbd></button>}
       <button type="button" className={btn} onClick={() => void run({ type: 'untapAll' })}>Untap all <kbd>u</kbd></button>
       <button type="button" className={btn} onClick={onToken}>Token <kbd>t</kbd></button>
       <span ref={ref} className="relative">

@@ -70,6 +70,10 @@ body {
   background:
     radial-gradient(ellipse at 50% 40%, var(--color-felt) 0%, var(--color-felt-deep) 100%);
   position: relative;
+  /* Notches and home indicators (viewport-fit=cover). */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 .felt::before {
   /* fine noise so the felt does not band */
@@ -120,10 +124,21 @@ body {
 .half:focus-within .reveal-on-hover {
   opacity: 1;
 }
-/* No hover on touch screens: keep the controls visible. */
+/* No hover on touch screens: keep the controls visible and give small controls a finger-sized hit area. */
 @media (hover: none) {
   .reveal-on-hover {
     opacity: 1;
+  }
+  .touch-target {
+    min-height: 36px;
+    min-width: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .touch-menu-item {
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
   }
 }
 

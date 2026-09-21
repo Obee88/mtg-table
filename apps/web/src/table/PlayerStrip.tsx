@@ -106,8 +106,8 @@ function Stat({ label, value, mine, onDelta, big = false, dim = false, quick = [
       </button>
       {mine && (
         <span className="reveal-on-hover inline-flex">
-          <button type="button" className="px-1 text-text-muted hover:text-text" onClick={() => onDelta(-1)} aria-label={`${label} minus one`}>−</button>
-          <button type="button" className="px-1 text-text-muted hover:text-text" onClick={() => onDelta(1)} aria-label={`${label} plus one`}>+</button>
+          <button type="button" className="touch-target px-1 text-text-muted hover:text-text" onClick={() => onDelta(-1)} aria-label={`${label} minus one`}>−</button>
+          <button type="button" className="touch-target px-1 text-text-muted hover:text-text" onClick={() => onDelta(1)} aria-label={`${label} plus one`}>+</button>
         </span>
       )}
       {open && mine && quick.length > 0 && (

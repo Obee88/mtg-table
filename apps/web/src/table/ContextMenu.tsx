@@ -20,8 +20,10 @@ export function ContextMenu({ x, y, items, onClose, header }: { x: number; y: nu
     };
   }, [onClose]);
 
-  const left = Math.min(x, window.innerWidth - 220);
-  const top = Math.min(y, window.innerHeight - 40 * items.length - 24);
+  // Touch screens get taller rows (see .touch-menu-item), so the menu is measured with them.
+  const rowHeight = window.matchMedia('(hover: none)').matches ? 44 : 32;
+  const left = Math.max(4, Math.min(x, window.innerWidth - 220));
+  const top = Math.max(4, Math.min(y, window.innerHeight - rowHeight * items.length - 24));
 
   return (
     <div
@@ -45,7 +47,7 @@ export function ContextMenu({ x, y, items, onClose, header }: { x: number; y: nu
               item.onSelect();
               onClose();
             }}
-            className={`block w-full px-3 py-1.5 text-left hover:bg-surface disabled:opacity-40 ${item.danger ? 'text-danger' : ''}`}
+            className={`block w-full px-3 py-1.5 text-left hover:bg-surface disabled:opacity-40 touch-menu-item ${item.danger ? 'text-danger' : ''}`}
           >
             {item.label}
           </button>

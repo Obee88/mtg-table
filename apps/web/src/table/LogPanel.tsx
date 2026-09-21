@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { PreviewPanel } from '../cards/CardPreview';
 import { api } from '../lib/api';
+import { useNarrowScreen } from '../lib/useMediaQuery';
 import { mergeEvents } from './log';
 import { playerColor } from './PlayerStrip';
 import { useCards } from './useCards';
@@ -12,7 +13,9 @@ import { draftPrintingIds } from '../draft/ids';
 
 /** Full-height log column: history backfilled once, then the live buffer. Scrolls internally only. */
 export function LogPanel({ roomId, state, live, status, leaveHref, onCloseRoom, onRestart, onReport }: { roomId: string; state: RoomState; live: RoomEvent[]; status: 'connecting' | 'open' | 'closed'; leaveHref: string; onCloseRoom?: (() => void) | undefined; onRestart?: (() => void) | undefined; onReport?: (() => void) | undefined }) {
-  const [open, setOpen] = useState(true);
+  // On a tablet the table needs the width: the log slides over it instead of sitting beside it.
+  const narrow = useNarrowScreen();
+  const [open, setOpen] = useState(!narrow);
   const history = useQuery({
     queryKey: ['rooms', roomId, 'events'],
     queryFn: () => api<RoomEvent[]>(`/rooms/${roomId}/events?after=0`),
@@ -34,17 +37,28 @@ export function LogPanel({ roomId, state, live, status, leaveHref, onCloseRoom, 
   const colorOf = (id: string | null) => (id && state.players[id] ? playerColor(state, state.players[id]!) : undefined);
 
   return (
-    <aside className={`flex h-full min-h-0 shrink-0 flex-col border-l border-white/10 bg-black/40 backdrop-blur-sm ${open ? 'w-[clamp(280px,20vw,400px)]' : 'w-6'}`}>
-      <div className="flex h-9 shrink-0 items-center gap-2 px-2 text-[11px] text-text-muted">
-        <button type="button" onClick={() => setOpen((o) => !o)} className="text-text-muted hover:text-text" title={open ? 'Collapse log' : 'Expand log'}>{open ? '›' : '‹'}</button>
+    <>
+    {narrow && open && <div className="fixed inset-0 z-30 bg-black/50" onClick={() => setOpen(false)} aria-hidden />}
+    <aside
+      className={`flex min-h-0 flex-col border-l border-white/10 bg-black/40 backdrop-blur-sm ${
+        narrow
+          ? open
+            ? 'fixed right-0 top-0 z-40 h-dvh w-[min(85vw,360px)]'
+            : 'fixed right-0 top-2 z-40 h-10 w-10 items-center justify-center rounded-l-md bg-black/60'
+          : `h-full shrink-0 ${open ? 'w-[clamp(280px,20vw,400px)]' : 'w-6'}`
+      }`}
+      style={narrow ? { paddingRight: 'env(safe-area-inset-right)' } : undefined}
+    >
+      <div className={`flex shrink-0 items-center gap-2 text-[11px] text-text-muted ${open ? 'h-9 px-2' : 'h-full justify-center'}`}>
+        <button type="button" onClick={() => setOpen((o) => !o)} className="touch-target text-text-muted hover:text-text" title={open ? 'Collapse log' : 'Expand log'}>{open ? '›' : '‹'}</button>
         {open && (
           <>
             <span className={status === 'open' ? 'text-success' : 'text-accent'}>●</span>
             <span>{status === 'open' ? 'connected' : status === 'connecting' ? 'reconnecting…' : 'offline'}</span>
-            <Link to={leaveHref} className="ml-auto text-accent hover:underline">Leave</Link>
-            {onReport && <button type="button" onClick={onReport} className="text-accent hover:underline" title="Record who won this game">Report result</button>}
-            {onRestart && <button type="button" onClick={onRestart} className="text-accent hover:underline" title="Deal new hands for everyone">Restart</button>}
-            {onCloseRoom && <button type="button" onClick={onCloseRoom} className="text-danger hover:underline" title="Close the room without recording anything">Abandon</button>}
+            <Link to={leaveHref} className="touch-target ml-auto text-accent hover:underline">Leave</Link>
+            {onReport && <button type="button" onClick={onReport} className="touch-target text-accent hover:underline" title="Record who won this game">Report result</button>}
+            {onRestart && <button type="button" onClick={onRestart} className="touch-target text-accent hover:underline" title="Deal new hands for everyone">Restart</button>}
+            {onCloseRoom && <button type="button" onClick={onCloseRoom} className="touch-target text-danger hover:underline" title="Close the room without recording anything">Abandon</button>}
           </>
         )}
       </div>
@@ -65,5 +79,6 @@ export function LogPanel({ roomId, state, live, status, leaveHref, onCloseRoom, 
         </ol>
       )}
     </aside>
+    </>
   );
 }
