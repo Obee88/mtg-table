@@ -1,9 +1,11 @@
 import type { DeckImportResponse, DeckResponse, DeckUrlImportResponse } from '@mtg/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, type ChangeEvent } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Button, Card, ErrorText, Input, Textarea } from '../components';
+import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
+import { useUnsavedDraft } from '../lib/useUnsavedDraft';
 import { DeckEditor } from './DeckEditor';
 import { countSection, fromImport, toDeckInput, type EditableDeck } from './model';
 
@@ -41,9 +43,24 @@ export function DeckImportPage() {
     },
   });
 
+  // Nothing here is saved until "Save deck": keep the work in the browser and warn before leaving.
+  const dirty = !!(name.trim() || text.trim() || deck);
+  const draft = useUnsavedDraft<{ name: string; text: string; report: DeckImportResponse | null; deck: EditableDeck | null }>('deck-import', { name, text, report, deck }, dirty);
+  const [restored, setRestored] = useState(false);
+  useEffect(() => {
+    const r = draft.restored;
+    if (!r || dirty || !(r.name || r.text || r.deck)) return;
+    setName(r.name);
+    setText(r.text);
+    setReport(r.report);
+    setDeck(r.deck);
+    setRestored(true);
+  }, []);
+
   const save = useMutation({
     mutationFn: (d: EditableDeck) => api<DeckResponse>('/decks', { body: toDeckInput({ ...d, name }) }),
     onSuccess: (res) => {
+      draft.clear();
       void qc.invalidateQueries({ queryKey: ['decks'] });
       navigate(`/decks/${res.deck.id}`);
     },
@@ -63,9 +80,14 @@ export function DeckImportPage() {
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Import deck</h1>
+        <h1 className="flex items-center gap-3 text-2xl font-semibold">Import deck{dirty && <Chip type="warning" title="Nothing is saved until you press Save deck. Your work is kept in this browser meanwhile.">unsaved</Chip>}</h1>
         <Link to="/decks" className="text-sm text-accent hover:underline">Decks</Link>
       </header>
+      {restored && (
+        <p className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm">
+          Restored the decklist you were working on. <button type="button" className="text-accent hover:underline" onClick={() => { draft.clear(); setName(''); setText(''); setReport(null); setDeck(null); setRestored(false); }}>Discard it</button>
+        </p>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[2fr_3fr]">
         <Card title="Decklist">

@@ -1,9 +1,11 @@
 import type { CubeCobraImportResponse, CubeResponse, DeckImportResponse } from '@mtg/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, type ChangeEvent } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Button, Card, ErrorText, Input, Textarea } from '../components';
+import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
+import { useUnsavedDraft } from '../lib/useUnsavedDraft';
 import { CubeEditor } from './CubeEditor';
 import { countCubeCards, fromImport, toCubeCards, type EditableCubeCard } from './model';
 
@@ -33,9 +35,24 @@ export function CubeImportPage() {
       setCards(fromImport(res));
     },
   });
+  // Nothing here is saved until "Save cube": keep the work in the browser and warn before leaving.
+  const dirty = !!(name.trim() || text.trim() || cards);
+  const draft = useUnsavedDraft<{ name: string; text: string; report: DeckImportResponse | null; cards: EditableCubeCard[] | null }>('cube-import', { name, text, report, cards }, dirty);
+  const [restored, setRestored] = useState(false);
+  useEffect(() => {
+    const r = draft.restored;
+    if (!r || dirty || !(r.name || r.text || r.cards)) return;
+    setName(r.name);
+    setText(r.text);
+    setReport(r.report);
+    setCards(r.cards);
+    setRestored(true);
+  }, []);
+
   const save = useMutation({
     mutationFn: (list: EditableCubeCard[]) => api<CubeResponse>('/cubes', { body: { name: name.trim(), cards: toCubeCards(list) } }),
     onSuccess: (res) => {
+      draft.clear();
       void qc.invalidateQueries({ queryKey: ['cubes'] });
       navigate(`/cubes/${res.cube.id}`);
     },
@@ -52,9 +69,14 @@ export function CubeImportPage() {
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">New cube</h1>
+        <h1 className="flex items-center gap-3 text-2xl font-semibold">New cube{dirty && <Chip type="warning" title="Nothing is saved until you press Save cube. Your work is kept in this browser meanwhile.">unsaved</Chip>}</h1>
         <Link to="/cubes" className="text-sm text-accent hover:underline">Cubes</Link>
       </header>
+      {restored && (
+        <p className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm">
+          Restored the cube list you were working on. <button type="button" className="text-accent hover:underline" onClick={() => { draft.clear(); setName(''); setText(''); setReport(null); setCards(null); setRestored(false); }}>Discard it</button>
+        </p>
+      )}
       <div className="grid gap-6 lg:grid-cols-[2fr_3fr]">
         <div className="flex flex-col gap-6">
         <Card title="Import from Cube Cobra">
