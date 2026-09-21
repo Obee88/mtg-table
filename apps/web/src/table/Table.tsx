@@ -16,6 +16,7 @@ import { PlayerStrip } from './PlayerStrip';
 import { Toolbar } from './Toolbar';
 import { ShortcutsDialog } from './ShortcutsDialog';
 import { BattlefieldRow, columnStep, defaultRow, dropSlot, freeColumns, layoutRows } from './Battlefield';
+import { GamePanel } from './GamePanel';
 import { StackZone } from './StackZone';
 import { CardBack, TableCard } from './TableCard';
 import { TokenDialog } from './TokenDialog';
@@ -35,7 +36,7 @@ const DRAG_MIME = 'text/instance-ids';
  * The whole game view. Fills its container (no page scroll): one row per
  * player, card size derived from the space each row gets.
  */
-export function Table({ state, meId, send, live = [], connected = [], onEndGame, onNewGame }: { state: RoomState; meId: string; send: Send; live?: RoomEvent[]; connected?: string[]; onEndGame?: (() => void) | undefined; onNewGame?: (() => void) | undefined }) {
+export function Table({ state, meId, send, live = [], connected = [], onEndGame, onNewGame, onForfeit, leaveHref = '/rooms' }: { state: RoomState; meId: string; send: Send; live?: RoomEvent[]; connected?: string[]; onEndGame?: (() => void) | undefined; onNewGame?: (() => void) | undefined; onForfeit?: (() => void) | undefined; leaveHref?: string }) {
   const game = state.game!;
   const players = seatedPlayers(state);
   const me = players.find((p) => p.id === meId);
@@ -423,6 +424,7 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
     <CardSizeProvider size={sizeFor(1, 0.5)}>
       <div ref={rootRef} className="relative h-full min-h-0 w-full">
       {layout}
+      <GamePanel state={state} meId={meId} run={run} leaveHref={leaveHref} onEndGame={onEndGame} onNewGame={onNewGame} onForfeit={me && onForfeit ? onForfeit : undefined} />
       <StackZone state={state} meId={meId} printings={printings} run={run} onCardMenu={openMenu} onCardDragStart={onCardDragStart} onCardClick={onCardClick} isSelected={isSelected} />
       {inSideboarding(game) ? <SideboardOverlay state={state} meId={meId} run={run} /> : inMulligan(game) && <MulliganOverlay state={state} meId={meId} printings={printings} run={run} />}
       </div>

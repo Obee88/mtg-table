@@ -1,4 +1,5 @@
 import type { GameCommand, RoomEvent, RoomState } from '@mtg/shared';
+import { seatedPlayers } from '@mtg/shared';
 import type { CommandResult } from '../rooms/connection';
 import { useState } from 'react';
 import { CardPreviewProvider } from '../cards/CardPreview';
@@ -24,11 +25,34 @@ export function GameScreen({ room, meId, leaveHref = '/rooms' }: { room: GameRoo
   const seated = !!room.state.players[meId];
   const outcome = (r: { ok: boolean; error?: string }) => (r.ok ? null : (r.error ?? 'Failed'));
   const propose = (then: 'end' | 'restart') => async (winners: string[] | null) => outcome(await room.send({ type: 'proposeResult', winners, then }));
+  /** Conceding: the other side wins this game, once everyone confirms. */
+  const forfeit = () => {
+    const me = room.state.players[meId];
+    const teams = room.state.settings.mode === '2v2';
+    const winners = seatedPlayers(room.state)
+      .filter((p) => (teams && me ? p.team !== me.team : p.id !== meId))
+      .map((p) => p.id);
+    if (winners.length === 0) return;
+    const names = winners.map((id) => room.state.players[id]?.displayName ?? '?').join(' & ');
+    if (confirm(`Forfeit game ${room.state.game?.gameNumber ?? 1}? ${names} win once everyone confirms, and the room closes.`)) {
+      void room.send({ type: 'proposeResult', winners, then: 'end' });
+    }
+  };
   return (
     <CardPreviewProvider mode="panel">
     <main className="felt flex h-dvh w-screen overflow-hidden">
       <div className="min-h-0 min-w-0 flex-1">
-        <Table state={room.state} meId={meId} send={room.send} live={room.events} connected={room.connected} onEndGame={seated ? () => setProposing('end') : undefined} onNewGame={seated ? () => setProposing('restart') : undefined} />
+        <Table
+          state={room.state}
+          meId={meId}
+          send={room.send}
+          live={room.events}
+          connected={room.connected}
+          leaveHref={leaveHref}
+          onEndGame={seated ? () => setProposing('end') : undefined}
+          onNewGame={seated ? () => setProposing('restart') : undefined}
+          onForfeit={seated ? forfeit : undefined}
+        />
       </div>
       <LogPanel roomId={room.state.id} state={room.state} live={room.events} status={room.status} leaveHref={leaveHref} onCloseRoom={isOwner ? closeRoom : undefined} />
       {proposing && <ResultDialog state={room.state} then={proposing} onPropose={propose(proposing)} onClose={() => setProposing(null)} />}
