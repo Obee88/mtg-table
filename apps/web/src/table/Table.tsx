@@ -446,6 +446,7 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
         )}
         {tokenDialog && (
           <TokenDialog
+            deckId={me?.deckId ?? null}
             onClose={() => setTokenDialog(false)}
             onCreate={(t) => {
               setTokenDialog(false);

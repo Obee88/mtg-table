@@ -331,3 +331,24 @@ export const draftConfigMembers = pgTable(
   },
   (t) => [primaryKey({ columns: [t.configId, t.userId] }), index('draft_config_members_user_id_idx').on(t.userId)],
 );
+
+/**
+ * Tokens a player has made, so the token dialog can offer them again.
+ * `deckKey` is the deck they were playing ('' when there was none, e.g. a
+ * draft), and `tokenKey` the printing id or `name:<custom name>`.
+ */
+export const tokenUses = pgTable(
+  'token_uses',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    deckKey: text('deck_key').notNull().default(''),
+    tokenKey: text('token_key').notNull(),
+    printingId: uuid('printing_id').references(() => cards.id),
+    customName: text('custom_name'),
+    uses: integer('uses').notNull().default(0),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.deckKey, t.tokenKey] }), index('token_uses_user_id_idx').on(t.userId)],
+);

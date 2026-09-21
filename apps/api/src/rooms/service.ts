@@ -14,7 +14,7 @@ import {
   type RoomState,
 } from '@mtg/shared';
 import { randomInt, randomUUID } from 'node:crypto';
-import { and, asc, desc, eq, gt, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, sql } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import { schema, type Db } from '../db/index.js';
 import { HttpError } from '../errors.js';
@@ -249,6 +249,28 @@ export class RoomService {
           await tx.delete(schema.roomPlayers).where(and(eq(schema.roomPlayers.roomId, room.state.id), eq(schema.roomPlayers.userId, e.playerId)));
         } else if (e.type === 'seatChanged') {
           await tx.update(schema.roomPlayers).set({ seat: e.seat }).where(and(eq(schema.roomPlayers.roomId, room.state.id), eq(schema.roomPlayers.userId, e.playerId)));
+        }
+      }
+      // Tokens a player makes are remembered, so the dialog can offer them again with that deck.
+      for (const e of events) {
+        if (e.type !== 'tokenCreated') continue;
+        const deckKey = after.players[e.controllerId]?.deckId ?? '';
+        const counts = new Map<string, { printingId: string | null; customName: string | null; n: number }>();
+        for (const c of e.cards) {
+          const key = c.printingId ?? (c.customName ? `name:${c.customName}` : '');
+          if (!key) continue;
+          const entry = counts.get(key) ?? { printingId: c.printingId, customName: c.customName, n: 0 };
+          entry.n++;
+          counts.set(key, entry);
+        }
+        for (const [tokenKey, t] of counts) {
+          await tx
+            .insert(schema.tokenUses)
+            .values({ userId: e.controllerId, deckKey, tokenKey, printingId: t.printingId, customName: t.customName, uses: t.n, lastUsedAt: now })
+            .onConflictDoUpdate({
+              target: [schema.tokenUses.userId, schema.tokenUses.deckKey, schema.tokenUses.tokenKey],
+              set: { uses: sql`${schema.tokenUses.uses} + ${t.n}`, lastUsedAt: now },
+            });
         }
       }
       // Results are denormalised for statistics with the decks as they sit at the table.

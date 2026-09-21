@@ -191,3 +191,52 @@ describe('cube draft statistics', () => {
     expect((await call('GET', `/cubes/${cubeId}/stats`, bob)).statusCode).toBe(404);
   });
 });
+
+describe('remembered tokens', () => {
+  it('records the tokens a player makes and offers them again, this deck first', async () => {
+    const db = ctx.app.db;
+    const { schema } = await import('../db/index.js');
+    const soldier = 'aaaa1111-1111-4111-8111-111111111111';
+    const card = 'aaaa2222-2222-4222-8222-222222222222';
+    await db.insert(schema.cards).values([
+      { id: soldier, name: 'Soldier', lang: 'en', layout: 'token', setCode: 'tm21', setName: 'Tokens', setType: 'token', collectorNumber: '1', releasedAt: '2020-01-01', rarity: 'common', colorIdentity: ['W'], faces: [], oracleId: null, isToken: true },
+      { id: card, name: 'Raise the Alarm', lang: 'en', layout: 'normal', setCode: 'lea', setName: 'Alpha', setType: 'core', collectorNumber: '9', releasedAt: '1993-08-05', rarity: 'common', colorIdentity: ['W'], faces: [], oracleId: null },
+    ]);
+    const aliceId = (await ctx.app.inject({ url: '/me', headers: { cookie: alice } })).json().id as string;
+    const bobId = (await ctx.app.inject({ url: '/me', headers: { cookie: bob } })).json().id as string;
+    const contents = { main: [{ printingId: card, quantity: 9 }], sideboard: [], commander: [] };
+    const [deckA] = await db.insert(schema.decks).values({ ownerId: aliceId, name: 'Soldiers', contents }).returning();
+    const [deckB] = await db.insert(schema.decks).values({ ownerId: bobId, name: 'Theirs', contents }).returning();
+
+    expect((await call('GET', '/cards/tokens/recent', alice)).json()).toEqual({ tokens: [] });
+
+    const created = await call('POST', '/rooms', alice, { settings: { playerCount: 2, mode: '1v1', startingLife: 20, commander: false } });
+    const id = created.json().id as string;
+    const cmd = (cookie: string, command: object) => call('POST', `/rooms/${id}/commands`, cookie, command);
+    await cmd(bob, { type: 'join' });
+    await cmd(alice, { type: 'selectDeck', deckId: deckA!.id });
+    await cmd(bob, { type: 'selectDeck', deckId: deckB!.id });
+    await cmd(alice, { type: 'setReady', ready: true });
+    await cmd(bob, { type: 'setReady', ready: true });
+    expect((await cmd(alice, { type: 'start' })).statusCode).toBe(200);
+    for (const cookie of [alice, bob]) await cmd(cookie, { type: 'finishSideboarding' });
+    for (const cookie of [alice, bob]) await cmd(cookie, { type: 'keepHand', bottom: [] });
+
+    expect((await cmd(alice, { type: 'createToken', printingId: soldier, customName: null, count: 2 })).statusCode).toBe(200);
+    expect((await cmd(alice, { type: 'createToken', printingId: null, customName: 'Clue', count: 1 })).statusCode).toBe(200);
+
+    const mine = (await call('GET', `/cards/tokens/recent?deckId=${deckA!.id}`, alice)).json().tokens;
+    expect(mine.map((t: { printing: { name: string } | null; customName: string | null; uses: number; thisDeck: boolean }) => [t.printing?.name ?? t.customName, t.uses, t.thisDeck]))
+      .toEqual([['Soldier', 2, true], ['Clue', 1, true]]);
+    // Another deck still sees them, just not marked as its own.
+    expect((await call('GET', `/cards/tokens/recent?deckId=${deckB!.id}`, alice)).json().tokens.every((t: { thisDeck: boolean }) => !t.thisDeck)).toBe(true);
+    // They belong to the player who made them.
+    expect((await call('GET', '/cards/tokens/recent', bob)).json()).toEqual({ tokens: [] });
+
+    // Making the same token again counts up rather than duplicating.
+    await cmd(alice, { type: 'createToken', printingId: soldier, customName: null, count: 3 });
+    const again = (await call('GET', `/cards/tokens/recent?deckId=${deckA!.id}`, alice)).json().tokens;
+    expect(again).toHaveLength(2);
+    expect(again[0]).toMatchObject({ uses: 5 });
+  });
+});

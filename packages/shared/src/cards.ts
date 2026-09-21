@@ -55,3 +55,12 @@ export interface CardSearchResponse {
 export interface CardPrintingsResponse {
   printings: CardPrinting[];
 }
+
+/** A token a player has made before, offered again in the token dialog. */
+export interface TokenSuggestion {
+  printing: CardPrinting | null;
+  customName: string | null;
+  uses: number;
+  /** Made with the deck being asked about, rather than any deck. */
+  thisDeck: boolean;
+}
