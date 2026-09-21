@@ -94,7 +94,10 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       if (players.length !== state.settings.playerCount) return reject(`Waiting for ${state.settings.playerCount - players.length} more player(s)`);
       const notReady = players.filter((p) => !p.ready);
       if (notReady.length > 0) return reject(`Not ready: ${notReady.map((p) => p.displayName).join(', ')}`);
-      return state.settings.draft ? startDraft(state, ctx) : deal(state, ctx);
+      const dealt = state.settings.draft ? startDraft(state, ctx) : deal(state, ctx);
+      // A name given at the start belongs to the same batch, so undo and replay keep them together.
+      const named = command.name?.trim();
+      return dealt.ok && named ? { ok: true, events: [{ type: 'roomRenamed', name: named }, ...dealt.events] } : dealt;
     }
 
     case 'draftPick':
@@ -519,6 +522,11 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       if (!me) return reject('Not in the room');
       if (state.phase !== 'playing' || !state.game?.pendingResult) return reject('Nothing to dispute');
       return accept({ type: 'resultRejected', playerId: ctx.actorId });
+
+    case 'renameRoom':
+      if (!isOwner) return reject('Only the owner can rename this room');
+      if (state.name === (command.name || null)) return accept();
+      return accept({ type: 'roomRenamed', name: command.name });
 
     case 'closeRoom':
       if (!isOwner) return reject('Only the owner can close the room');

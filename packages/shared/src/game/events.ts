@@ -46,6 +46,7 @@ export const gameEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('deckSelected'), playerId: z.string(), deckId: z.string().nullable() }),
   z.object({ type: z.literal('readyChanged'), playerId: z.string(), ready: z.boolean() }),
   z.object({ type: z.literal('roomClosed') }),
+  z.object({ type: z.literal('roomRenamed'), name: z.string() }),
   /** Compensating event for undo: restores the full state from before the undone batch. */
   z.object({ type: z.literal('actionUndone'), fromSeq: z.number().int(), toSeq: z.number().int(), state: z.custom<RoomState>((v) => typeof v === 'object' && v !== null) }),
   // ---- game ----

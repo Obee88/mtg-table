@@ -118,6 +118,7 @@ export const rooms = pgTable(
     ownerId: uuid('owner_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name'),
     phase: text('phase', { enum: ['lobby', 'drafting', 'deckbuilding', 'playing', 'ended'] }).notNull().default('lobby'),
     settings: jsonb('settings').$type<RoomSettings>().notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

@@ -93,7 +93,7 @@ PickAndPassSettings { packSize, packsPerPlayer, rounds, direction: 'alternate' |
 - `draft_configs(id, owner_id, name, config)` — saved recipes; a room copies the config into its settings at creation (migration 0007) · `draft_config_members(config_id, user_id)` (0011)
 - `cube_members(cube_id, user_id)` — players a cube is shared with (0010)
 - `decks(id, owner_id, name, json)` — main / sideboard / commander as printing ids
-- `rooms(id, owner_id, settings_json, phase, created_at)` — a draft room is a room whose settings carry a `draft` config; phase runs lobby → drafting → deckbuilding → playing → ended · `room_players(room_id, user_id, seat)`
+- `rooms(id, owner_id, name, settings_json, phase, created_at)` — a draft room is a room whose settings carry a `draft` config; phase runs lobby → drafting → deckbuilding → playing → ended · `room_players(room_id, user_id, seat)`
 - `room_events(room_id, seq, actor_id, type, payload, created_at)` · `room_snapshots(room_id, seq, state)`
 - `draft_picks(room_id, overall_pick, player_id, card_id, cube_version_id, phase, round, pack_id, pick_in_pack, pack_contents, double_pick)` — denormalized from `draftPicked` events for stats (migrations 0006, 0009)
 - `game_results(room_id, game_number, reported_by, winners, mode, player_count, commander, draft_name, players[seat, team, deck], note)` — one row per reported game, replaced on re-report; decks captured as they sat at the table (migration 0008)
@@ -186,7 +186,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 
 **M8 — Draft sessions and deckbuilding comfort** (requested 2026-09-21)
 - [x] Seats out of the draft config: a format’s seat count becomes its *default*; the player count is chosen when creating the room, on the same screen as the format
-- [ ] Named drafts: starting a draft asks for a name, defaulting to "<format> · <n> players · <date> · <player names>"; stored on the room
+- [x] Named drafts: starting a draft asks for a name, defaulting to "<format> · <n> players · <date> · <player names>"; stored on the room
 - [ ] Draft history: a page listing past drafts (name, date, format, players) where a player can open their drafted pool / deck and save it to their deck list
 - [ ] Card image size slider in the deck builder (drafted pool / main / sideboard); reuse the control on the draft pack view and the table if it proves useful
 - [ ] "Auto basics" in the deck builder: fills the remaining slots up to 40 with basic lands in the ratio of coloured mana symbols in the main deck's mana costs (colourless-only deck → even split or a chosen colour)

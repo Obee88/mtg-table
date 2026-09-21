@@ -4,7 +4,7 @@ import { decide, type CommandContext } from './decide.js';
 import type { RoomEvent } from './events.js';
 import { usableLibrarians } from '../draft/types.js';
 import { initialRoomState, reduce } from './reduce.js';
-import { decksFromGame, type RoomSettings, type RoomState } from './types.js';
+import { decksFromGame, defaultDraftName, type RoomSettings, type RoomState } from './types.js';
 import { applyRoomEvent, projectEvents, projectState } from './visibility.js';
 
 /** The house draft as a room would carry it. */
@@ -515,4 +515,28 @@ describe('sideboarding before the opening hands', () => {
     expect(Object.values(room.state.game!.sideboarding).every((s) => !s.done)).toBe(true);
   });
 
+});
+
+describe('naming a draft', () => {
+  it('offers a default name and stores the one given at the start', () => {
+    const room = lobby();
+    expect(defaultDraftName(room.state, new Date('2026-09-21T18:00:00Z'))).toBe('House · 4 players · 2026-09-21 · A, B, C, D');
+    for (const p of ['a', 'b', 'c', 'd']) room.run(p, { type: 'setReady', ready: true });
+    room.run('a', { type: 'start', name: '  Tuesday cube  ' }, { draftPools: pools });
+    expect(room.state.name).toBe('Tuesday cube');
+    expect(room.state.phase).toBe('drafting');
+    // The name is part of the starting batch, so a replica sees it before the first pack.
+    expect(room.log.at(-room.log.length)?.event.type).toBeDefined();
+    expect(room.log.map((e) => e.event.type)).toContain('roomRenamed');
+
+    expect(decide(room.state, { type: 'renameRoom', name: 'Wednesday cube' }, ctx('b'))).toEqual({ ok: false, error: 'Only the owner can rename this room' });
+    room.run('a', { type: 'renameRoom', name: 'Wednesday cube' });
+    expect(room.state.name).toBe('Wednesday cube');
+    expect(decide(room.state, { type: 'renameRoom', name: 'Wednesday cube' }, ctx('a'))).toEqual({ ok: true, events: [] });
+  });
+
+  it('falls back to the format and the configured seats before anyone sits', () => {
+    const empty = { ...initialRoomState('r'), settings: { playerCount: 4 as const, mode: 'ffa' as const, startingLife: 20, commander: false } };
+    expect(defaultDraftName(empty, new Date('2026-01-02T00:00:00Z'))).toBe('Draft · 4 players · 2026-01-02');
+  });
 });

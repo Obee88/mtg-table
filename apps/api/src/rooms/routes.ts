@@ -43,6 +43,7 @@ export async function roomRoutes(app: FastifyInstance): Promise<void> {
       : [];
     return all.map((r) => ({
       id: r.id,
+      name: r.name,
       phase: r.phase,
       settings: r.settings,
       ownerId: r.ownerId,

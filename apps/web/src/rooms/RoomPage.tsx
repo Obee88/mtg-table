@@ -1,9 +1,9 @@
 import type { DeckSummary, RoomState } from '@mtg/shared';
-import { seatedPlayers, teamForSeat } from '@mtg/shared';
+import { defaultDraftName, seatedPlayers, teamForSeat } from '@mtg/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { Button, Card, ErrorText } from '../components';
+import { Button, Card, Dialog, ErrorText, Input } from '../components';
 import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
 import { useMe } from '../lib/auth';
@@ -34,7 +34,7 @@ export function RoomPage() {
     <main className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
       <header className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">{title}</h1>
+          <h1 className="text-2xl font-semibold">{room.state.name ?? title}</h1>
           <p className="text-sm text-text-muted">{describeSettings(room.state.settings)} · {room.status === 'open' ? 'connected' : 'reconnecting…'}</p>
         </div>
         <Link to="/rooms" className="text-sm text-accent hover:underline">Rooms</Link>
@@ -47,6 +47,7 @@ export function RoomPage() {
 
 function Lobby({ state, meId, connected, send }: { state: RoomState; meId: string; connected: string[]; send: ReturnType<typeof useRoom>['send'] }) {
   const [error, setError] = useState<string | null>(null);
+  const [naming, setNaming] = useState<string | null>(null);
   const me = state.players[meId];
   const isOwner = state.ownerId === meId;
   const decks = useQuery({ queryKey: ['decks'], queryFn: () => api<DeckSummary[]>('/decks'), enabled: !!me });
@@ -122,13 +123,33 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
           )}
           {isOwner && (
             <span className="ml-auto flex items-center gap-3">
-              <Button onClick={() => run({ type: 'start' })} disabled={!allReady}>{drafting ? 'Start draft' : 'Start game'}</Button>
+              <Button onClick={() => (drafting ? setNaming(defaultDraftName(state, new Date())) : run({ type: 'start' }))} disabled={!allReady}>{drafting ? 'Start draft…' : 'Start game'}</Button>
               <Button variant="ghost" className="text-danger" onClick={() => confirm('Close this room?') && run({ type: 'closeRoom' })}>Close room</Button>
             </span>
           )}
         </div>
         <ErrorText error={error} />
       </Card>
+
+      {naming !== null && (
+        <Dialog title="Name this draft" onClose={() => setNaming(null)}>
+          <form
+            className="flex flex-col gap-4 text-sm"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void run({ type: 'start', name: naming.trim() });
+              setNaming(null);
+            }}
+          >
+            <Input label="Name" value={naming} onChange={(e) => setNaming(e.target.value)} autoFocus />
+            <p className="text-xs text-text-muted">Shown in the room list and in the draft history, so you can find these decks again.</p>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" onClick={() => setNaming(null)}>Cancel</Button>
+              <Button type="submit">Start draft</Button>
+            </div>
+          </form>
+        </Dialog>
+      )}
     </>
   );
 }

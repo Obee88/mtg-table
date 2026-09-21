@@ -122,6 +122,8 @@ export interface RoomState {
   draft: DraftState | null;
   /** Reported outcomes, one per game number. */
   results: GameResult[];
+  /** What the players called this session; a draft gets one when it starts. */
+  name: string | null;
   /** Sequence number of the last event applied. */
   seq: number;
 }
@@ -150,6 +152,7 @@ export function emptyPlayerGameState(startingLife: number): PlayerGameState {
 /** Summary row for room lists. */
 export interface RoomListItem {
   id: string;
+  name: string | null;
   phase: RoomPhase;
   settings: RoomSettings;
   ownerId: PlayerId;
@@ -238,4 +241,16 @@ export function decksFromGame(state: RoomState): Record<PlayerId, { main: { prin
 export function withRoomSeats(settings: RoomSettings): RoomSettings {
   if (!settings.draft || settings.draft.seats === settings.playerCount) return settings;
   return { ...settings, draft: { ...settings.draft, seats: settings.playerCount } };
+}
+
+/** "House rules · 4 players · 2026-09-21 · Alice, Bob" — the name a draft is offered when it starts. */
+export function defaultDraftName(state: RoomState, now: Date): string {
+  const players = seatedPlayers(state).map((p) => p.displayName);
+  const parts = [
+    state.settings.draft?.name ?? 'Draft',
+    `${players.length || state.settings.playerCount} players`,
+    now.toISOString().slice(0, 10),
+  ];
+  if (players.length > 0) parts.push(players.join(', '));
+  return parts.join(' · ');
 }

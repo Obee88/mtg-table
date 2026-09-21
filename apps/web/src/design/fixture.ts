@@ -104,6 +104,7 @@ export function fixtureRoom(playerCount: 2 | 4 = 2): RoomState {
     phase: 'playing',
     draft: null,
     results: [],
+    name: null,
     players: {
       [ME]: { id: ME, displayName: 'You', seat: 0, team: 0, deckId: 'd', ready: true },
       [OPP]: { id: OPP, displayName: 'Bob', seat: 1, team: 1, deckId: 'd', ready: true },

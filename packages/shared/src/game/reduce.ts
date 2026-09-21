@@ -21,6 +21,7 @@ export function initialRoomState(id: string): RoomState {
     game: null,
     draft: null,
     results: [],
+    name: null,
     seq: 0,
   };
 }
@@ -313,6 +314,9 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
 
     case 'roomClosed':
       return { ...state, phase: 'ended' };
+
+    case 'roomRenamed':
+      return { ...state, name: event.name || null };
 
     // ---- draft: the draft state is its own reducer; the room only tracks the phase ----
     case 'draftStarted':

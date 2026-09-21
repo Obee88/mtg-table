@@ -18,7 +18,10 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('closeRoom') }),
   /** Handled by the server (needs history); decide() always rejects it. */
   z.object({ type: z.literal('undo') }),
-  z.object({ type: z.literal('start') }),
+  /** Deal the game or draft; a draft may be named as it starts. */
+  z.object({ type: z.literal('start'), name: z.string().trim().max(120).optional() }),
+  /** Rename the session (the owner, any time). */
+  z.object({ type: z.literal('renameRoom'), name: z.string().trim().max(120) }),
   // ---- game ----
   z.object({
     type: z.literal('moveCard'),

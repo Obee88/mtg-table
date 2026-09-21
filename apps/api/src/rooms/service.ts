@@ -241,7 +241,7 @@ export class RoomService {
 
     await this.db.transaction(async (tx) => {
       await tx.insert(schema.roomEvents).values(stored.map((e) => ({ roomId: room.state.id, seq: e.seq, actorId, batchId, type: e.event.type, payload: e.event, createdAt: now })));
-      await tx.update(schema.rooms).set({ phase: after.phase, settings: after.settings, updatedAt: now }).where(eq(schema.rooms.id, room.state.id));
+      await tx.update(schema.rooms).set({ phase: after.phase, settings: after.settings, name: after.name, updatedAt: now }).where(eq(schema.rooms.id, room.state.id));
       for (const e of events) {
         if (e.type === 'playerJoined') {
           await tx.insert(schema.roomPlayers).values({ roomId: room.state.id, userId: e.playerId, seat: e.seat }).onConflictDoNothing();

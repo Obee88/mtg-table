@@ -106,7 +106,7 @@ function SeatStrip({ state, draft, meId, printings, connected }: { state: RoomSt
   const running = draft.status === 'running';
   return (
     <div className="flex h-auto shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-[13px] leading-none">
-      <span className="font-semibold text-white/90">{draft.config.name}</span>
+      <span className="font-semibold text-white/90" title={state.name ? draft.config.name : undefined}>{state.name ?? draft.config.name}</span>
       {running && phase && phase.type === 'pickAndPass' && <Chip type="primary">{phase.name} · round {draft.round + 1}/{phase.rounds}</Chip>}
       {running && phase && phase.type === 'winston' && <Chip type="primary">{phase.name} · Winston · {draft.packs[draft.winston?.packId ?? '']?.cards.length ?? 0} in the stack</Chip>}
       {running && phase && phase.type === 'grid' && <Chip type="primary">{phase.name} · grid {draft.round + 1}/{phase.grids}</Chip>}
