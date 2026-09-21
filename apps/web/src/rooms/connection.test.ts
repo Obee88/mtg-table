@@ -1,4 +1,4 @@
-import { decide, initialRoomState, reduce, reduceAll, type RoomEvent, type RoomState, type ServerMessage } from '@mtg/shared';
+import { decide, initialRoomState, reduce, reduceAll, type GameCommand, type RoomEvent, type RoomState, type ServerMessage } from '@mtg/shared';
 import { describe, expect, it } from 'vitest';
 import { RoomConnection, type SocketLike } from './connection';
 
@@ -135,7 +135,8 @@ describe('optimistic updates', () => {
     const d = decide(s, { type: 'start' }, { actorId: 'a', actorDisplayName: 'A', now: new Date(0), decks, random: () => ((r += 7) % 11) / 11, newId: () => `c${++n}` });
     if (!d.ok) throw new Error(d.error);
     let dealt = reduceAll(s, d.events);
-    for (const command of [{ type: 'finishSideboarding' } as const, { type: 'keepHand', bottom: [] } as const]) {
+    const settle: GameCommand[] = [{ type: 'finishSideboarding' }, { type: 'keepHand', bottom: [] }];
+    for (const command of settle) {
       for (const p of ['a', 'b']) {
         const k = decide(dealt, command, { actorId: p, actorDisplayName: p, now: new Date(0) });
         if (!k.ok) throw new Error(k.error);
