@@ -44,6 +44,7 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
   const [error, setError] = useState<string | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
   const [pileMenu, setPileMenu] = useState<{ x: number; y: number } | null>(null);
+  const [handMenu, setHandMenu] = useState<{ x: number; y: number } | null>(null);
   const [tokenDialog, setTokenDialog] = useState(false);
   const [libraryDialog, setLibraryDialog] = useState(false);
   const [drawDialog, setDrawDialog] = useState(false);
@@ -250,8 +251,22 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
     const moves: [ZoneName, string][] = [['stack', 'the stack (cast)'], ['battlefield', 'battlefield'], ['hand', 'hand (h)'], ['graveyard', 'graveyard (g)'], ['exile', 'exile (e)']];
     if (card.isCommander) moves.push(['command', 'the command zone']);
     for (const [zone, label] of moves) if (zone !== card.zone) items.push({ label: `Move to ${label}`, onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: zone }) });
-    items.push({ label: 'Top of library', onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: 'library', libraryPosition: 'top' }) });
-    items.push({ label: 'Bottom of library (b)', onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: 'library', libraryPosition: 'bottom' }) });
+    const toLibrary = (libraryPosition: 'top' | 'bottom' | number) => void run({ type: 'moveCard', instanceId: card.id, to: 'library', libraryPosition });
+    items.push({
+      label: 'Into the library',
+      items: [
+        { label: 'On top', onSelect: () => toLibrary('top') },
+        { label: 'On the bottom (b)', onSelect: () => toLibrary('bottom') },
+        {
+          label: 'Nth from the top…',
+          onSelect: () => {
+            const size = (game.players[card.ownerId]?.zones.library.length ?? 0) + 1;
+            const n = Number(prompt(`How far down? 1 = on top, ${size} = on the bottom`, '2'));
+            if (Number.isInteger(n) && n >= 1) toLibrary(Math.min(n, size) - 1);
+          },
+        },
+      ],
+    });
     return items;
   };
 
@@ -282,6 +297,19 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
     { label: 'Bottom of library', onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: 'library', libraryPosition: 'bottom' }) },
     { label: 'Top of library', onSelect: () => void run({ type: 'moveCard', instanceId: card.id, to: 'library', libraryPosition: 'top' }) },
   ];
+
+  /** Hand actions: showing it to one player or to everyone, and taking that back. */
+  const handItems = (): (MenuItem | 'sep')[] => {
+    const hand = game.players[meId]?.zones.hand ?? [];
+    const shown = hand.some((id) => game.cards[id]?.visibleTo !== 'owner');
+    const items: (MenuItem | 'sep')[] = [
+      { label: `Show hand to everyone (${hand.length})`, disabled: hand.length === 0, onSelect: () => void run({ type: 'revealHand', to: 'all' }) },
+    ];
+    for (const o of opponents) items.push({ label: `Show hand to ${o.displayName}`, disabled: hand.length === 0, onSelect: () => void run({ type: 'revealHand', to: [o.id] }) });
+    items.push('sep');
+    items.push({ label: 'Hide my revealed cards', disabled: !shown, onSelect: () => void run({ type: 'dismissReveal' }) });
+    return items;
+  };
 
   const libraryItems = (): (MenuItem | 'sep')[] => {
     const pgs = game.players[meId];
@@ -339,6 +367,7 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
           onGroupMenu={isMe ? openGroupMenu : undefined}
           onCardDragStart={isMe ? onCardDragStart : undefined}
           onLibraryMenu={isMe ? (e) => { e.preventDefault(); setPileMenu({ x: e.clientX, y: e.clientY }); } : undefined}
+          onHandMenu={isMe ? (e) => { e.preventDefault(); setHandMenu({ x: e.clientX, y: e.clientY }); } : undefined}
           onToken={isMe ? () => setTokenDialog(true) : undefined}
           onHelp={isMe ? () => setHelpDialog(true) : undefined}
           onEndGame={isMe ? onEndGame : undefined}
@@ -407,6 +436,7 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
         />
       )}
       {pileMenu && <ContextMenu x={pileMenu.x} y={pileMenu.y} items={libraryItems()} onClose={() => setPileMenu(null)} header="Library" />}
+      {handMenu && <ContextMenu x={handMenu.x} y={handMenu.y} items={handItems()} onClose={() => setHandMenu(null)} header="Hand" />}
       <CardSizeProvider size={DEFAULT_CARD_SIZE}>
         {drawDialog && me && (
           <DrawByNameDialog library={game.players[me.id]!.zones.library} cards={game.cards} printings={printings} run={run} onClose={() => setDrawDialog(false)} />
@@ -429,7 +459,7 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
   );
 }
 
-function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run, flipped = false, collapsed = false, onCardClick, onCardMenu, onGroupMenu, onCardDragStart, onToken, onHelp, onEndGame, onNewGame, onLibraryMenu, isSelected, highlighted, onMarquee, selectedCount = 0, banner, bannerKind = 'error', onFocus, focused = false }: {
+function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run, flipped = false, collapsed = false, onCardClick, onCardMenu, onGroupMenu, onCardDragStart, onToken, onHelp, onEndGame, onNewGame, onLibraryMenu, onHandMenu, isSelected, highlighted, onMarquee, selectedCount = 0, banner, bannerKind = 'error', onFocus, focused = false }: {
   onEndGame?: (() => void) | undefined;
   onNewGame?: (() => void) | undefined;
   /** Strip only (other opponents while focused on one board). */
@@ -454,6 +484,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
   onToken?: (() => void) | undefined;
   onHelp?: (() => void) | undefined;
   onLibraryMenu?: ((e: MouseEvent) => void) | undefined;
+  onHandMenu?: ((e: MouseEvent) => void) | undefined;
   isSelected: (id: string) => boolean;
   highlighted: ReadonlySet<string>;
   onMarquee?: ((ids: string[], additive: boolean) => void) | undefined;
@@ -571,6 +602,13 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
   const handCards = zoneCards('hand');
   const tray = (
     <div className="tray flex min-w-0 items-center gap-3 px-2">
+      <span className="shrink-0 self-end pb-1.5">
+        {mine && onHandMenu ? (
+          <ChipButton type="neutral" onClick={onHandMenu} onContextMenu={(e) => { e.preventDefault(); onHandMenu(e); }} title="Hand actions">Hand · {handCards.length} ▾</ChipButton>
+        ) : (
+          <Chip type="neutral">Hand · {handCards.length}</Chip>
+        )}
+      </span>
       <Hand count={handCards.length} onDragOver={allowDrop} onDrop={dropTo('hand')}>
         {handCards.map((c) => <span key={c.id}>{cardEl(c)}</span>)}
         {handCards.length === 0 && <span className="px-2 text-xs text-white/25">empty hand</span>}

@@ -540,3 +540,45 @@ describe('naming a draft', () => {
     expect(defaultDraftName(empty, new Date('2026-01-02T00:00:00Z'))).toBe('Draft · 4 players · 2026-01-02');
   });
 });
+
+describe('putting a card into the library', () => {
+  const decks = { a: { main: [{ printingId: 'x', quantity: 9 }], sideboard: [], commander: [] }, b: { main: [{ printingId: 'y', quantity: 9 }], sideboard: [], commander: [] } };
+  function playing(): Room {
+    const room = new Room();
+    room.state = reduce(room.state, { type: 'roomCreated', ownerId: 'a', settings: { playerCount: 2, mode: '1v1', startingLife: 20, commander: false } });
+    for (const p of ['a', 'b']) {
+      room.run(p, { type: 'join' });
+      room.run(p, { type: 'selectDeck', deckId: 'd' });
+      room.run(p, { type: 'setReady', ready: true });
+    }
+    room.run('a', { type: 'start' }, { decks });
+    for (const p of ['a', 'b']) room.run(p, { type: 'finishSideboarding' });
+    for (const p of ['a', 'b']) room.run(p, { type: 'keepHand', bottom: [] });
+    return room;
+  }
+
+  it('goes to the top, the bottom, or any index from the top', () => {
+    const room = playing();
+    const lib = () => room.state.game!.players.a!.zones.library;
+    const hand = () => room.state.game!.players.a!.zones.hand;
+    const before = [...lib()];
+
+    const top = hand()[0]!;
+    room.run('a', { type: 'moveCard', instanceId: top, to: 'library', libraryPosition: 'top' });
+    expect(lib()[0]).toBe(top);
+
+    const bottom = hand()[0]!;
+    room.run('a', { type: 'moveCard', instanceId: bottom, to: 'library', libraryPosition: 'bottom' });
+    expect(lib().at(-1)).toBe(bottom);
+
+    const third = hand()[0]!;
+    room.run('a', { type: 'moveCard', instanceId: third, to: 'library', libraryPosition: 2 });
+    expect(lib()[2]).toBe(third);
+    // Everything else keeps its order.
+    expect(lib().filter((id) => ![top, bottom, third].includes(id))).toEqual(before);
+    // An index past the end lands at the bottom.
+    const last = hand()[0]!;
+    room.run('a', { type: 'moveCard', instanceId: last, to: 'library', libraryPosition: 999 });
+    expect(lib().at(-1)).toBe(last);
+  });
+});

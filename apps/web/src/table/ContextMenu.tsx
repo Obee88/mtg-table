@@ -1,10 +1,13 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 export interface MenuItem {
   label: string;
-  onSelect: () => void;
+  /** Omitted for a submenu header, which expands `items` instead. */
+  onSelect?: () => void;
   disabled?: boolean;
   danger?: boolean;
+  /** A submenu; the row expands in place when chosen (works with a finger too). */
+  items?: MenuItem[];
 }
 
 /** A minimal fixed-position menu; closes on outside click, Escape or selection. */
@@ -38,21 +41,34 @@ export function ContextMenu({ x, y, items, onClose, header }: { x: number; y: nu
         item === 'sep' ? (
           <div key={i} className="my-1 border-t border-border" />
         ) : (
-          <button
-            key={item.label}
-            type="button"
-            role="menuitem"
-            disabled={item.disabled}
-            onClick={() => {
-              item.onSelect();
-              onClose();
-            }}
-            className={`block w-full px-3 py-1.5 text-left hover:bg-surface disabled:opacity-40 touch-menu-item ${item.danger ? 'text-danger' : ''}`}
-          >
-            {item.label}
-          </button>
+          <Row key={item.label} item={item} onClose={onClose} />
         ),
       )}
     </div>
+  );
+}
+
+/** One row; a row with `items` expands them underneath instead of selecting. */
+function Row({ item, onClose, depth = 0 }: { item: MenuItem; onClose: () => void; depth?: number }) {
+  const [open, setOpen] = useState(false);
+  const sub = item.items ?? [];
+  return (
+    <>
+      <button
+        type="button"
+        role="menuitem"
+        disabled={item.disabled}
+        onClick={() => {
+          if (sub.length > 0) return setOpen((o) => !o);
+          item.onSelect?.();
+          onClose();
+        }}
+        className={`touch-menu-item block w-full py-1.5 pr-3 text-left hover:bg-surface disabled:opacity-40 ${item.danger ? 'text-danger' : ''}`}
+        style={{ paddingLeft: 12 + depth * 12 }}
+      >
+        {item.label}{sub.length > 0 && <span className="float-right text-text-muted">{open ? '▾' : '▸'}</span>}
+      </button>
+      {open && sub.map((child) => <Row key={child.label} item={child} onClose={onClose} depth={depth + 1} />)}
+    </>
   );
 }

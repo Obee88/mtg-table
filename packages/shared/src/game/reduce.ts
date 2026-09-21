@@ -135,7 +135,9 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
       }
 
       const target = zones[event.to].filter((id) => id !== event.instanceId);
+      // Into a library: the top, an index from the top, or the bottom.
       if (event.to === 'library' && event.libraryPosition === 'top') target.unshift(card.id);
+      else if (event.to === 'library' && typeof event.libraryPosition === 'number') target.splice(Math.min(event.libraryPosition, target.length), 0, card.id);
       else target.push(card.id);
       zones[event.to] = target;
 

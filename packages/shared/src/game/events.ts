@@ -4,6 +4,8 @@ import type { DraftAbility } from '../draft/types.js';
 import { ZONES, type RoomState } from './types.js';
 
 export const positionSchema = z.object({ row: z.number().int().min(0).max(3), col: z.number() });
+/** Where a card goes in a library: the top, the bottom, or a 0-based index from the top. */
+export const libraryPositionSchema = z.union([z.literal('top'), z.literal('bottom'), z.number().int().min(0).max(500)]);
 export const visibilitySchema = z.union([z.literal('owner'), z.literal('all'), z.array(z.string())]);
 
 export const counterTargetSchema = z.discriminatedUnion('type', [
@@ -56,7 +58,7 @@ export const gameEventSchema = z.discriminatedUnion('type', [
     from: z.enum(ZONES),
     to: z.enum(ZONES),
     position: positionSchema.nullable(),
-    libraryPosition: z.enum(['top', 'bottom']).nullable(),
+    libraryPosition: libraryPositionSchema.nullable(),
   }),
   z.object({ type: z.literal('cardTapped'), instanceId: z.string(), tapped: z.boolean() }),
   z.object({ type: z.literal('cardTransformed'), instanceId: z.string(), transformed: z.boolean() }),

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { draftCommandSchema } from '../draft/commands.js';
-import { positionSchema, roomSettingsSchema } from './events.js';
+import { libraryPositionSchema, positionSchema, roomSettingsSchema } from './events.js';
 
 export const revealTargetSchema = z.union([z.literal('all'), z.array(z.string()).min(1).max(8)]);
 export type RevealTarget = z.infer<typeof revealTargetSchema>;
@@ -28,7 +28,7 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
     instanceId: z.string(),
     to: z.enum(ZONES),
     position: positionSchema.optional(),
-    libraryPosition: z.enum(['top', 'bottom']).optional(),
+    libraryPosition: libraryPositionSchema.optional(),
   }),
   z.object({ type: z.literal('tapCard'), instanceId: z.string(), tapped: z.boolean() }),
   /** Multi-select versions: one batch, one undo. `positions` gives battlefield spots per card. */
@@ -37,7 +37,7 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
     instanceIds: z.array(z.string()).min(1).max(200),
     to: z.enum(ZONES),
     positions: z.record(z.string(), positionSchema).optional(),
-    libraryPosition: z.enum(['top', 'bottom']).optional(),
+    libraryPosition: libraryPositionSchema.optional(),
   }),
   z.object({ type: z.literal('tapCards'), instanceIds: z.array(z.string()).min(1).max(200), tapped: z.boolean() }),
   z.object({ type: z.literal('draw'), count: z.number().int().min(1).max(20) }),
