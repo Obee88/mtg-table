@@ -181,7 +181,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - ~~Passkeys / YubiKey~~ — dropped (email + password is enough for the group)
 - [x] Tablet (a): touch input on the table — long-press opens context menus, cards drag and drop by touch, hover-only controls stay visible on touch screens
 - [x] Tablet (b): tablet-sized layout — log column as an overlay on narrow screens, larger touch targets, safe areas
-- [ ] Tablet (c): draft and deckbuilding screens on touch
+- [x] Tablet (c): draft and deckbuilding screens on touch
 - [ ] Card win-rate stats
 
 **M8 — Draft sessions and deckbuilding comfort** (requested 2026-09-21)

@@ -41,6 +41,41 @@ export function dispatchLongPress(target: Element, clientX: number, clientY: num
 }
 
 /**
+ * Pointer handlers that call `onLongPress` when a finger rests on the element
+ * (no drag involved). Used where hovering is impossible: a held card shows its
+ * full image. Mouse and pen are ignored — they have hover.
+ */
+export function longPressHandlers(onLongPress: () => void): {
+  onPointerDown: (e: ReactPointerEvent) => void;
+  onPointerUp: () => void;
+  onPointerMove: (e: ReactPointerEvent) => void;
+  onPointerCancel: () => void;
+} {
+  let timer: number | null = null;
+  let start = { x: 0, y: 0 };
+  const cancel = () => {
+    if (timer !== null) window.clearTimeout(timer);
+    timer = null;
+  };
+  return {
+    onPointerDown: (e) => {
+      if (e.pointerType !== 'touch') return;
+      start = { x: e.clientX, y: e.clientY };
+      cancel();
+      timer = window.setTimeout(() => {
+        timer = null;
+        onLongPress();
+      }, LONG_PRESS_MS);
+    },
+    onPointerMove: (e) => {
+      if (timer !== null && Math.hypot(e.clientX - start.x, e.clientY - start.y) > DRAG_THRESHOLD) cancel();
+    },
+    onPointerUp: cancel,
+    onPointerCancel: cancel,
+  };
+}
+
+/**
  * Touch gestures on a card: hold for the context menu, move to drag it (a
  * translucent copy follows the finger; lifting it drops on the element
  * underneath). Call from `onPointerDown` for touch pointers only.

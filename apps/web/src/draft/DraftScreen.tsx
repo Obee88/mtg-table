@@ -1,21 +1,35 @@
 import type { CardPrinting, DraftCard, DraftState, RoomState } from '@mtg/shared';
 import { allDecksSubmitted, gridLine, MIN_DRAFT_DECK, nextPile, nextSeat, rotisserieSeat, usableLibrarians } from '@mtg/shared';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { imageFor } from '../cards/CardImage';
 import { CardPreviewProvider, useCardPreview } from '../cards/CardPreview';
+import { CardZoom } from '../cards/CardZoom';
 import { Chip } from '../components/Chip';
 import type { GameRoom } from '../table/GameScreen';
 import { LogPanel } from '../table/LogPanel';
 import { playerColor } from '../table/PlayerStrip';
+import { longPressHandlers } from '../table/touch';
 import { useCards } from '../table/useCards';
+import { useMediaQuery } from '../lib/useMediaQuery';
 import { draftPrintingIds } from './ids';
 import { packLayout } from './layout';
 import { groupPool, POOL_SORTS, type PoolEntry, type PoolSort } from './pool';
 
+/** Shows a card full screen; the touch stand-in for the hover preview, which needs a pointer. */
+const ZoomContext = createContext<(src: string | null) => void>(() => undefined);
+const useZoom = () => useContext(ZoomContext);
+/** Long-press handlers that zoom a card, for touch screens. */
+const zoomOnHold = (zoom: (src: string | null) => void, printing: CardPrinting | undefined) =>
+  longPressHandlers(() => {
+    const src = printing ? imageFor(printing, 'normal') : null;
+    if (src) zoom(src);
+  });
+
 /** The whole-viewport draft: seats and direction on top, the pack at hand in the middle, the pool below; log column on the right. */
 export function DraftScreen({ room, meId, leaveHref = '/rooms' }: { room: GameRoom; meId: string; leaveHref?: string }) {
+  const [zoomSrc, setZoomSrc] = useState<string | null>(null);
   const { state } = room;
   const draft = state.draft!;
   const isOwner = state.ownerId === meId;
@@ -29,6 +43,8 @@ export function DraftScreen({ room, meId, leaveHref = '/rooms' }: { room: GameRo
 
   return (
     <CardPreviewProvider mode="panel">
+      <ZoomContext.Provider value={setZoomSrc}>
+      {zoomSrc && <CardZoom src={zoomSrc} onClose={() => setZoomSrc(null)} />}
       <main className="felt flex h-dvh w-screen overflow-hidden">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <SeatStrip state={state} draft={draft} meId={meId} printings={printings} connected={room.connected} />
@@ -59,6 +75,7 @@ export function DraftScreen({ room, meId, leaveHref = '/rooms' }: { room: GameRo
         </div>
         <LogPanel roomId={state.id} state={state} live={room.events} status={room.status} leaveHref={leaveHref} onCloseRoom={isOwner ? closeRoom : undefined} />
       </main>
+      </ZoomContext.Provider>
     </CardPreviewProvider>
   );
 }
@@ -122,9 +139,10 @@ function SeatStrip({ state, draft, meId, printings, connected }: { state: RoomSt
 
 function Thumb({ card, printing, w, title }: { card: DraftCard; printing: CardPrinting | undefined; w: number; title?: string }) {
   const preview = useCardPreview(printing ? imageFor(printing, 'normal') : null);
+  const hold = zoomOnHold(useZoom(), printing);
   const src = printing ? imageFor(printing, 'small') : null;
   return (
-    <span className="inline-block overflow-hidden rounded-[4.5%] bg-black/40" style={{ width: w, height: Math.round(w * 1.4) }} title={title ?? printing?.name ?? card.id} {...preview}>
+    <span className="inline-block overflow-hidden rounded-[4.5%] bg-black/40" style={{ width: w, height: Math.round(w * 1.4) }} title={title ?? printing?.name ?? card.id} {...preview} {...hold}>
       {src && <img src={src} alt={printing?.name ?? ''} className="h-full w-full object-cover" draggable={false} />}
     </span>
   );
@@ -211,12 +229,14 @@ function PackView({ draft, pack, meId, printings, send }: { draft: DraftState; p
 
 function PackCard({ card, printing, w, selected, onClick, onDoubleClick }: { card: DraftCard; printing: CardPrinting | undefined; w: number; selected: boolean; onClick: () => void; onDoubleClick: () => void }) {
   const preview = useCardPreview(printing ? imageFor(printing, 'normal') : null);
+  const hold = zoomOnHold(useZoom(), printing);
   const src = printing ? imageFor(printing, w > 160 ? 'normal' : 'small') : null;
   return (
     <button
       type="button"
       onClick={onClick}
       onDoubleClick={onDoubleClick}
+      {...hold}
       className={`card-shadow card-lift relative overflow-hidden rounded-[4.5%] bg-black/40 transition-[transform,box-shadow] duration-150 ${selected ? 'ring-2 ring-accent ring-offset-2 ring-offset-transparent' : ''}`}
       style={{ width: w, height: Math.round(w * 1.4) }}
       title={printing?.name}
@@ -241,7 +261,7 @@ function Pool({ title, cards, printings, onCardClick, emptyText = 'Nothing picke
         <span className="font-semibold text-white/90">{title} · {cards.length}</span>
         <span className="ml-2">sort</span>
         {POOL_SORTS.map((s) => (
-          <button key={s.key} type="button" onClick={() => setSort(s.key)} className={`rounded px-1.5 py-0.5 ${sort === s.key ? 'bg-white/15 text-white' : 'hover:bg-white/10'}`}>{s.label}</button>
+          <button key={s.key} type="button" onClick={() => setSort(s.key)} className={`touch-target rounded px-1.5 py-0.5 ${sort === s.key ? 'bg-white/15 text-white' : 'hover:bg-white/10'}`}>{s.label}</button>
         ))}
         {onCardClick && <span className="ml-auto text-white/40">click a card to move it</span>}
       </div>
@@ -319,9 +339,9 @@ function DeckBuilder({ draft, meId, printings, send, isOwner }: { draft: DraftSt
       {lands.data?.printings.map((p) => (
         <span key={p.id} className="flex items-center gap-1">
           <Thumb card={{ id: p.id, printingId: p.id }} printing={p} w={26} />
-          <button type="button" onClick={() => bump(p.id, -1)} className="rounded px-1 hover:bg-white/10" aria-label={`one less ${p.name}`}>−</button>
+          <button type="button" onClick={() => bump(p.id, -1)} className="touch-target rounded px-1 hover:bg-white/10" aria-label={`one less ${p.name}`}>−</button>
           <span className="w-4 text-center tabular-nums">{basics[p.id] ?? 0}</span>
-          <button type="button" onClick={() => bump(p.id, 1)} className="rounded px-1 hover:bg-white/10" aria-label={`one more ${p.name}`}>+</button>
+          <button type="button" onClick={() => bump(p.id, 1)} className="touch-target rounded px-1 hover:bg-white/10" aria-label={`one more ${p.name}`}>+</button>
         </span>
       ))}
       {lands.data?.printings.length === 0 && <span className="text-white/40">no basic lands in the card database yet</span>}
@@ -329,11 +349,11 @@ function DeckBuilder({ draft, meId, printings, send, isOwner }: { draft: DraftSt
         {error && <Chip type="error">{error}</Chip>}
         {submitted && !dirty && <Chip type="success">submitted</Chip>}
         <Chip type={main.size + basicCount >= MIN_DRAFT_DECK ? 'success' : 'warning'} title={`A deck needs at least ${MIN_DRAFT_DECK} cards, basics included`}>{main.size + basicCount} / {MIN_DRAFT_DECK}</Chip>
-        <button type="button" onClick={() => void submit()} disabled={busy || main.size === 0 || main.size + basicCount < MIN_DRAFT_DECK || !dirty} className="rounded-md bg-accent px-3 py-1 text-sm font-medium text-bg hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40">
+        <button type="button" onClick={() => void submit()} disabled={busy || main.size === 0 || main.size + basicCount < MIN_DRAFT_DECK || !dirty} className="touch-target rounded-md bg-accent px-3 py-1 text-sm font-medium text-bg hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40">
           {submitted ? 'Update deck' : 'Submit deck'}
         </button>
         {isOwner && (
-          <button type="button" onClick={() => void start()} disabled={!everyone} title={everyone ? 'Deal the first game' : 'Waiting for every seat to submit a deck'} className="rounded-md border border-white/30 px-3 py-1 text-sm font-medium text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40">
+          <button type="button" onClick={() => void start()} disabled={!everyone} title={everyone ? 'Deal the first game' : 'Waiting for every seat to submit a deck'} className="touch-target rounded-md border border-white/30 px-3 py-1 text-sm font-medium text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40">
             Start game
           </button>
         )}
@@ -400,10 +420,10 @@ function WinstonView({ state, draft, meId, printings, send }: { state: RoomState
         {mine ? (
           <span className="ml-auto flex items-center gap-2">
             {error && <Chip type="error">{error}</Chip>}
-            <button type="button" onClick={() => void decide(false)} disabled={busy} className="rounded-md border border-white/30 px-3 py-1 text-sm font-medium text-white hover:bg-white/10 disabled:opacity-40" title={last ? (stack > 1 ? 'Pass and take the next card of the stack blind (p)' : 'Pass (p)') : 'Add a card to this pile and look at the next (p)'}>
+            <button type="button" onClick={() => void decide(false)} disabled={busy} className="touch-target rounded-md border border-white/30 px-3 py-1 text-sm font-medium text-white hover:bg-white/10 disabled:opacity-40" title={last ? (stack > 1 ? 'Pass and take the next card of the stack blind (p)' : 'Pass (p)') : 'Add a card to this pile and look at the next (p)'}>
               {last ? (stack > 1 ? 'Pass · take from stack' : 'Pass') : 'Pass'}
             </button>
-            <button type="button" onClick={() => void decide(true)} disabled={busy || pile.length === 0} className="rounded-md bg-accent px-3 py-1 text-sm font-medium text-bg hover:bg-accent-hover disabled:opacity-40" title="Take every card in this pile (t)">
+            <button type="button" onClick={() => void decide(true)} disabled={busy || pile.length === 0} className="touch-target rounded-md bg-accent px-3 py-1 text-sm font-medium text-bg hover:bg-accent-hover disabled:opacity-40" title="Take every card in this pile (t)">
               Take pile {w.pileIndex + 1} · {pile.length}
             </button>
           </span>
@@ -435,6 +455,8 @@ function GridView({ state, draft, meId, printings, send }: { state: RoomState; d
   const [hover, setHover] = useState<{ line: 'row' | 'col'; index: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Without hover there is no way to see what a line holds before taking it: tap once to show it, again to take.
+  const coarse = useMediaQuery('(hover: none)');
   const header = 28;
   const gap = 8;
   const cardW = Math.max(1, Math.floor(Math.min((area.w - header - gap * g.size) / g.size, ((area.h - 44 - header - gap * g.size) / g.size) * (5 / 7))));
@@ -456,9 +478,12 @@ function GridView({ state, draft, meId, printings, send }: { state: RoomState; d
         key={`${line}${index}`}
         type="button"
         disabled={!mine || n === 0 || busy}
-        onMouseEnter={() => setHover({ line, index })}
-        onMouseLeave={() => setHover(null)}
-        onClick={() => void take(line, index)}
+        onMouseEnter={() => !coarse && setHover({ line, index })}
+        onMouseLeave={() => !coarse && setHover(null)}
+        onClick={() => {
+          if (!coarse || (hover?.line === line && hover.index === index)) return void take(line, index);
+          setHover({ line, index });
+        }}
         className={`flex items-center justify-center rounded text-[11px] font-medium ${mine && n > 0 ? 'bg-white/10 text-white hover:bg-accent hover:text-bg' : 'text-white/30'}`}
         style={line === 'row' ? { width: header, height: cardH } : { width: cardW, height: header }}
         title={n === 0 ? 'empty' : `Take ${line === 'row' ? 'row' : 'column'} ${index + 1} · ${n} card${n === 1 ? '' : 's'}`}
@@ -474,7 +499,15 @@ function GridView({ state, draft, meId, printings, send }: { state: RoomState; d
         <span className="font-semibold text-white/90">Pick {g.picksThisGrid + 1} of {draft.seats.length}</span>
         <span className="text-white/50">· {g.cells.filter(Boolean).length} cards left in this grid</span>
         {error && <Chip type="error">{error}</Chip>}
-        <span className={`ml-auto ${mine ? 'text-white/80' : 'animate-pulse text-white/60'}`}>{mine ? 'Take a row or a column' : `${state.players[active]?.displayName ?? 'Someone'} is picking…`}</span>
+        {mine && coarse && hover && (
+          <span className="flex items-center gap-2">
+            <button type="button" onClick={() => void take(hover.line, hover.index)} disabled={busy} className="touch-target rounded-md bg-accent px-3 py-1 text-sm font-medium text-bg hover:bg-accent-hover disabled:opacity-40">
+              Take {hover.line === 'row' ? 'row' : 'column'} {hover.index + 1} · {lineCount(hover.line, hover.index)}
+            </button>
+            <button type="button" onClick={() => setHover(null)} className="touch-target rounded-md border border-white/30 px-2 py-1 text-sm text-white hover:bg-white/10">Cancel</button>
+          </span>
+        )}
+        <span className={`ml-auto ${mine ? 'text-white/80' : 'animate-pulse text-white/60'}`}>{mine ? (coarse ? 'Tap a row or column to see it, again to take it' : 'Take a row or a column') : `${state.players[active]?.displayName ?? 'Someone'} is picking…`}</span>
       </div>
       <div className="flex min-h-0 flex-1 items-start justify-center">
         <div className="grid" style={{ gridTemplateColumns: `${header}px repeat(${g.size}, ${cardW}px)`, gap }}>
