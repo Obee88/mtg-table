@@ -89,3 +89,14 @@ export function moveCard(deck: EditableDeck, from: Section, to: Section, printin
     },
   };
 }
+
+/** Adds resolved cards to one section, merging with what is already there. */
+export function addCards(deck: EditableDeck, section: Section, cards: EditableCard[]): EditableDeck {
+  if (cards.length === 0) return deck;
+  return { ...deck, sections: { ...deck.sections, [section]: mergeCards([...deck.sections[section], ...cards]) } };
+}
+
+/** Every card a decklist import resolved, whatever section it named. */
+export function importedCards(res: DeckImportResponse): EditableCard[] {
+  return SECTIONS.flatMap((s) => res.resolved[s].map((r) => ({ printing: r.printing, quantity: r.quantity })));
+}
