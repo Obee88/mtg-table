@@ -1,0 +1,1 @@
+ALTER TABLE "draft_picks" ADD COLUMN "phase_type" text;

@@ -173,7 +173,10 @@ describe('cube draft statistics', () => {
     const res = await call('GET', `/cubes/${cubeId}/stats`, alice);
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body).toMatchObject({ drafts: 1, picks: 4, games: 1 });
+    expect(body).toMatchObject({ drafts: 1, picks: 4, games: 1, type: 'pickAndPass' });
+    // Pick numbers only compare within a draft type, so the page reads one at a time.
+    expect(body.types).toEqual([{ type: 'pickAndPass', picks: 4 }]);
+    expect((await call('GET', `/cubes/${cubeId}/stats?type=grid`, alice)).json()).toMatchObject({ type: 'grid', picks: 0, stats: [] });
     expect(body.records).toEqual([
       { printingId: cardIds[0], games: 1, wins: 1, winRate: null },
       { printingId: cardIds[1], games: 1, wins: 0, winRate: null },

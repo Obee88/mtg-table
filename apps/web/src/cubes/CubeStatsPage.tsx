@@ -20,6 +20,17 @@ const COLUMNS: { key: Column; label: string; title: string }[] = [
   { key: 'passed', label: 'Passed', title: 'Times someone chose another card over it' },
 ];
 
+/** Draft types, as the picker names them. */
+const TYPE_LABELS: Record<string, string> = {
+  pickAndPass: 'pick and pass',
+  winston: 'Winston',
+  grid: 'Grid',
+  winchester: 'Winchester',
+  rotisserie: 'Rotisserie',
+  unknown: 'older drafts',
+  all: 'all types mixed',
+};
+
 const pct = (v: number | null) => (v === null ? '—' : `${Math.round(v * 100)}%`);
 const num = (v: number | null) => (v === null ? '—' : v.toFixed(1));
 
@@ -27,13 +38,24 @@ const num = (v: number | null) => (v === null ? '—' : v.toFixed(1));
 export function CubeStatsPage() {
   const { id = '' } = useParams();
   const [version, setVersion] = useState<number | 'all'>('all');
+  // Pick positions are not comparable across draft types, so the table reads one type at a time.
+  const [type, setType] = useState<string | null>(null);
   const [sort, setSort] = useState<{ key: Column; desc: boolean }>({ key: 'pickRate', desc: true });
-  const query = useQuery({ queryKey: ['cubes', id, 'stats', version], queryFn: () => api<CubeStatsResponse>(`/cubes/${id}/stats${version === 'all' ? '' : `?version=${version}`}`) });
+  const query = useQuery({
+    queryKey: ['cubes', id, 'stats', version, type],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (version !== 'all') params.set('version', String(version));
+      if (type) params.set('type', type);
+      const q = params.toString();
+      return api<CubeStatsResponse>(`/cubes/${id}/stats${q ? `?${q}` : ''}`);
+    },
+  });
   const all = useQuery({ queryKey: ['cubes', id, 'stats', 'all'], queryFn: () => api<CubeStatsResponse>(`/cubes/${id}/stats`) });
 
   if (query.isPending) return <main className="p-6 text-text-muted">Loading…</main>;
   if (query.isError) return <main className="p-6"><ErrorText error={query.error} /></main>;
-  const { cube, stats, printings, drafts, picks, records, games } = query.data;
+  const { cube, stats, printings, drafts, picks, records, games, types, type: shownType } = query.data;
   const byId = new Map(printings.map((p) => [p.id, p]));
   const recordOf = new Map(records.map((r) => [r.printingId, r]));
   const name = (s: CardStat) => byId.get(s.printingId)?.name ?? s.printingId;
@@ -56,6 +78,15 @@ export function CubeStatsPage() {
           <p className="text-sm text-text-muted">{drafts} draft{drafts === 1 ? '' : 's'} · {picks} picks · {games} reported game{games === 1 ? '' : 's'}</p>
         </div>
         <div className="flex items-center gap-3 text-sm">
+          {types.length > 0 && (
+            <label className="flex items-center gap-2">
+              <span className="text-text-muted">Draft type</span>
+              <select className="rounded-md border border-border bg-surface px-2 py-1.5 text-text" value={shownType} onChange={(e) => setType(e.target.value)}>
+                {types.map((t) => <option key={t.type} value={t.type}>{TYPE_LABELS[t.type] ?? t.type} · {t.picks} picks</option>)}
+                {types.length > 1 && <option value="all">all types mixed</option>}
+              </select>
+            </label>
+          )}
           <label className="flex items-center gap-2">
             <span className="text-text-muted">Version</span>
             <select className="rounded-md border border-border bg-surface px-2 py-1.5 text-text" value={version} onChange={(e) => setVersion(e.target.value === 'all' ? 'all' : Number(e.target.value))}>

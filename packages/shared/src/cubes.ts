@@ -138,6 +138,10 @@ export interface CubeStatsResponse {
   /** Drafts (rooms) that dealt from those versions. */
   drafts: number;
   picks: number;
+  /** The draft type the numbers cover ('all' mixes them, which only the totals survive). */
+  type: string;
+  /** Draft types this cube has been drafted with, with how many picks each. */
+  types: { type: string; picks: number }[];
   stats: CardStat[];
   /** Win rate of decks that held each card, in games played from this cube's drafts. */
   records: CardRecord[];

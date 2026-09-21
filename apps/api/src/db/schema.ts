@@ -238,6 +238,8 @@ export const draftPicks = pgTable(
       .notNull()
       .references(() => cards.id),
     phase: integer('phase').notNull(),
+    /** Which kind of draft the pick came from; the numbers only compare within a type. */
+    phaseType: text('phase_type'),
     round: integer('round').notNull(),
     packId: text('pack_id').notNull(),
     /** Cube version the pack was dealt from (null for picks recorded before this column existed). */

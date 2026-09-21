@@ -21,7 +21,7 @@ const diffQuery = z.object({ from: z.coerce.number().int().min(1).optional(), to
 const restoreInput = z.object({ version: z.number().int().min(1) });
 const memberInput = z.object({ userId: z.uuid() });
 const memberParam = z.object({ id: z.uuid(), userId: z.uuid() });
-const statsQuery = z.object({ version: z.coerce.number().int().min(1).optional(), from: z.coerce.date().optional(), to: z.coerce.date().optional() });
+const statsQuery = z.object({ version: z.coerce.number().int().min(1).optional(), from: z.coerce.date().optional(), to: z.coerce.date().optional(), type: z.string().max(20).optional() });
 
 const count = (cards: { quantity: number }[]) => cards.reduce((n, c) => n + c.quantity, 0);
 
@@ -193,7 +193,7 @@ export async function cubeRoutes(app: FastifyInstance): Promise<void> {
   /** Per-card draft statistics over every version (or one), optionally within a date range. */
   app.get('/cubes/:id/stats', async (req): Promise<CubeStatsResponse> => {
     const { id } = parse(idParam, req.params);
-    const { version, from, to } = parse(statsQuery, req.query);
+    const { version, from, to, type: wanted } = parse(statsQuery, req.query);
     const cube = await accessibleCube(id, req.user!.id);
     const all = await versionSummaries(cube.id);
     const versions = version ? all.filter((v) => v.number === version) : all;
@@ -201,7 +201,11 @@ export async function cubeRoutes(app: FastifyInstance): Promise<void> {
     const conditions = [inArray(schema.draftPicks.cubeVersionId, versions.map((v) => v.id))];
     if (from) conditions.push(gte(schema.draftPicks.createdAt, from));
     if (to) conditions.push(lte(schema.draftPicks.createdAt, to));
-    const rows = versions.length ? await db.select().from(schema.draftPicks).where(and(...conditions)) : [];
+    const allPicks = versions.length ? await db.select().from(schema.draftPicks).where(and(...conditions)) : [];
+    // A pick position means something different in every draft type, so the numbers are read per type.
+    const types = [...new Set(allPicks.map((r) => r.phaseType ?? 'unknown'))].map((t) => ({ type: t, picks: allPicks.filter((r) => (r.phaseType ?? 'unknown') === t).length })).sort((a, b) => b.picks - a.picks);
+    const type = wanted ?? types[0]?.type ?? 'all';
+    const rows = type === 'all' ? allPicks : allPicks.filter((r) => (r.phaseType ?? 'unknown') === type);
     const stats = computeCardStats(rows.map((r) => ({ printingId: r.cardId, pickInPack: r.pickInPack, packContents: r.packContents, double: r.doublePick })));
     // Win rates come from the games played in the rooms that drafted this cube.
     const roomIds = [...new Set(rows.map((r) => r.roomId))];
@@ -215,6 +219,8 @@ export async function cubeRoutes(app: FastifyInstance): Promise<void> {
       versions,
       drafts: roomIds.length,
       picks: rows.length,
+      type,
+      types,
       stats,
       records,
       games: results.length,
