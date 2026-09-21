@@ -12,7 +12,7 @@ import { useCards } from './useCards';
 import { draftPrintingIds } from '../draft/ids';
 
 /** Full-height log column: history backfilled once, then the live buffer. Scrolls internally only. */
-export function LogPanel({ roomId, state, live, status, leaveHref, onCloseRoom, onRestart, onReport }: { roomId: string; state: RoomState; live: RoomEvent[]; status: 'connecting' | 'open' | 'closed'; leaveHref: string; onCloseRoom?: (() => void) | undefined; onRestart?: (() => void) | undefined; onReport?: (() => void) | undefined }) {
+export function LogPanel({ roomId, state, live, status, leaveHref, onCloseRoom, onRestart, onReport, toolsRef }: { roomId: string; state: RoomState; live: RoomEvent[]; status: 'connecting' | 'open' | 'closed'; leaveHref: string; onCloseRoom?: (() => void) | undefined; onRestart?: (() => void) | undefined; onReport?: (() => void) | undefined; /** Receives the tools row between the preview and the log (desktop only), for the table to fill. */ toolsRef?: ((el: HTMLDivElement | null) => void) | undefined }) {
   // On a tablet the table needs the width: the log slides over it instead of sitting beside it.
   const narrow = useNarrowScreen();
   const [open, setOpen] = useState(!narrow);
@@ -63,6 +63,7 @@ export function LogPanel({ roomId, state, live, status, leaveHref, onCloseRoom, 
         )}
       </div>
       {open && <div className="shrink-0 px-2 pb-2"><PreviewPanel /></div>}
+      {open && !narrow && toolsRef && <div ref={toolsRef} className="flex h-9 shrink-0 items-center border-y border-white/10 px-2 empty:hidden" />}
       {open && (
         <ol className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-2 text-[11px] leading-snug">
           {lines.map((l) => {

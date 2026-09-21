@@ -22,6 +22,8 @@ export function GameScreen({ room, meId, leaveHref = '/rooms' }: { room: GameRoo
     if (confirm('Abandon this room for everyone? Nothing is recorded. To end the game properly, use "End game" in the toolbar.')) void room.send({ type: 'closeRoom' });
   };
   const [proposing, setProposing] = useState<'end' | 'restart' | null>(null);
+  // The toolbar renders into the log column, between the card preview and the log, when that row exists.
+  const [toolsEl, setToolsEl] = useState<HTMLDivElement | null>(null);
   const seated = !!room.state.players[meId];
   const outcome = (r: { ok: boolean; error?: string }) => (r.ok ? null : (r.error ?? 'Failed'));
   const propose = async (winners: string[] | null, then: 'end' | 'restart') => outcome(await room.send({ type: 'proposeResult', winners, then }));
@@ -52,9 +54,10 @@ export function GameScreen({ room, meId, leaveHref = '/rooms' }: { room: GameRoo
           onEndGame={seated ? () => setProposing('end') : undefined}
           onNewGame={seated ? () => setProposing('restart') : undefined}
           onForfeit={seated ? forfeit : undefined}
+          toolsEl={toolsEl}
         />
       </div>
-      <LogPanel roomId={room.state.id} state={room.state} live={room.events} status={room.status} leaveHref={leaveHref} onCloseRoom={isOwner ? closeRoom : undefined} />
+      <LogPanel roomId={room.state.id} state={room.state} live={room.events} status={room.status} leaveHref={leaveHref} onCloseRoom={isOwner ? closeRoom : undefined} toolsRef={setToolsEl} />
       {proposing && <ResultDialog state={room.state} then={proposing} onPropose={propose} onClose={() => setProposing(null)} />}
       {seated && room.state.game?.pendingResult && (
         <PendingResultDialog state={room.state} meId={meId} onConfirm={async () => outcome(await room.send({ type: 'confirmResult' }))} onReject={async () => outcome(await room.send({ type: 'rejectResult' }))} />

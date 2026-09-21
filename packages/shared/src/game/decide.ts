@@ -3,8 +3,8 @@ import type { GameEvent } from './events.js';
 import type { DeckContents } from '../decks.js';
 import { dealDraft, decideDraft } from '../draft/decide.js';
 import { allDecksSubmitted, draftAbilityFor, draftDeckContents, type DraftCard } from '../draft/types.js';
-import { defaultVisibility, PUBLIC_ZONES } from './reduce.js';
-import { activePlayer, inMulligan, inSideboarding, isActive, manaTotal, nextStep, seatedPlayers, shuffled, teamForSeat, type CardInstance, type GameState, type PlayerGameState, type RoomState } from './types.js';
+import { defaultVisibility, PUBLIC_ZONES, reduceAll } from './reduce.js';
+import { activePlayer, inMulligan, inSideboarding, isActive, manaTotal, nextStep, seatedPlayers, shuffled, STEPS, teamForSeat, type CardInstance, type GameState, type PlayerGameState, type RoomState } from './types.js';
 
 const HAND_SIZE = 7;
 const MAX_TIE_BREAK_ROUNDS = 20;
@@ -187,25 +187,20 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
     }
 
     case 'advanceStep': {
-      const pgs = ownGame(state, ctx.actorId);
-      if ('error' in pgs) return reject(pgs.error);
-      const game = state.game!;
-      if (!isActive(state, ctx.actorId)) return reject('It is not your turn');
-      const step = game.step ?? 'main1';
-      const after = nextStep(step);
-      if (!after) {
-        const order = seatedPlayers(state).map((p) => p.id);
-        const next = order[(order.indexOf(activePlayer(game)) + 1) % order.length]!;
-        return accept(endTurnEvent(state, ctx.actorId, next));
+      if (!command.to) {
+        const r = stepEvents(state, ctx.actorId);
+        return 'error' in r ? reject(r.error) : accept(...r.events);
       }
+      // Auto-play: press play repeatedly until the chosen step, never past the turn.
+      if (STEPS.indexOf(command.to) <= STEPS.indexOf(state.game?.step ?? 'main1')) return reject('That step has already passed this turn');
       const events: GameEvent[] = [];
-      if (step === 'untap') events.push(...untapEvents(state, pgs));
-      // Whoever went first skips their first draw, as on paper.
-      if (step === 'draw' && !((game.turns?.[ctx.actorId] ?? 1) === 1 && game.firstPlayerId === ctx.actorId)) {
-        const top = pgs.zones.library[0];
-        if (top) events.push({ type: 'cardMoved', instanceId: top, from: 'library', to: 'hand', position: null, libraryPosition: null });
+      let s = state;
+      while (s.game?.step !== command.to) {
+        const r = stepEvents(s, ctx.actorId);
+        if ('error' in r) return reject(r.error);
+        events.push(...r.events);
+        s = reduceAll(s, r.events);
       }
-      events.push({ type: 'stepChanged', playerId: ctx.actorId, step: after });
       return accept(...events);
     }
 
@@ -770,4 +765,28 @@ function untapEvents(state: RoomState, pgs: PlayerGameState): GameEvent[] {
     if (card.tapped) events.push({ type: 'cardTapped', instanceId: id, tapped: false });
   }
   return events;
+}
+
+/** One press of the play button: what the current step does, then the move to the next step (or the turn passing). */
+function stepEvents(state: RoomState, actorId: string): { events: GameEvent[] } | { error: string } {
+  const pgs = ownGame(state, actorId);
+  if ('error' in pgs) return pgs;
+  const game = state.game!;
+  if (!isActive(state, actorId)) return { error: 'It is not your turn' };
+  const step = game.step ?? 'main1';
+  const after = nextStep(step);
+  if (!after) {
+    const order = seatedPlayers(state).map((p) => p.id);
+    const next = order[(order.indexOf(activePlayer(game)) + 1) % order.length]!;
+    return { events: [endTurnEvent(state, actorId, next)] };
+  }
+  const events: GameEvent[] = [];
+  if (step === 'untap') events.push(...untapEvents(state, pgs));
+  // Whoever went first skips their first draw, as on paper.
+  if (step === 'draw' && !((game.turns?.[actorId] ?? 1) === 1 && game.firstPlayerId === actorId)) {
+    const top = pgs.zones.library[0];
+    if (top) events.push({ type: 'cardMoved', instanceId: top, from: 'library', to: 'hand', position: null, libraryPosition: null });
+  }
+  events.push({ type: 'stepChanged', playerId: actorId, step: after });
+  return { events };
 }

@@ -765,6 +765,20 @@ describe('turns', () => {
     play(other);
     expect(s.game!.players[other]!.zones.hand).toHaveLength(theirs + 1);
     expect(s.game!.step).toBe('main1');
+
+    // Clicking a later step auto-plays every step up to it in one command; it never passes the turn.
+    s = run(s, other, { type: 'advanceStep', to: 'end' });
+    expect(s.game!.step).toBe('end');
+    expect(activePlayer(s.game!)).toBe(other);
+    expect(decide(s, { type: 'advanceStep', to: 'draw' }, ctx(other))).toEqual({ ok: false, error: 'That step has already passed this turn' });
+    play(other); // the turn passes back
+    expect(activePlayer(s.game!)).toBe(first);
+    expect(s.game!.step).toBe('untap');
+    const mine = hand();
+    s = run(s, first, { type: 'advanceStep', to: 'main1' });
+    expect(s.game!.step).toBe('main1');
+    expect(hand()).toBe(mine + 1); // untapped, drew, went through upkeep
+    expect(decide(s, { type: 'advanceStep', to: 'end' }, ctx(other))).toEqual({ ok: false, error: 'It is not your turn' });
   });
 });
 

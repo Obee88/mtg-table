@@ -61,8 +61,8 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('restart') }),
   /** The active player passes the turn to the next seat. */
   z.object({ type: z.literal('endTurn') }),
-  /** The play button: do what this step does and move to the next one (ending the turn after the end step). */
-  z.object({ type: z.literal('advanceStep') }),
+  /** The play button: do what this step does and move to the next one (ending the turn after the end step). With `to`, keep pressing it until that later step of the same turn. */
+  z.object({ type: z.literal('advanceStep'), to: z.enum(['untap', 'upkeep', 'draw', 'main1', 'combat', 'main2', 'end']).optional() }),
   /** Mark a permanent as not untapping: 'always', for n untap steps, or null to clear. */
   z.object({ type: z.literal('setNoUntap'), instanceId: z.string(), value: z.union([z.literal('always'), z.number().int().min(1).max(20), z.null()]) }),
   z.object({ type: z.literal('transformCard'), instanceId: z.string(), transformed: z.boolean() }),

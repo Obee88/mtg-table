@@ -1,6 +1,7 @@
 import type { CardInstance, CardPrinting, GameCommand, PlayerGameState, RoomEvent, RoomPlayer, RoomState, ZoneName } from '@mtg/shared';
 import { inMulligan, inSideboarding, isActive, PUBLIC_ZONES, seatedPlayers } from '@mtg/shared';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Chip, ChipButton } from '../components/Chip';
 
 import type { CommandResult } from '../rooms/connection';
@@ -37,7 +38,7 @@ const STACK_SHOWN = 'mtg-table:stack-shown';
  * The whole game view. Fills its container (no page scroll): one row per
  * player, card size derived from the space each row gets.
  */
-export function Table({ state, meId, send, live = [], connected = [], onEndGame, onNewGame, onForfeit, leaveHref = '/rooms' }: { state: RoomState; meId: string; send: Send; live?: RoomEvent[]; connected?: string[]; onEndGame?: (() => void) | undefined; onNewGame?: (() => void) | undefined; onForfeit?: (() => void) | undefined; leaveHref?: string }) {
+export function Table({ state, meId, send, live = [], connected = [], onEndGame, onNewGame, onForfeit, leaveHref = '/rooms', toolsEl = null }: { state: RoomState; meId: string; send: Send; live?: RoomEvent[]; connected?: string[]; onEndGame?: (() => void) | undefined; onNewGame?: (() => void) | undefined; onForfeit?: (() => void) | undefined; leaveHref?: string; /** Where the toolbar goes (the log column's tools row); without it, the toolbar sits in the player's own strip. */ toolsEl?: HTMLElement | null }) {
   const game = state.game!;
   const players = seatedPlayers(state);
   const me = players.find((p) => p.id === meId);
@@ -386,6 +387,7 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
   const connectedSet = new Set(connected);
   const sizeFor = (fw: number, fh: number) => cardSizeFor(rootSize.w * fw, rootSize.h * fh);
 
+  const tools = (below: boolean) => (me ? <Toolbar run={run} onToken={() => setTokenDialog(true)} onHelp={() => setHelpDialog(true)} menuSide={below ? 'down' : 'up'} /> : null);
   const area = (p: RoomPlayer, opts: { flipped?: boolean; collapsed?: boolean; size: CardSize }) => {
     const isMe = p.id === meId;
     return (
@@ -404,8 +406,7 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
           onCardDragStart={isMe ? onCardDragStart : undefined}
           onLibraryMenu={isMe ? (e) => { e.preventDefault(); setPileMenu({ x: e.clientX, y: e.clientY }); } : undefined}
           onHandMenu={isMe ? (e) => { e.preventDefault(); setHandMenu({ x: e.clientX, y: e.clientY }); } : undefined}
-          onToken={isMe ? () => setTokenDialog(true) : undefined}
-          onHelp={isMe ? () => setHelpDialog(true) : undefined}
+          toolbar={isMe && !toolsEl ? tools(false) : undefined}
           isSelected={isMe ? isSelected : () => false}
           onMarquee={isMe ? onMarquee : undefined}
           selectedCount={isMe ? liveSelected.size : 0}
@@ -457,6 +458,7 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
     <CardSizeProvider size={sizeFor(1, 0.5)}>
       <div ref={rootRef} className="relative h-full min-h-0 w-full">
       {layout}
+      {toolsEl && me && createPortal(tools(true), toolsEl)}
       {/* Two seats sit across the hairline: the game panel goes next to the log, the stack to the free side. */}
       <GamePanel state={state} meId={meId} run={run} leaveHref={leaveHref} onEndGame={onEndGame} onNewGame={onNewGame} onForfeit={me && onForfeit ? onForfeit : undefined} stackShown={stackShown} onShowStack={showStack} side={duel ? 'right' : 'left'} />
       {(stackShown || (game.stack?.length ?? 0) > 0) && (
@@ -498,7 +500,7 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
   );
 }
 
-function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run, flipped = false, collapsed = false, onCardClick, onCardMenu, onGroupMenu, onCardDragStart, onToken, onHelp, onLibraryMenu, onHandMenu, isSelected, highlighted, onMarquee, selectedCount = 0, banner, bannerKind = 'error', onFocus, focused = false }: {
+function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run, flipped = false, collapsed = false, onCardClick, onCardMenu, onGroupMenu, onCardDragStart, toolbar, onLibraryMenu, onHandMenu, isSelected, highlighted, onMarquee, selectedCount = 0, banner, bannerKind = 'error', onFocus, focused = false }: {
   /** Strip only (other opponents while focused on one board). */
   collapsed?: boolean;
   /** Toggle focus on this board (name click); present on 3+ player tables. */
@@ -518,8 +520,8 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
   /** Right-click on a grouped token pile: selects the group and opens the selection menu. */
   onGroupMenu?: ((cards: CardInstance[]) => (e: MouseEvent) => void) | undefined;
   onCardDragStart?: ((card: CardInstance) => (e: DragEvent) => void) | undefined;
-  onToken?: (() => void) | undefined;
-  onHelp?: (() => void) | undefined;
+  /** The owner's tools (token, dice, undo, help) when they are not shown elsewhere. */
+  toolbar?: ReactNode;
   onLibraryMenu?: ((e: MouseEvent) => void) | undefined;
   onHandMenu?: ((e: MouseEvent) => void) | undefined;
   isSelected: (id: string) => boolean;
@@ -662,14 +664,14 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
   const tray = (
     <div className="tray relative flex min-w-0 items-center gap-3 px-2">
       {/* The label floats over the fan so it costs the hand no width. */}
-      <span className={`absolute left-3 z-30 `}>
+      <span className="absolute bottom-1.5 left-3 z-30">
         {mine && onHandMenu ? (
           <ChipButton type="neutral" onClick={onHandMenu} onContextMenu={(e) => { e.preventDefault(); onHandMenu(e); }} title="Hand actions">Hand · {handCards.length} ▾</ChipButton>
         ) : (
           <Chip type="neutral">Hand · {handCards.length}</Chip>
         )}
       </span>
-      <Hand count={handCards.length} onDragOver={allowDrop} onDrop={dropTo('hand')} className="pl-16">
+      <Hand count={handCards.length} onDragOver={allowDrop} onDrop={dropTo('hand')}>
         {handCards.map((c, i) => (
           <span
             key={c.id}
@@ -709,7 +711,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
         mine={mine}
         connected={connected}
         run={run}
-        toolbar={mine ? <Toolbar run={run} onToken={onToken ?? (() => undefined)} onHelp={onHelp ?? (() => undefined)} /> : undefined}
+        toolbar={toolbar}
         onFocus={onFocus}
         focused={focused}
       />
