@@ -150,6 +150,8 @@ List with import (link or paste), the Taplands panel, and drafted decks saved fr
 
 ## Plan of work (M9)
 
+All eight steps shipped 2026-09-22; see `plan.md` → Progress for the per-step notes.
+
 Ordered so each step is shippable and useful on its own; each is one `/go-next` run unless split.
 
 1. **Analysis sign-off** — this document; walk through it with the group, adjust the target flows.
