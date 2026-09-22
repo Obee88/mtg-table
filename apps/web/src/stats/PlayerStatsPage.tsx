@@ -36,7 +36,6 @@ export function PlayerStatsPage() {
           <h1 className="text-2xl font-semibold">{own ? 'My stats' : `${player.displayName} · stats`}</h1>
           <p className="text-sm text-text-muted">{stats.record.games} game{stats.record.games === 1 ? '' : 's'} · {wl(stats.record)} · {winRate(stats.record)} wins</p>
         </div>
-        <Link to="/" className="text-sm text-accent hover:underline">Home</Link>
       </header>
 
       <div className="grid gap-6 md:grid-cols-2">

@@ -21,7 +21,6 @@ export function DraftHistoryPage() {
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Past drafts</h1>
         <div className="flex items-center gap-3 text-sm">
-          <Link to="/" className="text-accent hover:underline">Home</Link>
           <Link to="/drafts" className="text-accent hover:underline">Draft formats</Link>
         </div>
       </header>

@@ -7,7 +7,7 @@ import { Button, Card, Dialog, ErrorText, Input } from '../components';
 import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
 import { useMe } from '../lib/auth';
-import { describeSettings } from './RoomListPage';
+import { describeSettings } from './NewRoomPage';
 import { SettingsForm } from './SettingsForm';
 import { DraftScreen } from '../draft/DraftScreen';
 import { GameScreen } from '../table/GameScreen';
@@ -37,7 +37,7 @@ export function RoomPage() {
           <h1 className="text-2xl font-semibold">{room.state.name ?? title}</h1>
           <p className="text-sm text-text-muted">{describeSettings(room.state.settings)} · {room.status === 'open' ? 'connected' : 'reconnecting…'}</p>
         </div>
-        <Link to="/rooms" className="text-sm text-accent hover:underline">Rooms</Link>
+        <Link to="/" className="text-sm text-accent hover:underline">Play</Link>
       </header>
       {room.state.phase === 'lobby' && <Lobby state={room.state} meId={me.data.id} connected={room.connected} send={room.send} />}
       {room.state.phase === 'ended' && <p className="text-text-muted">This room has been closed.</p>}

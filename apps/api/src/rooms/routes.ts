@@ -1,4 +1,4 @@
-import { decksFromGame, gameCommandSchema, projectEvents, projectState, roomSettingsSchema, type DeckContents, type DraftPickSummary, type RoomListItem, type RoomState } from '@mtg/shared';
+import { attentionFor, decksFromGame, gameCommandSchema, projectEvents, projectState, roomSettingsSchema, type DeckContents, type DraftPickSummary, type RoomListItem, type RoomState } from '@mtg/shared';
 import { asc, desc, eq, inArray } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -41,14 +41,23 @@ export async function roomRoutes(app: FastifyInstance): Promise<void> {
     const counts = all.length
       ? await db.select({ roomId: schema.roomPlayers.roomId }).from(schema.roomPlayers).where(inArray(schema.roomPlayers.roomId, all.map((r) => r.id)))
       : [];
-    return all.map((r) => ({
-      id: r.id,
-      name: r.name,
-      phase: r.phase,
-      settings: r.settings,
-      ownerId: r.ownerId,
-      playerCount: counts.filter((c) => c.roomId === r.id).length,
-      createdAt: r.createdAt.toISOString(),
+    // For rooms the caller sits in, what the room waits on from them (the live state is cached per room).
+    const mineIds = new Set(mine.map((m) => m.roomId));
+    return Promise.all(all.map(async (r) => {
+      const seated = mineIds.has(r.id);
+      const state = seated && r.phase !== 'ended' ? await app.rooms.get(r.id) : null;
+      return {
+        id: r.id,
+        name: r.name,
+        phase: r.phase,
+        settings: r.settings,
+        ownerId: r.ownerId,
+        playerCount: counts.filter((c) => c.roomId === r.id).length,
+        createdAt: r.createdAt.toISOString(),
+        attention: state ? attentionFor(state, req.user!.id) : null,
+        gameNumber: state?.game?.gameNumber ?? null,
+        seated,
+      };
     }));
   });
 

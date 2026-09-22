@@ -17,7 +17,6 @@ export function CubeListPage() {
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Cubes</h1>
         <div className="flex items-center gap-3">
-          <Link to="/" className="text-sm text-accent hover:underline">Home</Link>
           <Link to="/cubes/new"><Button>New cube</Button></Link>
         </div>
       </header>

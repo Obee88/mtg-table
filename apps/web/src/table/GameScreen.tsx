@@ -16,7 +16,7 @@ export interface GameRoom {
 }
 
 /** The whole-viewport game: felt table plus the log column. No page scroll. */
-export function GameScreen({ room, meId, leaveHref = '/rooms' }: { room: GameRoom; meId: string; leaveHref?: string }) {
+export function GameScreen({ room, meId, leaveHref = '/' }: { room: GameRoom; meId: string; leaveHref?: string }) {
   const isOwner = room.state.ownerId === meId;
   const closeRoom = () => {
     if (confirm('Abandon this room for everyone? Nothing is recorded. To end the game properly, use "End game" in the toolbar.')) void room.send({ type: 'closeRoom' });

@@ -33,6 +33,8 @@ describe('room routes', () => {
 
     const listForBob = await call('GET', '/rooms', bob);
     expect(listForBob.json()).toEqual([expect.objectContaining({ id: roomId, phase: 'lobby', playerCount: 1 })]);
+    expect(listForBob.json()[0]).toMatchObject({ seated: false, attention: null, gameNumber: null });
+    expect((await call('GET', '/rooms', alice)).json()[0]).toMatchObject({ seated: true, attention: 'choose a deck' });
 
     const join = await call('POST', `/rooms/${roomId}/commands`, bob, { type: 'join' });
     expect(join.statusCode).toBe(200);

@@ -1,12 +1,11 @@
-import type { DraftConfigResponse, DraftConfigSummary, RoomListItem, RoomSettings, RoomState } from '@mtg/shared';
+import type { DraftConfigResponse, DraftConfigSummary, RoomSettings, RoomState } from '@mtg/shared';
 import { describeDraftConfig, withRoomSeats } from '@mtg/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Button, Card, ErrorText } from '../components';
 import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
-import { useMe } from '../lib/auth';
 import { SettingsForm } from './SettingsForm';
 
 const PRESETS: { label: string; settings: RoomSettings }[] = [
@@ -53,16 +52,13 @@ function DraftFormatPicker({ value, onChange }: { value: RoomSettings; onChange:
   );
 }
 
-export function RoomListPage() {
-  const me = useMe();
+/** Room creation (the wizard of M9 step 3 replaces this form); `?kind=draft` leads with the draft format. */
+export function NewRoomPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const rooms = useQuery({ queryKey: ['rooms'], queryFn: () => api<RoomListItem[]>('/rooms'), refetchInterval: 10_000 });
-  const [settings, setSettings] = useState<RoomSettings>(PRESETS[0]!.settings);
-  const close = useMutation({
-    mutationFn: (id: string) => api<unknown>(`/rooms/${id}/commands`, { body: { type: 'closeRoom' } }),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['rooms'] }),
-  });
+  const [params] = useSearchParams();
+  const draftFirst = params.get('kind') === 'draft';
+  const [settings, setSettings] = useState<RoomSettings>(draftFirst ? PRESETS[2]!.settings : PRESETS[0]!.settings);
   const create = useMutation({
     mutationFn: (settings: RoomSettings) => api<RoomState>('/rooms', { body: { settings } }),
     onSuccess: (state) => {
@@ -74,11 +70,11 @@ export function RoomListPage() {
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Rooms</h1>
-        <Link to="/" className="text-sm text-accent hover:underline">Home</Link>
+        <h1 className="text-2xl font-semibold">{draftFirst ? 'New draft' : 'New game'}</h1>
+        <Link to="/" className="text-sm text-accent hover:underline">Back to Play</Link>
       </header>
 
-      <Card title="New room">
+      <Card title={draftFirst ? 'Draft format and table' : 'Table'}>
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap gap-2">
             {PRESETS.map((p) => (
@@ -94,28 +90,6 @@ export function RoomListPage() {
         <ErrorText error={create.error} />
       </Card>
 
-      <Card title="Open rooms">
-        <ErrorText error={rooms.error ?? close.error} />
-        {rooms.data?.length === 0 && <p className="text-sm text-text-muted">No rooms yet.</p>}
-        <ul className="flex flex-col gap-1">
-          {rooms.data?.map((r) => (
-            <li key={r.id} className="flex items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-surface-raised">
-              <Link to={`/rooms/${r.id}`} className="flex min-w-0 flex-1 items-center justify-between gap-3">
-                <span className="min-w-0">
-                  <span className="block font-medium">{r.name ?? describeSettings(r.settings)}{r.ownerId === me.data?.id && <Chip type="primary" shape="pill" className="ml-2">yours</Chip>}</span>
-                  <span className="mt-0.5 flex items-center gap-2 text-text-muted"><Chip type={r.phase === 'lobby' ? 'success' : r.phase === 'ended' ? 'neutral' : 'primary'}>{r.phase}</Chip>{r.name && <span>{describeSettings(r.settings)} ·</span>}{r.playerCount}/{r.settings.playerCount} seated · {new Date(r.createdAt).toLocaleString()}</span>
-                </span>
-                <span className="text-accent">{r.phase === 'lobby' ? 'Open' : 'Rejoin'}</span>
-              </Link>
-              {r.ownerId === me.data?.id && (
-                <Button variant="ghost" className="text-danger" disabled={close.isPending} onClick={() => confirm('Close this room for everyone?') && close.mutate(r.id)}>
-                  Close
-                </Button>
-              )}
-            </li>
-          ))}
-        </ul>
-      </Card>
     </main>
   );
 }

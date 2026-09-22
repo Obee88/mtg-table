@@ -39,7 +39,7 @@ const STACK_SHOWN = 'mtg-table:stack-shown';
  * The whole game view. Fills its container (no page scroll): one row per
  * player, card size derived from the space each row gets.
  */
-export function Table({ state, meId, send, live = [], connected = [], onEndGame, onNewGame, onForfeit, leaveHref = '/rooms', toolsEl = null }: { state: RoomState; meId: string; send: Send; live?: RoomEvent[]; connected?: string[]; onEndGame?: (() => void) | undefined; onNewGame?: (() => void) | undefined; onForfeit?: (() => void) | undefined; leaveHref?: string; /** Where the toolbar goes (the log column's tools row); without it, the toolbar sits in the player's own strip. */ toolsEl?: HTMLElement | null }) {
+export function Table({ state, meId, send, live = [], connected = [], onEndGame, onNewGame, onForfeit, leaveHref = '/', toolsEl = null }: { state: RoomState; meId: string; send: Send; live?: RoomEvent[]; connected?: string[]; onEndGame?: (() => void) | undefined; onNewGame?: (() => void) | undefined; onForfeit?: (() => void) | undefined; leaveHref?: string; /** Where the toolbar goes (the log column's tools row); without it, the toolbar sits in the player's own strip. */ toolsEl?: HTMLElement | null }) {
   const game = state.game!;
   const players = seatedPlayers(state);
   const me = players.find((p) => p.id === meId);

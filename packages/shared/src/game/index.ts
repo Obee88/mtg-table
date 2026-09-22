@@ -6,3 +6,4 @@ export * from './protocol.js';
 export * from './reduce.js';
 export * from './types.js';
 export * from './visibility.js';
+export * from './attention.js';

@@ -1,3 +1,4 @@
+import type { Attention } from './attention.js';
 import type { DraftConfig, DraftState } from '../draft/types.js';
 
 /** User id of a seated player. */
@@ -180,6 +181,12 @@ export interface RoomListItem {
   ownerId: PlayerId;
   playerCount: number;
   createdAt: string;
+  /** What the room waits on from the caller (only for rooms they sit in). */
+  attention: Attention | null;
+  /** Games played so far in the room, when a game has been dealt. */
+  gameNumber: number | null;
+  /** Whether the caller is seated. */
+  seated: boolean;
 }
 
 /** Fisher–Yates with an injected random source, so shuffles are reproducible in tests. */

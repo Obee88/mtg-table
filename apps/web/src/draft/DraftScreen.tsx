@@ -30,7 +30,7 @@ const zoomOnHold = (zoom: (src: string | null) => void, printing: CardPrinting |
   });
 
 /** The whole-viewport draft: seats and direction on top, the pack at hand in the middle, the pool below; log column on the right. */
-export function DraftScreen({ room, meId, leaveHref = '/rooms' }: { room: GameRoom; meId: string; leaveHref?: string }) {
+export function DraftScreen({ room, meId, leaveHref = '/' }: { room: GameRoom; meId: string; leaveHref?: string }) {
   const [zoomSrc, setZoomSrc] = useState<string | null>(null);
   const { state } = room;
   const draft = state.draft!;

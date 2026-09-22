@@ -1,7 +1,7 @@
 import type { CardPrinting, CardPrintingsResponse, CardSearchResponse } from '@mtg/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link } from 'react-router';
+
 import { Card, ErrorText, Input } from '../components';
 import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
@@ -25,7 +25,6 @@ export function CardsPage() {
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Cards</h1>
-        <Link to="/" className="text-sm text-accent hover:underline">Home</Link>
       </header>
 
       <Input label="Search by name" value={query} onChange={(e) => setQuery(e.target.value)} autoFocus placeholder="Lightning Bolt" />

@@ -17,7 +17,6 @@ export function DraftConfigListPage() {
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Draft formats</h1>
         <div className="flex items-center gap-3">
-          <Link to="/" className="text-sm text-accent hover:underline">Home</Link>
           <Link to="/drafts/history" className="text-sm text-accent hover:underline">Past drafts</Link>
           <Link to="/drafts/new"><Button>New format</Button></Link>
         </div>
