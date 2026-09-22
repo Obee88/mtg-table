@@ -938,3 +938,46 @@ describe('commander', () => {
     expect(plain.settings.commander).toBe(false);
   });
 });
+
+describe('extra turns', () => {
+  const settings: RoomSettings = { playerCount: 2, mode: '1v1', startingLife: 20, commander: false };
+  const deck = { main: [{ printingId: 'x', quantity: 8 }], sideboard: [], commander: [] };
+  const decks = { a: deck, b: deck };
+
+  it('gives the turn back to whoever queued one, most recent first, and can be cancelled', () => {
+    let n = 0;
+    let r = 0;
+    let s = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings });
+    for (const p of ['a', 'b']) {
+      s = run(s, p, { type: 'join' });
+      s = run(s, p, { type: 'selectDeck', deckId: 'd' });
+      s = run(s, p, { type: 'setReady', ready: true });
+    }
+    const d = decide(s, { type: 'start' }, { ...ctx('a'), decks, random: () => ((r += 7) % 11) / 11, newId: () => `x${++n}` });
+    if (!d.ok) throw new Error(d.error);
+    s = keepAll(reduceAll(s, d.events));
+    const first = s.game!.firstPlayerId;
+    const other = first === 'a' ? 'b' : 'a';
+
+    expect(decide(s, { type: 'cancelExtraTurn' }, ctx(first))).toEqual({ ok: false, error: 'No extra turn to cancel' });
+    // The active player queues one for themselves and one for the opponent (a "target player" effect); the opponent's, being newer, comes first.
+    s = run(s, first, { type: 'queueExtraTurn' });
+    s = run(s, first, { type: 'queueExtraTurn', playerId: other });
+    expect(s.game!.extraTurns).toEqual([first, other]);
+    const turnsBefore = s.game!.turns![first]!;
+    s = run(s, first, { type: 'endTurn' });
+    expect(activePlayer(s.game!)).toBe(other);
+    expect(s.game!.extraTurns).toEqual([first]);
+    s = run(s, other, { type: 'endTurn' });
+    expect(activePlayer(s.game!)).toBe(first);
+    expect(s.game!.turns![first]).toBe(turnsBefore + 1); // an extra turn still counts as a turn
+    expect(s.game!.extraTurns).toEqual([]);
+    // With the queue empty the turn passes normally, also from the play button at the end step.
+    s = run(s, first, { type: 'queueExtraTurn' });
+    s = run(s, first, { type: 'cancelExtraTurn' });
+    expect(s.game!.extraTurns).toEqual([]);
+    s = run(s, first, { type: 'advanceStep', to: 'end' });
+    s = run(s, first, { type: 'advanceStep' });
+    expect(activePlayer(s.game!)).toBe(other);
+  });
+});

@@ -569,12 +569,19 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
     case 'endTurn': {
       const pgs = ownGame(state, ctx.actorId);
       if ('error' in pgs) return reject(pgs.error);
-      const game = state.game!;
-      if (!isActive(state, ctx.actorId)) return reject("It is not your turn");
-      const order = seatedPlayers(state).map((p) => p.id);
-      const idx = order.indexOf(activePlayer(game));
-      const next = order[(idx + 1) % order.length]!;
-      return accept(endTurnEvent(state, ctx.actorId, next));
+      if (!isActive(state, ctx.actorId)) return reject('It is not your turn');
+      return accept(endTurnEvent(state, ctx.actorId));
+    }
+
+    case 'queueExtraTurn':
+    case 'cancelExtraTurn': {
+      const own = ownGame(state, ctx.actorId);
+      if ('error' in own) return reject(own.error);
+      const playerId = command.playerId ?? ctx.actorId;
+      if (!state.players[playerId]) return reject('No such player');
+      if (command.type === 'queueExtraTurn') return accept({ type: 'extraTurnQueued', playerId });
+      if (!(state.game!.extraTurns ?? []).includes(playerId)) return reject('No extra turn to cancel');
+      return accept({ type: 'extraTurnCancelled', playerId });
     }
 
     case 'reportResult': {
@@ -765,9 +772,15 @@ function settle(state: RoomState, pending: NonNullable<GameState['pendingResult'
 }
 
 /** The turn passes: the next player counts one more turn of their own. */
-function endTurnEvent(state: RoomState, actorId: string, nextPlayerId: string): GameEvent {
-  const turns = state.game?.turns ?? {};
-  return { type: 'turnEnded', playerId: actorId, nextPlayerId, turn: (turns[nextPlayerId] ?? 0) + 1 };
+/** The turn passing: to whoever is owed an extra turn (the most recently granted first), else to the next seat. */
+function endTurnEvent(state: RoomState, actorId: string): GameEvent {
+  const game = state.game!;
+  const owed = game.extraTurns ?? [];
+  const extra = owed.length > 0 && !!state.players[owed[owed.length - 1]!];
+  const order = seatedPlayers(state).map((p) => p.id);
+  const nextPlayerId = extra ? owed[owed.length - 1]! : order[(order.indexOf(activePlayer(game)) + 1) % order.length]!;
+  const turns = game.turns ?? {};
+  return { type: 'turnEnded', playerId: actorId, nextPlayerId, turn: (turns[nextPlayerId] ?? 0) + 1, ...(extra ? { extra: true } : {}) };
 }
 
 /** Untapping a player's permanents, skipping the ones marked not to (and counting those marks down). */
@@ -794,11 +807,7 @@ function stepEvents(state: RoomState, actorId: string): { events: GameEvent[] } 
   if (!isActive(state, actorId)) return { error: 'It is not your turn' };
   const step = game.step ?? 'main1';
   const after = nextStep(step);
-  if (!after) {
-    const order = seatedPlayers(state).map((p) => p.id);
-    const next = order[(order.indexOf(activePlayer(game)) + 1) % order.length]!;
-    return { events: [endTurnEvent(state, actorId, next)] };
-  }
+  if (!after) return { events: [endTurnEvent(state, actorId)] };
   const events: GameEvent[] = [];
   if (step === 'untap') events.push(...untapEvents(state, pgs));
   // The draw step draws. (Whoever goes first in a duel never reaches it on turn one: their turn starts at the first main phase.)

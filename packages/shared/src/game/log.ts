@@ -78,7 +78,11 @@ export function describeEvent(e: RoomEvent, ctx: LogContext): string | null {
     case 'noUntapChanged':
       return ev.value === null ? `${actor} let ${card(ev.instanceId)} untap again` : `${actor} set ${card(ev.instanceId)} not to untap ${ev.value === 'always' ? 'at all' : `for ${ev.value} turn${ev.value === 1 ? '' : 's'}`}`;
     case 'turnEnded':
-      return `${ctx.playerName(ev.playerId)} ended the turn — ${ctx.playerName(ev.nextPlayerId)}'s turn (${ev.turn})`;
+      return ev.extra ? `${ctx.playerName(ev.playerId)} ended the turn — ${ctx.playerName(ev.nextPlayerId)} takes an extra turn (${ev.turn})` : `${ctx.playerName(ev.playerId)} ended the turn — ${ctx.playerName(ev.nextPlayerId)}'s turn (${ev.turn})`;
+    case 'extraTurnQueued':
+      return `${ctx.playerName(ev.playerId)} will take an extra turn after this one`;
+    case 'extraTurnCancelled':
+      return `${ctx.playerName(ev.playerId)} gave up an extra turn`;
     case 'mulliganTaken':
       return `${ctx.playerName(ev.playerId)} took a mulligan (${ev.taken})`;
     case 'sideboardingDone':

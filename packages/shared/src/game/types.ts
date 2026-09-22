@@ -99,6 +99,8 @@ export interface GameState {
   gameNumber: number;
   /** A proposed outcome waiting for every seat to confirm; null winners = nobody won, do not track. */
   pendingResult: PendingResult | null;
+  /** Players owed an extra turn, in the order they were granted; the most recent is taken first, right after the current turn. */
+  extraTurns?: PlayerId[] | undefined;
 }
 
 export interface PendingResult {

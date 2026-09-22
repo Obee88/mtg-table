@@ -39,6 +39,13 @@ export function GamePanel({ state, meId, run, leaveHref, onEndGame, onNewGame, o
   const items = (): (MenuItem | 'sep')[] => {
     const out: (MenuItem | 'sep')[] = [];
     if (onShowStack) out.push({ label: stackShown ? 'Hide the stack' : 'Show the stack', onSelect: () => onShowStack(!stackShown) });
+    // Time Walk and friends: queue an extra turn for yourself; the most recent one is taken first.
+    if (me) {
+      const owed = (game.extraTurns ?? []).filter((id) => id === meId).length;
+      out.push({ label: owed ? `Take another extra turn (${owed} queued)` : 'Take an extra turn after this one', onSelect: () => void run({ type: 'queueExtraTurn' }) });
+      if (owed) out.push({ label: 'Cancel my extra turn', onSelect: () => void run({ type: 'cancelExtraTurn' }) });
+    }
+    out.push('sep');
     if (onForfeit) out.push({ label: 'Forfeit this game', onSelect: onForfeit });
     if (onNewGame) out.push({ label: 'New game…', onSelect: onNewGame });
     if (onEndGame) out.push({ label: 'End game…', onSelect: onEndGame });

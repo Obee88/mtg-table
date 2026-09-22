@@ -101,7 +101,10 @@ export const gameEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('sideboardingDone'), playerId: z.string() }),
   z.object({ type: z.literal('mulliganTaken'), playerId: z.string(), taken: z.number().int() }),
   z.object({ type: z.literal('handKept'), playerId: z.string(), bottomed: z.number().int() }),
-  z.object({ type: z.literal('turnEnded'), playerId: z.string(), nextPlayerId: z.string(), turn: z.number().int() }),
+  /** `extra`: the next turn is an extra one owed to nextPlayerId (taken off the queue). */
+  z.object({ type: z.literal('turnEnded'), playerId: z.string(), nextPlayerId: z.string(), turn: z.number().int(), extra: z.boolean().optional() }),
+  z.object({ type: z.literal('extraTurnQueued'), playerId: z.string() }),
+  z.object({ type: z.literal('extraTurnCancelled'), playerId: z.string() }),
   /** The active player moved to another step of their turn. */
   z.object({ type: z.literal('stepChanged'), playerId: z.string(), step: z.enum(['untap', 'upkeep', 'draw', 'main1', 'combat', 'main2', 'end']) }),
   /** A permanent that skips untapping: 'always', a number of untap steps, or null to clear. */

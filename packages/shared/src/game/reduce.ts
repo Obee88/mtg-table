@@ -345,7 +345,21 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
       const cards = Object.fromEntries(Object.entries(state.game.cards).map(([id, c]) => [id, (c.targetedBy?.length ?? 0) > 0 ? { ...c, targetedBy: [] } : c]));
       // Everyone counts their own turns, so the number only rises when a player comes round again.
       const turns = { ...(state.game.turns ?? {}), [event.nextPlayerId]: event.turn };
-      return { ...state, game: { ...state.game, cards, activePlayerId: event.nextPlayerId, turn: event.turn, turns, step: 'untap' } };
+      // An extra turn comes off the queue as it begins.
+      const extraTurns = event.extra ? (state.game.extraTurns ?? []).slice(0, -1) : (state.game.extraTurns ?? []);
+      return { ...state, game: { ...state.game, cards, activePlayerId: event.nextPlayerId, turn: event.turn, turns, step: 'untap', extraTurns } };
+    }
+
+    case 'extraTurnQueued':
+      if (!state.game) return state;
+      return { ...state, game: { ...state.game, extraTurns: [...(state.game.extraTurns ?? []), event.playerId] } };
+
+    case 'extraTurnCancelled': {
+      if (!state.game) return state;
+      const queue = [...(state.game.extraTurns ?? [])];
+      const at = queue.lastIndexOf(event.playerId);
+      if (at >= 0) queue.splice(at, 1);
+      return { ...state, game: { ...state.game, extraTurns: queue } };
     }
 
     case 'stepChanged':

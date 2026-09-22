@@ -89,6 +89,9 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('adjustLife'), delta: z.number().int().min(-999).max(999), playerId: z.string().optional() }),
   /** Every card in hand to the graveyard, as one undoable action. */
   z.object({ type: z.literal('discardHand') }),
+  /** Time Walk and friends: the named player (default: the actor) takes an extra turn right after the current one. */
+  z.object({ type: z.literal('queueExtraTurn'), playerId: z.string().optional() }),
+  z.object({ type: z.literal('cancelExtraTurn'), playerId: z.string().optional() }),
   z.object({ type: z.literal('adjustPoison'), delta: z.number().int().min(-99).max(99) }),
   /** Floating mana in the own pool; opening it shows the pool to everyone. */
   z.object({ type: z.literal('adjustMana'), symbol: z.enum(['W', 'U', 'B', 'R', 'G', 'C']), delta: z.number().int().min(-99).max(99) }),

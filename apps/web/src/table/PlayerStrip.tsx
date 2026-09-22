@@ -33,6 +33,7 @@ export function PlayerStrip({ state, player, pgs, mine, connected, run, toolbar,
   const first = state.game?.firstPlayerId === player.id;
   const myTurn = isActive(state, player.id);
   const team = state.settings.mode === '2v2';
+  const extra = (state.game?.extraTurns ?? []).filter((id) => id === player.id).length;
 
   return (
     <div className="flex h-9 min-w-0 items-center gap-2 px-2 text-[13px] leading-none">
@@ -47,6 +48,7 @@ export function PlayerStrip({ state, player, pgs, mine, connected, run, toolbar,
       {first && !myTurn && <Chip type="neutral" title="rolled highest">1st</Chip>}
       {team && <Chip type="neutral" title="team">team {player.team + 1}</Chip>}
       {myTurn && <Chip type="primary" title={`their own turn ${turn}`}>{mine ? (team ? "Your team's turn" : 'Your turn') : team ? `Team ${player.team + 1}'s turn` : `${player.displayName}'s turn`} · {turn}</Chip>}
+      {extra > 0 && <Chip type="warning" title="owed an extra turn after the current one">extra turn{extra > 1 ? ` ×${extra}` : ''}</Chip>}
       {/* Life, poison and the other resources live in the game panel now. */}
       <PhaseTracker step={state.game?.step ?? 'main1'} active={myTurn} mine={mine} run={run} />
       {state.settings.commander && (
