@@ -53,3 +53,17 @@ export function attentionFor(state: RoomState, playerId: string): Attention | nu
       return null;
   }
 }
+
+/** Why the host cannot start yet, in plain words; empty when everyone is seated and ready. */
+export function startBlockers(state: RoomState): string[] {
+  const out: string[] = [];
+  const players = seatedPlayers(state);
+  const missing = state.settings.playerCount - players.length;
+  if (missing > 0) out.push(`${missing} seat${missing === 1 ? ' is' : 's are'} empty`);
+  const needDeck = !state.settings.draft && state.draft?.status !== 'finished';
+  for (const p of players) {
+    if (needDeck && !p.deckId) out.push(`Waiting for ${p.displayName} to choose a deck`);
+    else if (!p.ready) out.push(`Waiting for ${p.displayName} to be ready`);
+  }
+  return out;
+}

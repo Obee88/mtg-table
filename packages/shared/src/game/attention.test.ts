@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attentionFor } from './attention.js';
+import { attentionFor, startBlockers } from './attention.js';
 import { decide, type CommandContext } from './decide.js';
 import { initialRoomState, reduce, reduceAll } from './reduce.js';
 import type { RoomSettings } from './types.js';
@@ -46,5 +46,21 @@ describe('attentionFor', () => {
     s = run(s, first, { type: 'proposeResult', winners: [first], then: 'end' }, { decks: { a: deck, b: deck } });
     expect(attentionFor(s, other)).toBe('confirm the result');
     expect(attentionFor(s, first)).toBeNull();
+  });
+});
+
+describe('startBlockers', () => {
+  it('names empty seats, missing decks and unready players, in seat order', () => {
+    let s = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings });
+    expect(startBlockers(s)).toEqual(['2 seats are empty']);
+    s = run(s, 'a', { type: 'join' });
+    expect(startBlockers(s)).toEqual(['1 seat is empty', 'Waiting for a to choose a deck']);
+    s = run(s, 'a', { type: 'selectDeck', deckId: 'd' });
+    s = run(s, 'b', { type: 'join' });
+    s = run(s, 'b', { type: 'selectDeck', deckId: 'd' });
+    s = run(s, 'b', { type: 'setReady', ready: true });
+    expect(startBlockers(s)).toEqual(['Waiting for a to be ready']);
+    s = run(s, 'a', { type: 'setReady', ready: true });
+    expect(startBlockers(s)).toEqual([]);
   });
 });
