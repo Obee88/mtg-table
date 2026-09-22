@@ -3,7 +3,7 @@ import { canSit, defaultDraftName, seatedPlayers, startBlockers, teamForSeat } f
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { Button, Card, Dialog, ErrorText, Input } from '../components';
+import { Button, Card, Dialog, ErrorText, Input, Select } from '../components';
 import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
 import { useMe } from '../lib/auth';
@@ -143,10 +143,10 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
                     <Button key={d.id} variant={me.deckId === d.id ? 'primary' : 'ghost'} className="!py-1 text-xs" onClick={() => run({ type: 'selectDeck', deckId: me.deckId === d.id ? null : d.id })} title={`${d.mainCount} cards`}>{d.name}</Button>
                   ))}
                   {(decks.data?.length ?? 0) > recent.length && (
-                    <select value={me.deckId ?? ''} onChange={(e) => run({ type: 'selectDeck', deckId: e.target.value || null })} className="rounded-md border border-border bg-surface px-2 py-1 text-text" aria-label="Other decks">
+                    <Select value={me.deckId ?? ''} onChange={(e) => run({ type: 'selectDeck', deckId: e.target.value || null })} className="!py-1" aria-label="Other decks">
                       <option value="">other decks…</option>
                       {decks.data?.slice(recent.length).map((d) => <option key={d.id} value={d.id}>{d.name} ({d.mainCount})</option>)}
-                    </select>
+                    </Select>
                   )}
                   <Button variant="ghost" className="!py-1 text-xs" onClick={() => setImporting(true)}>Import…</Button>
                 </div>

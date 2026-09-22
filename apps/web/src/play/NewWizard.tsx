@@ -3,7 +3,7 @@ import { describeDraftConfig, houseRulesPreset, withRoomSeats } from '@mtg/share
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { Button, Card, ErrorText, Input } from '../components';
+import { Button, Card, ErrorText, Input, Select } from '../components';
 import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
 import { useMe } from '../lib/auth';
@@ -146,9 +146,9 @@ export function NewWizard() {
             {formatId === 'house' && (
               <label className="flex flex-wrap items-center gap-2 text-sm">
                 <span className="text-text-muted">Tri-colour pool cube</span>
-                <select className="rounded-md border border-border bg-surface px-2 py-1.5 text-text" value={triCubeId || cubeId} onChange={(e) => setTriCubeId(e.target.value)}>
+                <Select className="!py-1.5" value={triCubeId || cubeId} onChange={(e) => setTriCubeId(e.target.value)}>
                   {cubes.data?.map((c) => <option key={c.id} value={c.id} disabled={!c.latestVersionId}>{c.name}{c.id === cubeId ? ' (the same cube)' : ''}</option>)}
-                </select>
+                </Select>
                 <span className="text-text-muted">The first pack draws from it.</span>
               </label>
             )}

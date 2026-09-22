@@ -2,7 +2,7 @@ import type { CubeResponse } from '@mtg/shared';
 import { TRI_COLOUR_POOL_SIZE, triColourPool } from '@mtg/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Button, ErrorText } from '../components';
+import { Button, ErrorText, Select } from '../components';
 import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
 
@@ -31,10 +31,10 @@ export function PoolHelper({ cubeId, onCreated }: { cubeId: string; onCreated: (
         <>
           <p className="flex flex-wrap items-center gap-2">
             <span className="text-text-muted">Cards with</span>
-            <select className="rounded-md border border-border bg-surface px-2 py-1 text-text" value={colours} onChange={(e) => setColours(Number(e.target.value) as 2 | 3)}>
+            <Select className="!py-1" value={colours} onChange={(e) => setColours(Number(e.target.value) as 2 | 3)}>
               <option value={3}>exactly three colours</option>
               <option value={2}>exactly two colours</option>
-            </select>
+            </Select>
             <span className="text-text-muted">in {cube.data.cube.name}:</span>
             <Chip type={size >= TRI_COLOUR_POOL_SIZE ? 'success' : 'warning'} title={`the first phase deals ${TRI_COLOUR_POOL_SIZE}`}>{size} card{size === 1 ? '' : 's'}</Chip>
             {size < TRI_COLOUR_POOL_SIZE && <span className="text-text-muted">fewer than the {TRI_COLOUR_POOL_SIZE} the first phase deals; add some to the pool cube afterwards.</span>}

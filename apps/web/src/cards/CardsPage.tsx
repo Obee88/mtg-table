@@ -2,7 +2,7 @@ import type { CardPrinting, CardPrintingsResponse, CardSearchResponse } from '@m
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { Card, ErrorText, Input } from '../components';
+import { Card, ErrorText, Input, PageHeader } from '../components';
 import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
 import { useDebounce } from '../lib/useDebounce';
@@ -23,9 +23,7 @@ export function CardsPage() {
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Cards</h1>
-      </header>
+      <PageHeader title="Cards" subtitle="Look a card up, see its printings and rules text." />
 
       <Input label="Search by name" value={query} onChange={(e) => setQuery(e.target.value)} autoFocus placeholder="Lightning Bolt" />
       <ErrorText error={search.error} />

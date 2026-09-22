@@ -1,6 +1,6 @@
 import type { Invite } from '@mtg/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button, Card, ErrorText } from '../components';
+import { Button, Card, EmptyState, ErrorText, PageHeader } from '../components';
 import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
 
@@ -16,7 +16,8 @@ export function InvitesPage() {
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
-      <Card title="Invites">
+      <PageHeader title="Invites" subtitle="The group is invite-only: make a link, send it, and the newcomer registers with it." />
+      <Card>
         <div className="flex flex-col gap-4">
           <div>
             <Button onClick={() => create.mutate()} disabled={create.isPending}>New invite link</Button>
@@ -29,7 +30,7 @@ export function InvitesPage() {
                 {inv.usedBy ? <Chip type="neutral">used</Chip> : <Button variant="ghost" onClick={() => navigator.clipboard.writeText(link(inv.code))}>Copy</Button>}
               </li>
             ))}
-            {invites.data?.length === 0 && <li className="text-text-muted">No invites yet.</li>}
+            {invites.data?.length === 0 && <li><EmptyState title="No invites yet" text="Each link admits one person." /></li>}
           </ul>
         </div>
       </Card>

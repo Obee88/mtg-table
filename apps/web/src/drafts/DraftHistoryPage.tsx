@@ -1,7 +1,7 @@
 import type { DraftHistoryItem } from '@mtg/shared';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
-import { Card, ErrorText } from '../components';
+import { Button, Card, EmptyState, ErrorText, PageHeader } from '../components';
 import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
 
@@ -18,14 +18,10 @@ export function DraftHistoryPage() {
   const drafts = useQuery({ queryKey: ['drafts', 'history'], queryFn: () => api<DraftHistoryItem[]>('/drafts/history') });
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Past drafts</h1>
-        <div className="flex items-center gap-3 text-sm">
-        </div>
-      </header>
+      <PageHeader title="Past drafts" subtitle="Every draft you took part in; open one for the deck you built, and save it to Decks." />
       <Card>
         <ErrorText error={drafts.error} />
-        {drafts.data?.length === 0 && <p className="text-sm text-text-muted">No drafts yet. Once you have drafted, your pools and decks show up here.</p>}
+        {drafts.data?.length === 0 && <EmptyState title="No drafts yet" text="Once you have drafted, your pools and decks show up here." action={<Link to="/play/new?kind=draft"><Button>Start a draft</Button></Link>} />}
         <ul className="flex flex-col gap-1">
           {drafts.data?.map((d) => (
             <li key={d.roomId}>

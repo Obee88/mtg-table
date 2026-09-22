@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { CardImage } from '../cards/CardImage';
-import { Card, ErrorText } from '../components';
+import { Card, ErrorText, PageHeader } from '../components';
 import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
 import { useMe } from '../lib/auth';
@@ -31,12 +31,7 @@ export function PlayerStatsPage() {
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">{own ? 'My stats' : `${player.displayName} · stats`}</h1>
-          <p className="text-sm text-text-muted">{stats.record.games} game{stats.record.games === 1 ? '' : 's'} · {wl(stats.record)} · {winRate(stats.record)} wins</p>
-        </div>
-      </header>
+      <PageHeader title={own ? 'My stats' : `${player.displayName} · stats`} subtitle={`${stats.record.games} game${stats.record.games === 1 ? '' : 's'} · ${wl(stats.record)} · ${winRate(stats.record)} wins`} />
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card title="By format">
