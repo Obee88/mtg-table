@@ -90,7 +90,7 @@ export function DraftConfigPage() {
     <main className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
       <header className="flex items-center justify-between gap-3">
         <input className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent text-2xl font-semibold hover:border-border focus:border-border disabled:hover:border-transparent" value={config.name} disabled={!canEdit} onChange={(e) => set({ name: e.target.value })} aria-label="format name" />
-        <Link to="/drafts" className="text-sm text-accent hover:underline">Formats</Link>
+        <Link to={phaseCubes[0] ? `/cubes/${phaseCubes[0]}?tab=formats` : '/cubes'} className="text-sm text-accent hover:underline">Cube formats</Link>
       </header>
       {!canEdit && <p className="text-sm text-text-muted">Shared with you by the owner: you can start drafts with this format, but not change it.</p>}
       {id && canEdit && existing.data && (

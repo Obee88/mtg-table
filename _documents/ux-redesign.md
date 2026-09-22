@@ -184,6 +184,6 @@ Resolved with the host, standing in for the group; each one binds the M9 step it
    same switch. — *Step 6.*
 3. **Draft formats belong to their cube.** The standalone Draft formats page goes away: formats are
    edited on the cube's Formats tab and created from the wizard's *Custom…* step, pre-bound to the
-   chosen cube. `/drafts` and `/drafts/:id` redirect to the owning cube's Formats tab (a format
-   with pools from several cubes opens on the first pool's cube). Past drafts (`/drafts/history`)
-   is unaffected. — *Steps 3 and 4.*
+   chosen cube. `/drafts` redirects to Cubes; `/drafts/:id` stays the format editor, reached from
+   the tab, and links back to the first pool's cube. Past drafts (`/drafts/history`) is
+   unaffected. *(Shipped 2026-09-22.)* — *Steps 3 and 4.*

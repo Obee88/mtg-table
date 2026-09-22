@@ -51,7 +51,6 @@ function UserMenu({ name }: { name: string }) {
       {open && (
         <div role="menu" className="absolute right-0 top-full z-40 mt-1 flex w-48 flex-col gap-0.5 rounded-md border border-border bg-surface p-1 shadow-xl">
           <Link to="/drafts/history" className={item} onClick={() => setOpen(false)}>Past drafts</Link>
-          <Link to="/drafts" className={item} onClick={() => setOpen(false)}>Draft formats</Link>
           <Link to="/cards" className={item} onClick={() => setOpen(false)}>Browse cards</Link>
           <span className="my-0.5 border-t border-border" />
           <Button variant="ghost" className="!justify-start !px-3 !py-1.5 text-sm" onClick={() => logout.mutate()} disabled={logout.isPending}>Sign out</Button>

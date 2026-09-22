@@ -6,7 +6,6 @@ import { CubeImportPage } from './cubes/CubeImportPage';
 import { CubeListPage } from './cubes/CubeListPage';
 import { CubeStatsPage } from './cubes/CubeStatsPage';
 import { PlayerStatsPage } from './stats/PlayerStatsPage';
-import { DraftConfigListPage } from './drafts/DraftConfigListPage';
 import { DraftConfigPage } from './drafts/DraftConfigPage';
 import { DraftHistoryDeckPage } from './drafts/DraftHistoryDeckPage';
 import { DraftHistoryPage } from './drafts/DraftHistoryPage';
@@ -52,7 +51,7 @@ export function App() {
             <Route path="/cubes/new" element={<CubeImportPage />} />
             <Route path="/cubes/:id" element={<CubePage />} />
             <Route path="/cubes/:id/stats" element={<CubeStatsPage />} />
-            <Route path="/drafts" element={<DraftConfigListPage />} />
+            <Route path="/drafts" element={<Navigate to="/cubes" replace />} />
             <Route path="/drafts/new" element={<DraftConfigPage />} />
             <Route path="/drafts/history" element={<DraftHistoryPage />} />
             <Route path="/drafts/history/:roomId" element={<DraftHistoryDeckPage />} />

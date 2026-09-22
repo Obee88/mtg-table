@@ -40,15 +40,16 @@ export function NewWizard() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [kind, setKind] = useState<Kind>(params.get('kind') === 'draft' ? 'draft' : 'game');
-  const [at, setAt] = useState(params.get('kind') ? 1 : 0);
+  // From a cube page: the cube is chosen already, so start at the format (or, with a format too, at the players).
+  const [at, setAt] = useState(params.get('cube') ? (params.get('format') ? 3 : 2) : params.get('kind') ? 1 : 0);
   const steps = stepsFor(kind);
   const step = steps[Math.min(at, steps.length - 1)]!;
 
   // Draft: the cube, then the format that deals from it.
   const cubes = useQuery({ queryKey: ['cubes'], queryFn: () => api<CubeSummary[]>('/cubes'), enabled: kind === 'draft' });
   const formats = useQuery({ queryKey: ['draft-configs'], queryFn: () => api<DraftConfigSummary[]>('/draft-configs'), enabled: kind === 'draft' });
-  const [cubeId, setCubeId] = useState('');
-  const [formatId, setFormatId] = useState<'house' | string>('house');
+  const [cubeId, setCubeId] = useState(params.get('cube') ?? '');
+  const [formatId, setFormatId] = useState<'house' | string>(params.get('format') ?? 'house');
   const [triCubeId, setTriCubeId] = useState('');
   const saved = useQuery({ queryKey: ['draft-configs', formatId], queryFn: () => api<DraftConfigResponse>(`/draft-configs/${formatId}`), enabled: kind === 'draft' && formatId !== 'house' });
   const cube = cubes.data?.find((c) => c.id === cubeId);
