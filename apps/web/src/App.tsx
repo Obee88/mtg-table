@@ -14,7 +14,7 @@ import { CubePage } from './cubes/CubePage';
 import { DeckImportPage } from './decks/DeckImportPage';
 import { DeckListPage } from './decks/DeckListPage';
 import { DeckPage } from './decks/DeckPage';
-import { NewRoomPage } from './rooms/NewRoomPage';
+import { NewWizard } from './play/NewWizard';
 import { RoomPage } from './rooms/RoomPage';
 import { useMe } from './lib/auth';
 import { InvitesPage } from './play/InvitesPage';
@@ -42,7 +42,7 @@ export function App() {
           {/* Pages live in the shell (top bar); the room itself is full-viewport. */}
           <Route element={<Shell />}>
             <Route path="/" element={<PlayPage />} />
-            <Route path="/play/new" element={<NewRoomPage />} />
+            <Route path="/play/new" element={<NewWizard />} />
             <Route path="/invites" element={user?.isAdmin ? <InvitesPage /> : <Navigate to="/" replace />} />
             <Route path="/cards" element={<CardsPage />} />
             <Route path="/decks" element={<DeckListPage />} />

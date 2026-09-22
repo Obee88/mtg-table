@@ -7,7 +7,7 @@ import { Button, Card, Dialog, ErrorText, Input } from '../components';
 import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
 import { useMe } from '../lib/auth';
-import { describeSettings } from './NewRoomPage';
+import { describeSettings } from './describe';
 import { SettingsForm } from './SettingsForm';
 import { DraftScreen } from '../draft/DraftScreen';
 import { GameScreen } from '../table/GameScreen';

@@ -10,6 +10,8 @@ export interface DraftConfigSummary {
   shared: boolean;
   seats: 2 | 4;
   phaseCount: number;
+  /** Cubes its phases deal from (a format belongs to its cube in the UI). */
+  cubeIds: string[];
   updatedAt: string;
 }
 

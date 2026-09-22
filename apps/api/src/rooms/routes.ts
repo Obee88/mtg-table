@@ -7,7 +7,7 @@ import { badRequest, unauthorized } from '../errors.js';
 import { parse } from '../validate.js';
 
 const idParam = z.object({ id: z.uuid() });
-const createInput = z.object({ settings: roomSettingsSchema });
+const createInput = z.object({ settings: roomSettingsSchema, name: z.string().trim().min(1).max(120).optional() });
 const sinceQuery = z.object({ after: z.coerce.number().int().min(0).default(0) });
 
 
@@ -21,8 +21,8 @@ export async function roomRoutes(app: FastifyInstance): Promise<void> {
   const actor = (req: { user: { id: string; displayName: string } | null }) => ({ id: req.user!.id, displayName: req.user!.displayName });
 
   app.post('/rooms', async (req, reply) => {
-    const { settings } = parse(createInput, req.body);
-    const state = await app.rooms.create(actor(req), settings);
+    const { settings, name } = parse(createInput, req.body);
+    const state = await app.rooms.create(actor(req), settings, name);
     return reply.code(201).send(state);
   });
 

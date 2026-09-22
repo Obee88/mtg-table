@@ -54,12 +54,12 @@ export class RoomService {
     private readonly log: FastifyBaseLogger,
   ) {}
 
-  async create(owner: Actor, settings: RoomSettings): Promise<RoomState> {
-    const [row] = await this.db.insert(schema.rooms).values({ ownerId: owner.id, settings }).returning({ id: schema.rooms.id });
+  async create(owner: Actor, settings: RoomSettings, name?: string): Promise<RoomState> {
+    const [row] = await this.db.insert(schema.rooms).values({ ownerId: owner.id, settings, name: name ?? null }).returning({ id: schema.rooms.id });
     if (!row) throw new Error('room insert returned no row');
     const cached: CachedRoom = { state: initialRoomState(row.id), queue: Promise.resolve(), listeners: new Set(), lastUsed: Date.now() };
     this.cache.set(row.id, cached);
-    await this.append(cached, owner.id, [{ type: 'roomCreated', ownerId: owner.id, settings }]);
+    await this.append(cached, owner.id, [{ type: 'roomCreated', ownerId: owner.id, settings }, ...(name ? [{ type: 'roomRenamed' as const, name }] : [])]);
     const joined = await this.dispatch(row.id, owner, { type: 'join' });
     if (!joined.ok) throw new Error(joined.error);
     return joined.state;

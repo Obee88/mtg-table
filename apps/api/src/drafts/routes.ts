@@ -88,8 +88,16 @@ export async function draftConfigRoutes(app: FastifyInstance): Promise<void> {
       .innerJoin(schema.users, eq(schema.users.id, schema.draftConfigs.ownerId))
       .where(shared.length ? or(eq(schema.draftConfigs.ownerId, me), inArray(schema.draftConfigs.id, shared.map((s) => s.id))) : eq(schema.draftConfigs.ownerId, me))
       .orderBy(desc(schema.draftConfigs.updatedAt));
+    // The cube behind every pool version, so the UI can list a cube's formats.
+    const versionIds = [...new Set(rows.flatMap(({ row }) => row.config.phases.map((p) => p.poolCubeVersionId)))];
+    const versions = versionIds.length ? await db.select({ id: schema.cubeVersions.id, cubeId: schema.cubeVersions.cubeId }).from(schema.cubeVersions).where(inArray(schema.cubeVersions.id, versionIds)) : [];
+    const cubeOf = new Map(versions.map((v) => [v.id, v.cubeId]));
     return rows
-      .map(({ row: r, ownerName }) => ({ id: r.id, name: r.name, ownerId: r.ownerId, ownerName, shared: r.ownerId !== me, seats: r.config.seats, phaseCount: r.config.phases.length, updatedAt: r.updatedAt.toISOString() }))
+      .map(({ row: r, ownerName }) => ({
+        id: r.id, name: r.name, ownerId: r.ownerId, ownerName, shared: r.ownerId !== me, seats: r.config.seats, phaseCount: r.config.phases.length,
+        cubeIds: [...new Set(r.config.phases.flatMap((p) => { const c = cubeOf.get(p.poolCubeVersionId); return c ? [c] : []; }))],
+        updatedAt: r.updatedAt.toISOString(),
+      }))
       .sort((a, b) => Number(a.shared) - Number(b.shared));
   });
 

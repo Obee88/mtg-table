@@ -2,7 +2,7 @@ import type { CubeResponse, CubeSummary, DraftConfig, DraftConfigResponse, Draft
 import { cardsNeeded, cardsPerDrafter, cardsPerDrafterIn, draftConfigProblems, emptyGridPhase, emptyPhase, emptyRotisseriePhase, emptyWinchesterPhase, emptyWinstonPhase, houseRulesPreset } from '@mtg/shared';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { Button, Card, ErrorText } from '../components';
 import { Chip } from '../components/Chip';
 import { ShareCard } from '../components/ShareCard';
@@ -24,7 +24,10 @@ export function DraftConfigPage() {
   const cubes = useQuery({ queryKey: ['cubes'], queryFn: () => api<CubeSummary[]>('/cubes') });
   const [config, setConfig] = useState<DraftConfig>(() => ({ name: 'New format', seats: 4, startDirection: 'right', phases: [emptyPhase()] }));
   /** Cube chosen per phase (the config itself only stores the version). */
-  const [phaseCubes, setPhaseCubes] = useState<string[]>([]);
+  // From the wizard's Custom… step: the format starts bound to that cube.
+  const [params] = useSearchParams();
+  const boundCube = params.get('cube') ?? '';
+  const [phaseCubes, setPhaseCubes] = useState<string[]>(boundCube ? [boundCube] : []);
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     if (!existing.data || loaded) return;
@@ -76,7 +79,7 @@ export function DraftConfigPage() {
   };
   const applyHouse = () => {
     const house = houseRulesPreset({ triColour: '', main: '' }, config.name);
-    const first = cubes.data?.[0]?.id ?? '';
+    const first = boundCube || (cubes.data?.[0]?.id ?? '');
     setConfig({ ...house, phases: house.phases });
     setPhaseCubes([first, first]);
   };

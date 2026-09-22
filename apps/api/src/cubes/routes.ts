@@ -128,7 +128,7 @@ export async function cubeRoutes(app: FastifyInstance): Promise<void> {
     const out: CubeSummary[] = [];
     for (const { cube, ownerName } of rows) {
       const [latest] = await versionSummaries(cube.id);
-      out.push({ id: cube.id, name: cube.name, ownerId: cube.ownerId, ownerName, shared: cube.ownerId !== me, latestVersion: latest?.number ?? 0, cardCount: latest?.cardCount ?? 0, updatedAt: cube.updatedAt.toISOString() });
+      out.push({ id: cube.id, name: cube.name, ownerId: cube.ownerId, ownerName, shared: cube.ownerId !== me, latestVersion: latest?.number ?? 0, latestVersionId: latest?.id ?? null, cardCount: latest?.cardCount ?? 0, updatedAt: cube.updatedAt.toISOString() });
     }
     return out.sort((a, b) => Number(a.shared) - Number(b.shared));
   });

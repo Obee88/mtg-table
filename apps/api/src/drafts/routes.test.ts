@@ -51,6 +51,7 @@ describe('draft configs', () => {
     ]));
 
     expect((await call('GET', '/draft-configs', alice)).json()).toEqual([expect.objectContaining({ id, name: 'Our house', seats: 4, phaseCount: 2 })]);
+    expect((await call('GET', '/draft-configs', alice)).json()[0].cubeIds).toHaveLength(2);
     expect((await call('GET', '/draft-configs', bob)).json()).toEqual([]);
     expect((await call('GET', `/draft-configs/${id}`, bob)).statusCode).toBe(404);
 

@@ -26,6 +26,8 @@ export interface CubeSummary {
   /** Shared with the caller by its owner (read-only, but usable in drafts). */
   shared: boolean;
   latestVersion: number;
+  /** Id of that version (null for a cube with no version yet), for starting a draft from the list. */
+  latestVersionId: string | null;
   cardCount: number;
   updatedAt: string;
 }

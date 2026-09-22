@@ -27,23 +27,24 @@ describe('room routes', () => {
   let roomId: string;
 
   it('creates a room, lists it, joins and dispatches commands', async () => {
-    const created = await call('POST', '/rooms', alice, { settings });
+    const created = await call('POST', '/rooms', alice, { settings, name: 'Tuesday duel' });
     expect(created.statusCode).toBe(201);
+    expect(created.json().name).toBe('Tuesday duel');
     roomId = created.json().id;
 
     const listForBob = await call('GET', '/rooms', bob);
-    expect(listForBob.json()).toEqual([expect.objectContaining({ id: roomId, phase: 'lobby', playerCount: 1 })]);
+    expect(listForBob.json()).toEqual([expect.objectContaining({ id: roomId, name: 'Tuesday duel', phase: 'lobby', playerCount: 1 })]);
     expect(listForBob.json()[0]).toMatchObject({ seated: false, attention: null, gameNumber: null });
     expect((await call('GET', '/rooms', alice)).json()[0]).toMatchObject({ seated: true, attention: 'choose a deck' });
 
     const join = await call('POST', `/rooms/${roomId}/commands`, bob, { type: 'join' });
     expect(join.statusCode).toBe(200);
-    expect(join.json().events.map((e: { seq: number }) => e.seq)).toEqual([3]);
+    expect(join.json().events.map((e: { seq: number }) => e.seq)).toEqual([4]); // roomCreated, roomRenamed, playerJoined (owner), then Bob
 
     const state = await call('GET', `/rooms/${roomId}`, bob);
     expect(Object.keys(state.json().players)).toHaveLength(2);
 
-    const events = await call('GET', `/rooms/${roomId}/events?after=2`, bob);
+    const events = await call('GET', `/rooms/${roomId}/events?after=3`, bob);
     expect(events.json().map((e: { event: { type: string } }) => e.event.type)).toEqual(['playerJoined']);
   });
 

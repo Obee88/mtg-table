@@ -5,7 +5,7 @@ import { Button, Card, ErrorText } from '../components';
 import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
 import { useMe } from '../lib/auth';
-import { describeSettings } from '../rooms/NewRoomPage';
+import { describeSettings } from '../rooms/describe';
 
 const PHASE_LABEL: Record<RoomListItem['phase'], string> = { lobby: 'lobby', drafting: 'drafting', deckbuilding: 'deckbuilding', playing: 'playing', ended: 'closed' };
 
