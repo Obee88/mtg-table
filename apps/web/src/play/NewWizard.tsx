@@ -1,4 +1,4 @@
-import type { CubeSummary, DraftConfig, DraftConfigResponse, DraftConfigSummary, RoomSettings, RoomState } from '@mtg/shared';
+import type { CubeSummary, DraftConfig, DraftConfigResponse, DraftConfigSummary, RoomSettings, RoomState, UserSummary } from '@mtg/shared';
 import { describeDraftConfig, houseRulesPreset, withRoomSeats } from '@mtg/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -6,6 +6,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Button, Card, ErrorText, Input } from '../components';
 import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
+import { useMe } from '../lib/auth';
 import { describeSettings, PRESETS } from '../rooms/describe';
 import { SettingsForm } from '../rooms/SettingsForm';
 
@@ -66,7 +67,11 @@ export function NewWizard() {
     setSettings((s) => withRoomSeats({ ...s, draft: config, playerCount: config.seats, mode: config.seats === 2 ? '1v1' : s.mode === '1v1' ? 'ffa' : s.mode }));
   }, [config?.name, config?.seats, config?.phases.length]); // the config object is rebuilt every render; these three are its identity
   const [name, setName] = useState('');
-  const finalSettings: RoomSettings = kind === 'draft' ? withRoomSeats({ ...settings, draft: config }) : { ...settings, draft: null };
+  // Open to the group, or reserved for named players (the owner always sits).
+  const [reserved, setReserved] = useState<string[]>([]);
+  const users = useQuery({ queryKey: ['users'], queryFn: () => api<UserSummary[]>('/users') });
+  const me = useMe();
+  const finalSettings: RoomSettings = { ...(kind === 'draft' ? withRoomSeats({ ...settings, draft: config }) : { ...settings, draft: null }), ...(reserved.length ? { reservedPlayerIds: reserved } : {}) };
   const suggestedName = kind === 'draft' && config ? `${config.name} · ${finalSettings.playerCount} players · ${new Date().toISOString().slice(0, 10)}` : '';
 
   const create = useMutation({
@@ -172,6 +177,19 @@ export function NewWizard() {
           <div className="flex flex-col gap-3">
             <Input label={kind === 'draft' ? 'Draft name' : 'Room name (optional)'} value={name} onChange={(e) => setName(e.target.value)} placeholder={suggestedName || describeSettings(finalSettings)} />
             {suggestedName && !name && <p className="text-sm text-text-muted">Leave it empty to use the suggestion when the draft starts.</p>}
+            <fieldset className="flex flex-col gap-2 text-sm">
+              <legend className="mb-1 text-text-muted">Seats</legend>
+              <label className="flex items-center gap-2"><input type="radio" name="seats" checked={reserved.length === 0} onChange={() => setReserved([])} /> Open — anyone in the group can sit</label>
+              <label className="flex items-center gap-2"><input type="radio" name="seats" checked={reserved.length > 0} onChange={() => setReserved(users.data?.filter((u) => u.id !== me.data?.id).slice(0, finalSettings.playerCount - 1).map((u) => u.id) ?? [])} /> Reserved — only the players I name (and me)</label>
+              {reserved.length > 0 && (
+                <div className="ml-6 flex flex-wrap gap-3">
+                  {users.data?.filter((u) => u.id !== me.data?.id).map((u) => (
+                    <label key={u.id} className="flex items-center gap-1"><input type="checkbox" checked={reserved.includes(u.id)} onChange={(e) => setReserved((r) => (e.target.checked ? [...r, u.id] : r.filter((id) => id !== u.id)))} /> {u.displayName}</label>
+                  ))}
+                  <span className="text-text-muted">Everyone still sees the lobby; only these players can take a seat.</span>
+                </div>
+              )}
+            </fieldset>
             <p className="text-sm text-text-muted">{describeSettings(finalSettings)}</p>
           </div>
         )}

@@ -1,5 +1,5 @@
-import type { DeckSummary, RoomState } from '@mtg/shared';
-import { defaultDraftName, seatedPlayers, teamForSeat } from '@mtg/shared';
+import type { DeckSummary, RoomState, UserSummary } from '@mtg/shared';
+import { canSit, defaultDraftName, seatedPlayers, teamForSeat } from '@mtg/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
@@ -57,6 +57,10 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
   // A draft that already happened: the next game deals the decks built from it.
   const drafted = state.draft?.status === 'finished';
   const played = state.results.length;
+  const reserved = state.settings.reservedPlayerIds ?? [];
+  const users = useQuery({ queryKey: ['users'], queryFn: () => api<UserSummary[]>('/users'), enabled: reserved.length > 0 });
+  const reservedNames = reserved.map((id) => users.data?.find((u) => u.id === id)?.displayName ?? '…');
+  const maySit = canSit(state, meId);
 
   const run = async (command: Parameters<typeof send>[0]) => {
     setError(null);
@@ -82,6 +86,7 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
       )}
 
       <Card title={`Seats · ${players.length}/${state.settings.playerCount}`}>
+        {reserved.length > 0 && <p className="mb-3 text-sm text-text-muted"><Chip type="primary">reserved</Chip> for {reservedNames.join(', ')} and the host; others can watch.</p>}
         <ul className="grid gap-2 sm:grid-cols-2">
           {Array.from({ length: state.settings.playerCount }, (_, seat) => {
             const p = players.find((x) => x.seat === seat);
@@ -117,7 +122,7 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
       <Card title="You">
         <div className="flex flex-wrap items-center gap-3">
           {!me ? (
-            <Button onClick={() => run({ type: 'join' })} disabled={players.length >= state.settings.playerCount}>Take a seat</Button>
+            <Button onClick={() => run({ type: 'join' })} disabled={players.length >= state.settings.playerCount || !maySit} title={maySit ? undefined : 'This table is reserved for other players'}>{maySit ? 'Take a seat' : 'Reserved table'}</Button>
           ) : (
             <>
               {drafting && <span className="text-sm text-text-muted">{drafted ? 'You play the deck you built from your draft pool.' : 'Decks are built after the draft.'}</span>}

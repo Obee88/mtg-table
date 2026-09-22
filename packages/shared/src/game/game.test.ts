@@ -61,6 +61,14 @@ describe('decide', () => {
     expect(decide(state, { type: 'join' }, ctx('a'))).toEqual({ ok: false, error: 'Already in the room' });
   });
 
+  it('keeps a reserved table for the named players and the owner', () => {
+    const reserved = reduce(created, { type: 'settingsChanged', settings: { ...settings, reservedPlayerIds: ['b'] } });
+    expect(decide(reserved, { type: 'join' }, ctx('c'))).toEqual({ ok: false, error: 'This table is reserved for other players' });
+    let state = run(reserved, 'a', { type: 'join' }); // the owner
+    state = run(state, 'b', { type: 'join' });
+    expect(Object.keys(state.players)).toEqual(['a', 'b']);
+  });
+
   it('assigns diagonal teams in 2v2 and refills a vacated seat', () => {
     const four = reduce(created, { type: 'settingsChanged', settings: { playerCount: 4, mode: '2v2', startingLife: 30, commander: false } });
     let state = ['a', 'b', 'c', 'd'].reduce((s, p) => run(s, p, { type: 'join' }), four);

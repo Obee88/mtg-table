@@ -10,13 +10,16 @@ import { describeSettings } from '../rooms/describe';
 const PHASE_LABEL: Record<RoomListItem['phase'], string> = { lobby: 'lobby', drafting: 'drafting', deckbuilding: 'deckbuilding', playing: 'playing', ended: 'closed' };
 
 /** One line of state for a room: phase, seats or game number, and what it waits on from me. */
-function RoomState({ r }: { r: RoomListItem }) {
+function RoomState({ r, meId }: { r: RoomListItem; meId: string | undefined }) {
+  const reserved = r.settings.reservedPlayerIds ?? [];
+  const reservedFor = reserved.length === 0 ? null : meId && reserved.includes(meId) ? 'you' : 'others';
   const seats = `${r.playerCount}/${r.settings.playerCount}`;
   const detail = r.phase === 'lobby' ? `${seats} seated` : r.phase === 'playing' && r.gameNumber ? `game ${r.gameNumber}` : null;
   return (
     <span className="mt-0.5 flex flex-wrap items-center gap-2 text-text-muted">
       <Chip type={r.phase === 'lobby' ? 'success' : 'primary'}>{PHASE_LABEL[r.phase]}{detail ? ` · ${detail}` : ''}</Chip>
       {r.attention && <Chip type="warning" emphasis="solid" title="waiting on you">{r.attention}</Chip>}
+      {reservedFor && <Chip type={reservedFor === 'you' ? 'primary' : 'neutral'} title="reserved table">{reservedFor === 'you' ? 'reserved for you' : 'reserved'}</Chip>}
       {r.name && <span>{describeSettings(r.settings)}</span>}
       <span>{new Date(r.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
     </span>
@@ -58,7 +61,7 @@ export function PlayPage() {
               <Link to={`/rooms/${r.id}`} className="flex min-w-0 flex-1 items-center justify-between gap-3">
                 <span className="min-w-0">
                   <span className="block truncate font-medium">{r.name ?? describeSettings(r.settings)}</span>
-                  <RoomState r={r} />
+                  <RoomState r={r} meId={me.data?.id} />
                 </span>
                 <span className="shrink-0 text-accent">{r.attention ? 'Go' : 'Rejoin'}</span>
               </Link>
@@ -76,9 +79,9 @@ export function PlayPage() {
               <Link to={`/rooms/${r.id}`} className="flex min-w-0 flex-1 items-center justify-between gap-3">
                 <span className="min-w-0">
                   <span className="block truncate font-medium">{r.name ?? describeSettings(r.settings)}</span>
-                  <RoomState r={r} />
+                  <RoomState r={r} meId={me.data?.id} />
                 </span>
-                <span className="shrink-0 text-accent">Join</span>
+                <span className="shrink-0 text-accent">{(r.settings.reservedPlayerIds?.length ?? 0) > 0 && !r.settings.reservedPlayerIds!.includes(me.data?.id ?? '') ? 'Watch' : 'Join'}</span>
               </Link>
               {closeButton(r)}
             </li>

@@ -197,7 +197,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] Analysis sign-off: walk the user stories and target flows in `ux-redesign.md` with the group; resolve its open questions; update the document (signed off 2026-09-22; decisions recorded at the end of the document)
 - [x] App shell (Play · Decks · Cubes · Stats) and the Play home: rooms I am in with state and Rejoin, open lobbies with Join, New game / New draft; old routes redirect
 - [x] New game / New draft wizard replacing the room-creation form: what → cube → format (house rules default, cube's saved formats, custom) → players → name → create
-- [ ] Reserved seats: the wizard's last step offers open (anyone in the group) or reserved (named players); the lobby only lets those sit; Play shows the reservation
+- [x] Reserved seats: the wizard's last step offers open (anyone in the group) or reserved (named players); the lobby only lets those sit; Play shows the reservation
 - [ ] Cube as the drafting hub: Draft this cube, Formats tab (formats belong to a cube), tri-colour pool helper; Draft formats page folds into it
 - [ ] Lobby rework: single column, blocking reasons on Start, inline deck pick with import dialog, invite link, reserved seats
 - [ ] Attention cues: tab title, optional sound, opt-in browser notifications for your pick / your turn / everyone ready / result to confirm

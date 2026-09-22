@@ -5,7 +5,7 @@ import { dealDraft, decideDraft } from '../draft/decide.js';
 import { allDecksSubmitted, draftAbilityFor, draftDeckContents, type DraftCard } from '../draft/types.js';
 import { defaultVisibility, PUBLIC_ZONES, reduceAll } from './reduce.js';
 import { entersTapped, type TaplandFace } from '../taplands.js';
-import { activePlayer, inMulligan, inSideboarding, isActive, manaTotal, nextStep, seatedPlayers, shuffled, STEPS, teamForSeat, type CardInstance, type GameState, type PlayerGameState, type RoomState } from './types.js';
+import { activePlayer, canSit, inMulligan, inSideboarding, isActive, manaTotal, nextStep, seatedPlayers, shuffled, STEPS, teamForSeat, type CardInstance, type GameState, type PlayerGameState, type RoomState } from './types.js';
 
 const HAND_SIZE = 7;
 const MAX_TIE_BREAK_ROUNDS = 20;
@@ -44,6 +44,7 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
     case 'join': {
       if (me) return reject('Already in the room');
       if (state.phase !== 'lobby') return reject('Game already started');
+      if (!canSit(state, ctx.actorId)) return reject('This table is reserved for other players');
       const taken = new Set(Object.values(state.players).map((p) => p.seat));
       const seat = [...Array(state.settings.playerCount).keys()].find((s) => !taken.has(s));
       if (seat === undefined) return reject('Room is full');

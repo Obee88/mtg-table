@@ -25,6 +25,7 @@ export const roomSettingsSchema = z.object({
   startingLife: z.number().int().min(1).max(999),
   commander: z.boolean(),
   draft: draftConfigSchema.nullable().optional(),
+  reservedPlayerIds: z.array(z.string()).max(8).optional(),
 });
 
 /**

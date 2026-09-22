@@ -18,6 +18,8 @@ export interface RoomSettings {
   commander: boolean;
   /** Present for draft rooms: the draft runs before the game, with fixed seats. */
   draft?: DraftConfig | null | undefined;
+  /** Reserved table: only these players (and the owner) may sit; everyone still sees the lobby. Empty or absent = open to the group. */
+  reservedPlayerIds?: string[] | undefined;
 }
 
 export type Visibility = 'owner' | 'all' | PlayerId[];
@@ -302,4 +304,10 @@ export function nextStep(step: Step): Step | null {
 /** Whether a card untaps in its controller's untap step. */
 export function untapsNormally(card: CardInstance): boolean {
   return card.noUntap === null || card.noUntap === undefined;
+}
+
+/** Whether a player may take a seat: any seat at an open table, only a named one (or the owner) at a reserved table. */
+export function canSit(state: RoomState, playerId: PlayerId): boolean {
+  const reserved = state.settings.reservedPlayerIds ?? [];
+  return reserved.length === 0 || state.ownerId === playerId || reserved.includes(playerId);
 }
