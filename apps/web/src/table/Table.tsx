@@ -698,7 +698,16 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
           {topCard(zoneCards('exile'), printings, mine ? onCardMenu : undefined)}
         </Pile>
         {(state.settings.commander || pgs.zones.command.length > 0) && (
-          <Pile label="Command" count={pgs.zones.command.length} onDragOver={allowDrop} onDrop={dropTo('command')}>
+          <Pile
+            label="Command"
+            count={pgs.zones.command.length}
+            onDragOver={allowDrop}
+            onDrop={dropTo('command')}
+            hint={state.settings.commander ? `tax ${pgs.commanderTax}` : undefined}
+            onLabelClick={mine && state.settings.commander ? () => void run({ type: 'adjustCommanderTax', delta: 2 }) : undefined}
+            onLabelContextMenu={mine && state.settings.commander ? () => void run({ type: 'adjustCommanderTax', delta: -2 }) : undefined}
+            labelTitle="Commander tax: click to raise by 2, right-click to lower"
+          >
             {topCard(zoneCards('command'), printings, mine ? onCardMenu : undefined)}
           </Pile>
         )}
@@ -748,7 +757,7 @@ interface Browse {
   render: (card: CardInstance) => ReactNode;
 }
 
-function Pile({ label, count, children, stack = false, hint, browse, onClick, onLabelClick, ...drop }: { label: string; count: number; children?: ReactNode; stack?: boolean; hint?: string | undefined; browse?: Browse | undefined; onClick?: (() => void) | undefined; onLabelClick?: ((e: MouseEvent) => void) | undefined; onDragOver?: ((e: DragEvent) => void) | undefined; onDrop?: ((e: DragEvent<HTMLDivElement>) => void) | undefined; onContextMenu?: ((e: MouseEvent) => void) | undefined }) {
+function Pile({ label, count, children, stack = false, hint, browse, onClick, onLabelClick, onLabelContextMenu, labelTitle = 'Library actions', ...drop }: { label: string; count: number; children?: ReactNode; stack?: boolean; hint?: string | undefined; browse?: Browse | undefined; onClick?: (() => void) | undefined; onLabelClick?: ((e: MouseEvent) => void) | undefined; /** Right-click on the label; defaults to the click handler (a menu). */ onLabelContextMenu?: ((e: MouseEvent) => void) | undefined; labelTitle?: string; onDragOver?: ((e: DragEvent) => void) | undefined; onDrop?: ((e: DragEvent<HTMLDivElement>) => void) | undefined; onContextMenu?: ((e: MouseEvent) => void) | undefined }) {
   const { w, h } = useCardSize();
   const empty = count === 0;
   const canBrowse = !!browse && count > 1;
@@ -765,8 +774,8 @@ function Pile({ label, count, children, stack = false, hint, browse, onClick, on
         {children}
       </div>
       {onLabelClick ? (
-        <ChipButton type="neutral" className="absolute inset-x-0 bottom-1 mx-auto !bg-[var(--n900)]/90" onClick={(e) => { e.stopPropagation(); onLabelClick(e); }} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onLabelClick(e); }} title="Library actions">
-          {label} · {count}{hint ? ` · ${hint}` : ''} ▾
+        <ChipButton type="neutral" className="absolute inset-x-0 bottom-1 mx-auto !bg-[var(--n900)]/90" onClick={(e) => { e.stopPropagation(); onLabelClick(e); }} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); (onLabelContextMenu ?? onLabelClick)(e); }} title={labelTitle}>
+          {label} · {count}{hint ? ` · ${hint}` : ''}{onLabelContextMenu ? '' : ' ▾'}
         </ChipButton>
       ) : (
         <Chip type="neutral" className="pointer-events-none absolute inset-x-0 bottom-1 mx-auto !bg-[var(--n900)]/90" style={chipVars}>{label} · {count}{hint ? ` · ${hint}` : ''}</Chip>

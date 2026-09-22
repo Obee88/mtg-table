@@ -53,7 +53,6 @@ export function PlayerStrip({ state, player, pgs, mine, connected, run, toolbar,
       <PhaseTracker step={state.game?.step ?? 'main1'} active={myTurn} mine={mine} run={run} />
       {state.settings.commander && (
         <>
-          <Stat label="tax" value={pgs.commanderTax} mine={mine} onDelta={(d) => void run({ type: 'adjustCommanderTax', delta: d })} dim={pgs.commanderTax === 0} />
           {opponents.map((o) => (
             <Stat key={o.id} label={`⚔ ${o.displayName}`} value={pgs.commanderDamage[o.id] ?? 0} mine={mine} onDelta={(d) => void run({ type: 'adjustCommanderDamage', fromPlayerId: o.id, delta: d })} dim={!pgs.commanderDamage[o.id]} />
           ))}
