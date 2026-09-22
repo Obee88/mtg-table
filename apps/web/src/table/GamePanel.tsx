@@ -13,7 +13,7 @@ type Run = (c: GameCommand) => Promise<void>;
  * the stack on the right. Life totals for everyone at a glance (own and
  * teammates' adjustable), and the actions that end or leave the game.
  */
-export function GamePanel({ state, meId, run, leaveHref, onEndGame, onNewGame, onForfeit, stackShown = false, onShowStack, side = 'left' }: {
+export function GamePanel({ state, meId, run, leaveHref, onEndGame, onNewGame, onForfeit, stackShown = false, onShowStack, onPreferences, side = 'left' }: {
   state: RoomState;
   meId: string;
   run: Run;
@@ -24,6 +24,8 @@ export function GamePanel({ state, meId, run, leaveHref, onEndGame, onNewGame, o
   /** The stack overlay is a per-player preference, offered here and from its own label. */
   stackShown?: boolean;
   onShowStack?: ((show: boolean) => void) | undefined;
+  /** Opens the UI preferences dialog (what this browser shows). */
+  onPreferences?: (() => void) | undefined;
   /** Which edge of the battlefield it hugs; the stack takes the other one. */
   side?: 'left' | 'right';
 }) {
@@ -39,6 +41,7 @@ export function GamePanel({ state, meId, run, leaveHref, onEndGame, onNewGame, o
   const items = (): (MenuItem | 'sep')[] => {
     const out: (MenuItem | 'sep')[] = [];
     if (onShowStack) out.push({ label: stackShown ? 'Hide the stack' : 'Show the stack', onSelect: () => onShowStack(!stackShown) });
+    if (onPreferences) out.push({ label: 'UI preferences…', onSelect: onPreferences });
     // Time Walk and friends: queue an extra turn for yourself; the most recent one is taken first.
     if (me) {
       const owed = (game.extraTurns ?? []).filter((id) => id === meId).length;

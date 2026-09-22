@@ -16,6 +16,7 @@ import { LibraryDialog } from './LibraryDialog';
 import { playerColor, PlayerStrip } from './PlayerStrip';
 import { Toolbar } from './Toolbar';
 import { ShortcutsDialog } from './ShortcutsDialog';
+import { PreferencesDialog } from './PreferencesDialog';
 import { BattlefieldRow, columnStep, defaultRow, dropSlot, freeColumns, layoutRows } from './Battlefield';
 import { GamePanel } from './GamePanel';
 import { StackZone } from './StackZone';
@@ -59,6 +60,7 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
   const [libraryDialog, setLibraryDialog] = useState(false);
   const [drawDialog, setDrawDialog] = useState(false);
   const [helpDialog, setHelpDialog] = useState(false);
+  const [prefsDialog, setPrefsDialog] = useState(false);
   /** Own cards currently selected (battlefield or hand). */
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const cardOwner = useCallback((id: string) => game.cards[id]?.ownerId, [game.cards]);
@@ -464,7 +466,7 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
       {layout}
       {toolsEl && me && createPortal(tools(true), toolsEl)}
       {/* Two seats sit across the hairline: the game panel goes next to the log, the stack to the free side. */}
-      <GamePanel state={state} meId={meId} run={run} leaveHref={leaveHref} onEndGame={onEndGame} onNewGame={onNewGame} onForfeit={me && onForfeit ? onForfeit : undefined} stackShown={stackShown} onShowStack={showStack} side={duel ? 'right' : 'left'} />
+      <GamePanel state={state} meId={meId} run={run} leaveHref={leaveHref} onEndGame={onEndGame} onNewGame={onNewGame} onForfeit={me && onForfeit ? onForfeit : undefined} stackShown={stackShown} onShowStack={showStack} onPreferences={() => setPrefsDialog(true)} side={duel ? 'right' : 'left'} />
       {(stackShown || (game.stack?.length ?? 0) > 0) && (
         <StackZone state={state} meId={meId} printings={printings} run={run} onCardMenu={openMenu} onCardDragStart={onCardDragStart} onCardClick={onCardClick} isSelected={isSelected} onHide={() => showStack(false)} side={duel ? 'left' : 'right'} />
       )}
@@ -499,6 +501,7 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
           />
         )}
         {helpDialog && <ShortcutsDialog onClose={() => setHelpDialog(false)} />}
+        {prefsDialog && <PreferencesDialog onClose={() => setPrefsDialog(false)} />}
       </CardSizeProvider>
     </CardSizeProvider>
   );

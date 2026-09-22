@@ -3,6 +3,7 @@ import { colorIndex, isActive } from '@mtg/shared';
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Chip } from '../components/Chip';
 import { PhaseTracker } from './PhaseTracker';
+import { useTablePref } from './prefs';
 
 type Run = (c: GameCommand) => Promise<void>;
 
@@ -33,6 +34,8 @@ export function PlayerStrip({ state, player, pgs, mine, connected, run, toolbar,
   const first = state.game?.firstPlayerId === player.id;
   const myTurn = isActive(state, player.id);
   const team = state.settings.mode === '2v2';
+  // Commander damage is hidden by default (UI preferences in the game menu).
+  const [commanderDamage] = useTablePref('commanderDamage');
   const extra = (state.game?.extraTurns ?? []).filter((id) => id === player.id).length;
 
   return (
@@ -51,7 +54,7 @@ export function PlayerStrip({ state, player, pgs, mine, connected, run, toolbar,
       {extra > 0 && <Chip type="warning" title="owed an extra turn after the current one">extra turn{extra > 1 ? ` ×${extra}` : ''}</Chip>}
       {/* Life, poison and the other resources live in the game panel now. */}
       <PhaseTracker step={state.game?.step ?? 'main1'} active={myTurn} mine={mine} run={run} />
-      {state.settings.commander && (
+      {state.settings.commander && commanderDamage && (
         <>
           {opponents.map((o) => (
             <Stat key={o.id} label={`⚔ ${o.displayName}`} value={pgs.commanderDamage[o.id] ?? 0} mine={mine} onDelta={(d) => void run({ type: 'adjustCommanderDamage', fromPlayerId: o.id, delta: d })} dim={!pgs.commanderDamage[o.id]} />
