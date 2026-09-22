@@ -1,15 +1,17 @@
 import type { DraftConfigSummary } from '@mtg/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { Button, Card, ErrorText } from '../components';
 import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
 import { useMe } from '../lib/auth';
+import { PoolHelper } from './PoolHelper';
 
 /** The formats that deal from this cube. House rules is always there; others are saved formats (yours or shared with you). */
 export function CubeFormatsTab({ cubeId }: { cubeId: string }) {
   const me = useMe();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const formats = useQuery({ queryKey: ['draft-configs'], queryFn: () => api<DraftConfigSummary[]>('/draft-configs') });
   const remove = useMutation({
     mutationFn: (id: string) => api<void>(`/draft-configs/${id}`, { method: 'DELETE' }),
@@ -39,6 +41,10 @@ export function CubeFormatsTab({ cubeId }: { cubeId: string }) {
           </li>
         ))}
       </ul>
+      <div className="mt-4 border-t border-border pt-4">
+        <h3 className="mb-2 text-sm font-semibold text-text-muted">House rules pool</h3>
+        <PoolHelper cubeId={cubeId} onCreated={(c) => navigate(`/cubes/${c.cube.id}`)} />
+      </div>
       <div className="mt-4 border-t border-border pt-4">
         <Link to={`/drafts/new?cube=${cubeId}`}><Button variant="ghost">New format for this cube</Button></Link>
       </div>

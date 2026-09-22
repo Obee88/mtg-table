@@ -9,6 +9,7 @@ import { api } from '../lib/api';
 import { useMe } from '../lib/auth';
 import { describeSettings, PRESETS } from '../rooms/describe';
 import { SettingsForm } from '../rooms/SettingsForm';
+import { PoolHelper } from '../cubes/PoolHelper';
 
 type Kind = 'game' | 'draft';
 type StepKey = 'what' | 'cube' | 'format' | 'table' | 'name';
@@ -148,8 +149,14 @@ export function NewWizard() {
                 <select className="rounded-md border border-border bg-surface px-2 py-1.5 text-text" value={triCubeId || cubeId} onChange={(e) => setTriCubeId(e.target.value)}>
                   {cubes.data?.map((c) => <option key={c.id} value={c.id} disabled={!c.latestVersionId}>{c.name}{c.id === cubeId ? ' (the same cube)' : ''}</option>)}
                 </select>
-                <span className="text-text-muted">The first pack draws from it. Generating it from the cube's multicolour cards comes with the cube hub.</span>
+                <span className="text-text-muted">The first pack draws from it.</span>
               </label>
+            )}
+            {formatId === 'house' && (triCubeId || cubeId) === cubeId && (
+              <div className="rounded-md border border-border p-3">
+                <p className="mb-2 text-sm">No separate pool yet? Make one from this cube's three-colour cards; it is picked here once created.</p>
+                <PoolHelper cubeId={cubeId} onCreated={(c) => setTriCubeId(c.cube.id)} />
+              </div>
             )}
             {formatId !== 'house' && <ErrorText error={saved.error} />}
             {config && <Chip type="primary">{describeDraftConfig(config)}</Chip>}

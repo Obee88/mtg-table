@@ -151,3 +151,16 @@ export interface CubeStatsResponse {
   games: number;
   printings: CardPrinting[];
 }
+
+/** How many cards the house rules' first phase needs: 4 packs of 5. */
+export const TRI_COLOUR_POOL_SIZE = 20;
+
+/**
+ * The house-rules pool from a cube: every card whose colour identity has
+ * exactly `colours` colours (three by default: shards and wedges, tri-lands
+ * included), with its cube quantity. Unknown printings are skipped.
+ */
+export function triColourPool(cards: CubeCard[], printings: Map<string, CardPrinting> | CardPrinting[], colours = 3): CubeCard[] {
+  const byId = printings instanceof Map ? printings : new Map(printings.map((p) => [p.id, p]));
+  return cards.filter((c) => byId.get(c.printingId)?.colorIdentity.length === colours);
+}
