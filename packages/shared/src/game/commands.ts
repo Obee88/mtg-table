@@ -85,7 +85,10 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
   /** Ends 'until dismissed' reveals on own cards (all of them, or the given ones). */
   z.object({ type: z.literal('dismissReveal'), instanceIds: z.array(z.string()).max(500).optional() }),
   // ---- players ----
-  z.object({ type: z.literal('adjustLife'), delta: z.number().int().min(-999).max(999) }),
+  /** Anyone may change anyone's life; without playerId, their own. */
+  z.object({ type: z.literal('adjustLife'), delta: z.number().int().min(-999).max(999), playerId: z.string().optional() }),
+  /** Every card in hand to the graveyard, as one undoable action. */
+  z.object({ type: z.literal('discardHand') }),
   z.object({ type: z.literal('adjustPoison'), delta: z.number().int().min(-99).max(99) }),
   /** Floating mana in the own pool; opening it shows the pool to everyone. */
   z.object({ type: z.literal('adjustMana'), symbol: z.enum(['W', 'U', 'B', 'R', 'G', 'C']), delta: z.number().int().min(-99).max(99) }),

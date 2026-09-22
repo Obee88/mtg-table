@@ -93,7 +93,8 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
           activePlayerId: event.firstPlayerId,
           turn: 1,
           turns: { [event.firstPlayerId]: 1 },
-          step: 'untap',
+          // Turn one for whoever goes first: a duel skips untap, upkeep and draw; a multiplayer game skips only untap and upkeep.
+          step: Object.keys(event.players).length > 2 ? 'draw' : 'main1',
           gameNumber: (state.game?.gameNumber ?? 0) + 1,
           pendingResult: null,
         },
@@ -150,7 +151,7 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
         position: event.to === 'battlefield' ? (event.position ?? card.position) : null,
         ...(changedZone
           ? {
-              tapped: false,
+              tapped: event.tapped ?? false,
               transformed: false,
               flipped: false,
               faceDown: false,

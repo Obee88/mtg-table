@@ -345,6 +345,8 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
     for (const o of opponents) items.push({ label: `Show hand to ${o.displayName}`, disabled: hand.length === 0, onSelect: () => void run({ type: 'revealHand', to: [o.id] }) });
     items.push('sep');
     items.push({ label: 'Hide my revealed cards', disabled: !shown, onSelect: () => void run({ type: 'dismissReveal' }) });
+    items.push('sep');
+    items.push({ label: `Discard hand (${hand.length})`, disabled: hand.length === 0, onSelect: () => void run({ type: 'discardHand' }) });
     return items;
   };
 
@@ -364,6 +366,8 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
       { label: pgs?.topRevealed ? 'Stop revealing top card' : 'Play with top card revealed', onSelect: () => void run({ type: 'setTopRevealed', enabled: !pgs?.topRevealed }) },
       { label: 'Hide all revealed cards', onSelect: () => void run({ type: 'dismissReveal' }) },
       { label: 'Shuffle (s)', onSelect: () => void run({ type: 'shuffleLibrary' }) },
+      'sep',
+      { label: `Discard hand (${pgs?.zones.hand.length ?? 0})`, disabled: !pgs?.zones.hand.length, onSelect: () => void run({ type: 'discardHand' }) },
     ];
   };
 

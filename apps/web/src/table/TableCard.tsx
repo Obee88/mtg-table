@@ -1,5 +1,5 @@
 import type { CardInstance, CardPrinting } from '@mtg/shared';
-import type { DragEvent, MouseEvent, PointerEvent } from 'react';
+import type { CSSProperties, DragEvent, MouseEvent, PointerEvent } from 'react';
 import { isTouchPointer, startTouchGesture } from './touch';
 import { imageFor } from '../cards/CardImage';
 import { useCardPreview } from '../cards/CardPreview';
@@ -102,8 +102,8 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
       onContextMenu={onContextMenu}
       {...preview}
       data-instance-id={card.id}
-      className={`card-enter card-shadow card-lift relative select-none touch-none rounded-[4.5%] transition-[transform,box-shadow] duration-150 ${mine ? 'cursor-grab active:cursor-grabbing' : ''} ${card.tapped ? 'rotate-90' : ''} ${card.flipped ? 'rotate-180' : ''} ${selected ? 'rounded-[4.5%] ring-2 ring-accent ring-offset-1 ring-offset-bg' : ''}`}
-      style={{ width: w, height: h }}
+      className={`card-enter card-shadow card-lift relative select-none touch-none rounded-[4.5%] transition-[transform,box-shadow] duration-150 ${mine ? 'cursor-grab active:cursor-grabbing' : ''} ${card.tapped ? 'rotate-90' : ''} ${card.flipped ? 'rotate-180' : ''} ${selected ? 'rounded-[4.5%] ring-2 ring-accent ring-offset-1 ring-offset-bg' : ''} ${targetColors.length > 0 ? 'card-targeted' : ''}`}
+      style={{ width: w, height: h, ...(targetColors.length > 0 ? { '--target-color': targetColors[0] } as CSSProperties : {}) }}
       title={label ?? undefined}
     >
       {hidden || !src ? (
@@ -120,9 +120,6 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
         </div>
       ) : (
         <img key={card.zone} src={src} alt={label ?? ''} draggable={false} className={`h-full w-full rounded-[4.5%] object-cover ${revealed ? 'card-revealed' : ''}`} />
-      )}
-      {targetColors.length > 0 && (
-        <span className="pointer-events-none absolute inset-0 rounded-[4.5%] ring-2 ring-offset-1 ring-offset-transparent" style={{ /* the first pointer's colour rings the card */ boxShadow: `0 0 0 2px ${targetColors[0]}, 0 0 12px ${targetColors[0]}` }} />
       )}
       {targetColors.length > 0 && (
         <span className="absolute -top-1 left-1/2 flex -translate-x-1/2 gap-0.5" title="targeted">

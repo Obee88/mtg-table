@@ -61,6 +61,8 @@ export const gameEventSchema = z.discriminatedUnion('type', [
     to: z.enum(ZONES),
     position: positionSchema.nullable(),
     libraryPosition: libraryPositionSchema.nullable(),
+    /** Entering the battlefield tapped (taplands). */
+    tapped: z.boolean().optional(),
   }),
   z.object({ type: z.literal('cardTapped'), instanceId: z.string(), tapped: z.boolean() }),
   /** Someone points at a card (targeting it); marks last until the turn passes. */

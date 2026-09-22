@@ -66,24 +66,23 @@ export function GamePanel({ state, meId, run, leaveHref, onEndGame, onNewGame, o
           const life = teams ? (game.teamLife![p.team] ?? pgs.life) : pgs.life;
           // In 2v2 a team shares one total, so only the first seat of each team shows it.
           if (teams && players.find((x) => x.team === p.team)!.id !== p.id) return null;
+          // Anyone at the table may adjust anyone's total: the attacker deals the damage.
           const mine = p.id === meId || (state.settings.mode === '2v2' && !!me && me.team === p.team);
+          const who = teams ? `Team ${p.team + 1}` : p.displayName;
           return (
             <span key={p.id} className={`flex items-center gap-1 rounded-md px-1 py-0.5 ${isActive(state, p.id) ? 'bg-white/10' : ''}`} title={isActive(state, p.id) ? `${p.displayName} · their turn` : p.displayName}>
               <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: playerColor(state, p) }} />
-              <span className="min-w-0 flex-1 truncate text-[11px] text-white/70">{teams ? `Team ${p.team + 1}` : p.displayName}</span>
-              {mine ? (
-                <button
-                  type="button"
-                  onClick={() => void run({ type: 'adjustLife', delta: 1 })}
-                  onContextMenu={(e) => { e.preventDefault(); void run({ type: 'adjustLife', delta: -1 }); }}
-                  className="touch-target min-w-[2.2ch] rounded px-1 text-right text-base font-semibold tabular-nums text-white hover:bg-white/10"
-                  title="Click to gain a life, right-click to lose one"
-                >
-                  {life}
-                </button>
-              ) : (
-                <span className="min-w-[2.2ch] text-right text-base font-semibold tabular-nums text-white">{life}</span>
-              )}
+              <span className="min-w-0 flex-1 truncate text-[11px] text-white/70">{who}</span>
+              <button
+                type="button"
+                disabled={!me}
+                onClick={() => void run({ type: 'adjustLife', delta: 1, playerId: p.id })}
+                onContextMenu={(e) => { e.preventDefault(); void run({ type: 'adjustLife', delta: -1, playerId: p.id }); }}
+                className="touch-target min-w-[2.2ch] rounded px-1 text-right text-base font-semibold tabular-nums text-white enabled:hover:bg-white/10"
+                title={mine ? 'Click to gain a life, right-click to lose one' : `${who}: click to add a life, right-click to take one`}
+              >
+                {life}
+              </button>
             </span>
           );
         })}

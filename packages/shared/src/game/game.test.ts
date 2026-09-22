@@ -731,29 +731,20 @@ describe('turns', () => {
     const play = (who: string) => (s = run(s, who, { type: 'advanceStep' }));
     const hand = () => s.game!.players[first]!.zones.hand.length;
 
-    expect(s.game!.step).toBe('untap');
+    // In a duel, whoever goes first starts turn one at the first main phase: no untap, no upkeep, no draw.
+    expect(s.game!.step).toBe('main1');
     expect(decide(s, { type: 'advanceStep' }, ctx(other))).toEqual({ ok: false, error: 'It is not your turn' });
 
-    // A tapped permanent untaps, unless it is marked not to.
     const card = s.game!.players[first]!.zones.hand[0]!;
     s = run(s, first, { type: 'moveCard', instanceId: card, to: 'battlefield' });
     s = run(s, first, { type: 'tapCard', instanceId: card, tapped: true });
     s = run(s, first, { type: 'setNoUntap', instanceId: card, value: 2 });
-    play(first);
-    expect(s.game!.step).toBe('upkeep');
-    expect(s.game!.cards[card]!.tapped).toBe(true);
-    expect(s.game!.cards[card]!.noUntap).toBe(1); // one more untap step to skip
-
     const before = hand();
-    play(first); // upkeep → draw
-    play(first); // draw: whoever went first skips their first draw
-    expect(s.game!.step).toBe('main1');
-    expect(hand()).toBe(before);
-
     play(first); // main1 → combat
     play(first); // combat → main2
     play(first); // main2 → end
     expect(s.game!.step).toBe('end');
+    expect(hand()).toBe(before);
     play(first); // end → the turn passes
     expect(activePlayer(s.game!)).toBe(other);
     expect(s.game!.step).toBe('untap');
@@ -774,11 +765,88 @@ describe('turns', () => {
     play(other); // the turn passes back
     expect(activePlayer(s.game!)).toBe(first);
     expect(s.game!.step).toBe('untap');
+
+    // A tapped permanent untaps, unless it is marked not to.
+    play(first);
+    expect(s.game!.step).toBe('upkeep');
+    expect(s.game!.cards[card]!.tapped).toBe(true);
+    expect(s.game!.cards[card]!.noUntap).toBe(1); // one more untap step to skip
+
     const mine = hand();
     s = run(s, first, { type: 'advanceStep', to: 'main1' });
     expect(s.game!.step).toBe('main1');
-    expect(hand()).toBe(mine + 1); // untapped, drew, went through upkeep
+    expect(hand()).toBe(mine + 1); // drew on the way, this time
     expect(decide(s, { type: 'advanceStep', to: 'end' }, ctx(other))).toEqual({ ok: false, error: 'It is not your turn' });
+  });
+
+  it('lets anyone change anyone\'s life, and discards a whole hand as one action', () => {
+    let n = 0;
+    let r = 0;
+    let s = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings });
+    for (const p of ['a', 'b']) {
+      s = run(s, p, { type: 'join' });
+      s = run(s, p, { type: 'selectDeck', deckId: 'd' });
+      s = run(s, p, { type: 'setReady', ready: true });
+    }
+    const d = decide(s, { type: 'start' }, { ...ctx('a'), decks, random: () => ((r += 7) % 11) / 11, newId: () => `l${++n}` });
+    if (!d.ok) throw new Error(d.error);
+    s = keepAll(reduceAll(s, d.events));
+
+    s = run(s, 'a', { type: 'adjustLife', delta: -3, playerId: 'b' });
+    expect(s.game!.players.b!.life).toBe(17);
+    expect(s.game!.players.a!.life).toBe(20);
+    s = run(s, 'a', { type: 'adjustLife', delta: 1 });
+    expect(s.game!.players.a!.life).toBe(21);
+    expect(decide(s, { type: 'adjustLife', delta: 1, playerId: 'zed' }, ctx('a'))).toEqual({ ok: false, error: 'No such player' });
+
+    const handSize = s.game!.players.b!.zones.hand.length;
+    expect(handSize).toBeGreaterThan(0);
+    const dec = decide(s, { type: 'discardHand' }, ctx('b'));
+    expect(dec.ok && dec.events).toHaveLength(handSize);
+    s = run(s, 'b', { type: 'discardHand' });
+    expect(s.game!.players.b!.zones.hand).toEqual([]);
+    expect(s.game!.players.b!.zones.graveyard).toHaveLength(handSize);
+    expect(decide(s, { type: 'discardHand' }, ctx('b'))).toEqual({ ok: false, error: 'Your hand is empty' });
+  });
+
+  it('puts taplands onto the battlefield tapped, front or back face', () => {
+    let n = 0;
+    let r = 0;
+    let s = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings });
+    for (const p of ['a', 'b']) {
+      s = run(s, p, { type: 'join' });
+      s = run(s, p, { type: 'selectDeck', deckId: 'd' });
+      s = run(s, p, { type: 'setReady', ready: true });
+    }
+    const d = decide(s, { type: 'start' }, { ...ctx('a'), decks, random: () => ((r += 7) % 11) / 11, newId: () => `k${++n}` });
+    if (!d.ok) throw new Error(d.error);
+    s = keepAll(reduceAll(s, d.events));
+    const [c1, c2, c3] = s.game!.players.a!.zones.hand;
+    const taplands = (face: 'front' | 'back' | null) => ({ ...ctx('a'), taplands: () => face });
+
+    const front = decide(s, { type: 'moveCard', instanceId: c1!, to: 'battlefield' }, taplands('front'));
+    expect(front.ok && front.events[0]).toMatchObject({ type: 'cardMoved', tapped: true });
+    s = reduceAll(s, front.ok ? front.events : []);
+    expect(s.game!.cards[c1!]!.tapped).toBe(true);
+    // Moving it around the battlefield keeps its state; it is only tapped on the way in.
+    s = run(s, 'a', { type: 'tapCard', instanceId: c1!, tapped: false });
+    const again = decide(s, { type: 'moveCard', instanceId: c1!, to: 'battlefield', position: { row: 1, col: 1 } }, taplands('front'));
+    expect(again.ok && again.events[0]).not.toHaveProperty('tapped');
+
+    // The back-face land of a modal double-faced card: put down, then turned over, and tapped by the turn.
+    const plain = decide(s, { type: 'moveCard', instanceId: c2!, to: 'battlefield' }, taplands('back'));
+    expect(plain.ok && plain.events[0]).not.toHaveProperty('tapped');
+    s = reduceAll(s, plain.ok ? plain.events : []);
+    const turned = decide(s, { type: 'transformCard', instanceId: c2!, transformed: true }, taplands('back'));
+    expect(turned.ok && turned.events.map((e) => e.type)).toEqual(['cardTransformed', 'cardTapped']);
+    s = reduceAll(s, turned.ok ? turned.events : []);
+    expect(s.game!.cards[c2!]).toMatchObject({ transformed: true, tapped: true });
+
+    // No lookup, or not a tapland: untapped as before.
+    const none = decide(s, { type: 'moveCard', instanceId: c3!, to: 'battlefield' }, taplands(null));
+    expect(none.ok && none.events[0]).not.toHaveProperty('tapped');
+    s = reduceAll(s, none.ok ? none.events : []);
+    expect(s.game!.cards[c3!]!.tapped).toBe(false);
   });
 });
 
@@ -815,6 +883,12 @@ describe('2v2 seating and turns', () => {
     const first = s.game!.firstPlayerId;
     const team = s.players[first]!.team;
     const partner = Object.values(s.players).find((p) => p.team === team && p.id !== first)!;
+    // Turn one of a multiplayer game starts at the draw step: the first player draws, but skips untap and upkeep.
+    expect(s.game!.step).toBe('draw');
+    const before = s.game!.players[first]!.zones.hand.length;
+    s = run(s, first, { type: 'advanceStep' });
+    expect(s.game!.players[first]!.zones.hand).toHaveLength(before + 1);
+    expect(s.game!.step).toBe('main1');
     const enemy = Object.values(s.players).find((p) => p.team !== team)!;
     expect(isActive(s, partner.id)).toBe(true);
     expect(isActive(s, enemy.id)).toBe(false);

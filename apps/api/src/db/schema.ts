@@ -354,3 +354,13 @@ export const tokenUses = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.deckKey, t.tokenKey] }), index('token_uses_user_id_idx').on(t.userId)],
 );
+
+// ---- taplands: lands the group marked as always entering tapped ----
+
+/** Keyed by card name so every printing of a card shares the flag. `face` says which face is the land (front, or the back of a modal double-faced card). */
+export const taplands = pgTable('taplands', {
+  name: text('name').primaryKey(),
+  face: text('face', { enum: ['front', 'back'] }).notNull(),
+  setBy: uuid('set_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});

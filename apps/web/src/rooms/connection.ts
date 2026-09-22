@@ -1,4 +1,5 @@
 import { applyRoomEvent, decide, reduceAll, type ClientMessage, type GameCommand, type GameEvent, type PlayerId, type RoomEvent, type RoomState, type ServerMessage } from '@mtg/shared';
+import { taplandOf } from '../cards/taplandLookup';
 
 export interface RoomSnapshot {
   /** Confirmed state plus the effects of commands still awaiting the server. */
@@ -112,7 +113,8 @@ export class RoomConnection {
   /** Local guess of what the server will do. Commands needing randomness or history are not predicted. */
   private predict(command: GameCommand): GameEvent[] {
     if (!this.me || !this.snapshot.state) return [];
-    const d = decide(this.snapshot.state, command, { actorId: this.me.id, actorDisplayName: this.me.displayName, now: new Date() });
+    // Taplands are predicted from the printings the table has already fetched, so a land lands tapped without waiting for the server.
+    const d = decide(this.snapshot.state, command, { actorId: this.me.id, actorDisplayName: this.me.displayName, now: new Date(), taplands: taplandOf });
     return d.ok ? d.events : [];
   }
 

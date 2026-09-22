@@ -4,6 +4,7 @@ import type { DeckContents } from '../decks.js';
 import { dealDraft, decideDraft } from '../draft/decide.js';
 import { allDecksSubmitted, draftAbilityFor, draftDeckContents, type DraftCard } from '../draft/types.js';
 import { defaultVisibility, PUBLIC_ZONES, reduceAll } from './reduce.js';
+import { entersTapped, type TaplandFace } from '../taplands.js';
 import { activePlayer, inMulligan, inSideboarding, isActive, manaTotal, nextStep, seatedPlayers, shuffled, STEPS, teamForSeat, type CardInstance, type GameState, type PlayerGameState, type RoomState } from './types.js';
 
 const HAND_SIZE = 7;
@@ -20,6 +21,8 @@ export interface CommandContext {
   draftPools?: Record<string, { printingId: string; name: string }[]>;
   random?: () => number;
   newId?: () => string;
+  /** Which face of a printing is a land that always enters tapped, if any; used when a card enters the battlefield or transforms there. */
+  taplands?: (printingId: string) => TaplandFace | null;
 }
 
 export type Decision = { ok: true; events: GameEvent[] } | { ok: false; error: string };
@@ -142,6 +145,8 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
           to: command.to,
           position: command.to === 'battlefield' ? (command.position ?? card.position ?? nextSlot(state, card.controllerId, 0)) : null,
           libraryPosition: command.to === 'library' ? (command.libraryPosition ?? 'top') : null,
+          // A tapland comes in tapped (face up, showing its front, as cards do when they change zones).
+          ...(command.to === 'battlefield' && card.zone !== 'battlefield' && !!card.printingId && entersTapped(ctx.taplands?.(card.printingId), false) ? { tapped: true } : {}),
         },
         ...commanderTaxOnCast(state, card, command.to),
       );
@@ -291,7 +296,9 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       const f = ownCard(state, ctx.actorId, command.instanceId);
       if ('error' in f) return reject(f.error);
       if (f.card.transformed === command.transformed) return accept();
-      return accept({ type: 'cardTransformed', instanceId: f.card.id, transformed: command.transformed });
+      // A modal double-faced card played as its back-face tapland: it was put down front up and is now turned to the land, which enters tapped.
+      const taps = command.transformed && f.card.zone === 'battlefield' && !f.card.tapped && !!f.card.printingId && entersTapped(ctx.taplands?.(f.card.printingId), true);
+      return accept({ type: 'cardTransformed', instanceId: f.card.id, transformed: command.transformed }, ...(taps ? [{ type: 'cardTapped', instanceId: f.card.id, tapped: true } as const] : []));
     }
 
     case 'flipCard': {
@@ -353,15 +360,27 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
     }
 
     case 'adjustLife': {
-      const pgs = ownGame(state, ctx.actorId);
-      if ('error' in pgs) return reject(pgs.error);
+      // Anyone at the table may change anyone's life total (damage is dealt by the attacker, after all).
+      const own = ownGame(state, ctx.actorId);
+      if ('error' in own) return reject(own.error);
+      const targetId = command.playerId ?? ctx.actorId;
+      const target = state.players[targetId];
+      const pgs = state.game!.players[targetId];
+      if (!target || !pgs) return reject('No such player');
       if (command.delta === 0) return accept();
       if (state.settings.mode === '2v2' && state.game!.teamLife) {
-        const team = me!.team;
+        const team = target.team;
         const value = (state.game!.teamLife[team] ?? state.settings.startingLife) + command.delta;
         return accept({ type: 'lifeChanged', target: { type: 'team', team }, delta: command.delta, value });
       }
-      return accept({ type: 'lifeChanged', target: { type: 'player', playerId: ctx.actorId }, delta: command.delta, value: pgs.life + command.delta });
+      return accept({ type: 'lifeChanged', target: { type: 'player', playerId: targetId }, delta: command.delta, value: pgs.life + command.delta });
+    }
+
+    case 'discardHand': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      if (pgs.zones.hand.length === 0) return reject('Your hand is empty');
+      return accept(...pgs.zones.hand.map((id): GameEvent => ({ type: 'cardMoved', instanceId: id, from: 'hand', to: 'graveyard', position: null, libraryPosition: null })));
     }
 
     case 'adjustPoison': {
@@ -782,8 +801,8 @@ function stepEvents(state: RoomState, actorId: string): { events: GameEvent[] } 
   }
   const events: GameEvent[] = [];
   if (step === 'untap') events.push(...untapEvents(state, pgs));
-  // Whoever went first skips their first draw, as on paper.
-  if (step === 'draw' && !((game.turns?.[actorId] ?? 1) === 1 && game.firstPlayerId === actorId)) {
+  // The draw step draws. (Whoever goes first in a duel never reaches it on turn one: their turn starts at the first main phase.)
+  if (step === 'draw') {
     const top = pgs.zones.library[0];
     if (top) events.push({ type: 'cardMoved', instanceId: top, from: 'library', to: 'hand', position: null, libraryPosition: null });
   }

@@ -189,6 +189,8 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] Named drafts: starting a draft asks for a name, defaulting to "<format> · <n> players · <date> · <player names>"; stored on the room
 - [x] Draft history: a page listing past drafts (name, date, format, players) where a player can open their drafted pool / deck and save it to their deck list
 - [x] Card image size slider in the deck builder (drafted pool / main / sideboard); reuse the control on the draft pack view and the table if it proves useful — done for the pools and the pack view; the table keeps sizing cards to fit the area
+- [x] Taplands: a group-wide list of lands that always enter tapped (by card name, with rules-text suggestions on the deck pages); the table taps them on arrival (2026-09-22)
+- [x] Turn one: in a duel the first player starts at the first main phase; in multiplayer at the draw step (2026-09-22)
 - [ ] "Auto basics" in the deck builder: fills the remaining slots up to 40 with basic lands in the ratio of coloured mana symbols in the main deck's mana costs (colourless-only deck → even split or a chosen colour)
 
 **M9 — UX redesign** (analysis in `_documents/ux-redesign.md`, written 2026-09-21)

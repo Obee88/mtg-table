@@ -1,3 +1,4 @@
+import type { TaplandFace } from './taplands.js';
 export interface CardIngestStatus {
   cardCount: number;
   latest: {
@@ -45,6 +46,8 @@ export interface CardPrinting {
   isToken: boolean;
   isDigital: boolean;
   isPromo: boolean;
+  /** Marked by the group as a land that always enters tapped (which face). */
+  entersTapped?: TaplandFace | null;
 }
 
 export interface CardSearchResponse {

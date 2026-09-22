@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { Button, Card, ErrorText, Input } from '../components';
 import { api } from '../lib/api';
 import { DeckEditor } from './DeckEditor';
+import { TaplandsPanel } from './TaplandsPanel';
 import { countSection, fromDeckResponse, toDeckInput, toText, type EditableDeck } from './model';
 
 export function DeckPage() {
@@ -74,6 +75,7 @@ export function DeckPage() {
       <Card>
         <DeckEditor deck={deck} onChange={change} />
       </Card>
+      <TaplandsPanel printings={[...deck.sections.main, ...deck.sections.sideboard, ...deck.sections.commander].map((c) => c.printing)} />
     </main>
   );
 }

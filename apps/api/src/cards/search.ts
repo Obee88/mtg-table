@@ -2,6 +2,7 @@ import type { CardPrinting } from '@mtg/shared';
 import { and, asc, desc, eq, ilike, inArray, isNotNull, not, sql } from 'drizzle-orm';
 import { schema, type CardRow, type Db } from '../db/index.js';
 import { rank } from '../decks/resolve.js';
+import { taplandFace } from './taplands.js';
 
 export const toPrinting = (row: CardRow): CardPrinting => ({
   id: row.id,
@@ -25,6 +26,7 @@ export const toPrinting = (row: CardRow): CardPrinting => ({
   isToken: row.isToken,
   isDigital: row.isDigital,
   isPromo: row.isPromo,
+  entersTapped: taplandFace(row.name),
 });
 
 const escapeLike = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);

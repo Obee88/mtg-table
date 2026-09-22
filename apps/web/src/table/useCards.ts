@@ -1,6 +1,7 @@
 import type { CardPrinting, CardPrintingsResponse } from '@mtg/shared';
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
+import { rememberTapland } from '../cards/taplandLookup';
 
 /** Process-wide cache of printings by id; a table references the same few hundred ids for its whole life. */
 const cache = new Map<string, CardPrinting>();
@@ -15,7 +16,10 @@ function request(ids: string[]) {
   queued = new Set();
   inflight = api<CardPrintingsResponse>('/cards/lookup', { body: { ids: batch } })
     .then((res) => {
-      for (const p of res.printings) cache.set(p.id, p);
+      for (const p of res.printings) {
+        cache.set(p.id, p);
+        rememberTapland(p.id, p.entersTapped);
+      }
     })
     .catch(() => undefined)
     .finally(() => {
@@ -42,5 +46,8 @@ export function useCards(ids: readonly (string | null)[]): Map<string, CardPrint
 
 /** Preloads printings (design playground, tests). */
 export function seedCards(printings: CardPrinting[]): void {
-  for (const p of printings) cache.set(p.id, p);
+  for (const p of printings) {
+    cache.set(p.id, p);
+    rememberTapland(p.id, p.entersTapped);
+  }
 }

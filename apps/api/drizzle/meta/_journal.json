@@ -106,6 +106,13 @@
       "when": 1790001940764,
       "tag": "0014_large_excalibur",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1790064146462,
+      "tag": "0015_light_scream",
+      "breakpoints": true
     }
   ]
 }

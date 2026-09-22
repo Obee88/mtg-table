@@ -202,3 +202,18 @@ body {
 .chip--clickable { cursor: pointer; }
 .chip--clickable:hover { background: var(--chip-hover); box-shadow: var(--chip-shadow-hover); }
 .chip svg { fill: var(--chip-icon, currentColor); }
+
+/* A card someone is pointing at: a bright, breathing border in the pointer's colour. */
+@keyframes target-shine {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px var(--target-color), 0 0 10px 2px var(--target-color), inset 0 0 0 1px rgb(255 255 255 / 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--target-color), 0 0 24px 8px var(--target-color), inset 0 0 0 1px rgb(255 255 255 / 0.9);
+  }
+}
+.card-targeted {
+  animation: target-shine 1.4s ease-in-out infinite;
+  filter: saturate(1.15) brightness(1.08);
+}

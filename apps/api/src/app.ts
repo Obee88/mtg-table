@@ -6,6 +6,7 @@ import { authRoutes } from './auth/routes.js';
 import { findSessionUser, SESSION_COOKIE } from './auth/session.js';
 import { CardIngestService } from './cards/ingest.js';
 import { cardRoutes } from './cards/public-routes.js';
+import { loadTaplands } from './cards/taplands.js';
 import { cardAdminRoutes } from './cards/routes.js';
 import { scryfallSource, type CardSource } from './cards/scryfall.js';
 import type { Config } from './config.js';
@@ -58,6 +59,7 @@ export async function buildApp(config: Config, db: Db, deps: AppDeps = {}): Prom
 
   app.decorate('config', config);
   app.decorate('db', db);
+  await loadTaplands(db);
   app.decorate('cardIngest', new CardIngestService(db, deps.cardSource ?? scryfallSource, app.log));
   app.decorate('rooms', new RoomService(db, app.log));
   app.decorate('cubeCobraFetch', deps.cubeCobraFetch ?? fetchCubeCobra);

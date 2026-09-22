@@ -6,6 +6,7 @@ import { schema } from '../db/index.js';
 import { notFound, unauthorized } from '../errors.js';
 import { parse } from '../validate.js';
 import { basicLands, defaultPrintings, getPrinting, getPrintings, listPrintings, searchCards } from './search.js';
+import { taplandRoutes } from './taplands.js';
 
 const searchQuery = z.object({
   q: z.string().trim().min(1).max(100),
@@ -22,6 +23,7 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', async (req) => {
     if (!req.user) throw unauthorized();
   });
+  taplandRoutes(app);
 
   app.get('/cards/search', async (req): Promise<CardSearchResponse> => {
     const { q, limit, kind } = parse(searchQuery, req.query);

@@ -7,6 +7,7 @@ import { Chip } from '../components/Chip';
 import { api } from '../lib/api';
 import { useUnsavedDraft } from '../lib/useUnsavedDraft';
 import { DeckEditor } from './DeckEditor';
+import { TaplandsPanel } from './TaplandsPanel';
 import { countSection, fromImport, toDeckInput, type EditableDeck } from './model';
 
 const SAMPLE = `4 Lightning Bolt
@@ -124,6 +125,7 @@ export function DeckImportPage() {
           {deck && (
             <div className="flex flex-col gap-4">
               <DeckEditor deck={deck} onChange={setDeck} />
+              <TaplandsPanel printings={[...deck.sections.main, ...deck.sections.sideboard, ...deck.sections.commander].map((c) => c.printing)} />
               <div className="flex items-center gap-3 border-t border-border pt-4">
                 <Button onClick={() => save.mutate(deck)} disabled={save.isPending || name.trim().length === 0 || total === 0}>
                   {save.isPending ? 'Saving…' : problems > 0 ? `Save without ${problems} unresolved line${problems === 1 ? '' : 's'}` : 'Save deck'}

@@ -18,6 +18,7 @@ import { and, asc, desc, eq, gt, inArray, sql } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import { schema, type Db } from '../db/index.js';
 import { HttpError } from '../errors.js';
+import { taplandForPrinting } from '../cards/taplands.js';
 
 const SNAPSHOT_EVERY = 50;
 const IDLE_EVICT_MS = 30 * 60 * 1000;
@@ -128,6 +129,14 @@ export class RoomService {
       if (command.type === 'submitDraftDeck') {
         const bad = await this.nonBasicPrintings(command.basics.map((b) => b.printingId));
         if (bad.length > 0) return { ok: false, error: 'Only basic lands can be added for free' };
+      }
+      // A land coming onto the battlefield (or an MDFC turned to its land side) may be a tapland.
+      if (command.type === 'moveCard' || command.type === 'transformCard') {
+        const printingId = room.state.game?.cards[command.instanceId]?.printingId;
+        if (printingId) {
+          const face = await taplandForPrinting(this.db, printingId);
+          ctx.taplands = (id) => (id === printingId ? face : null);
+        }
       }
       if (command.type === 'start' && room.state.settings.draft) {
         const pools = await this.loadDraftPools(room.state.settings.draft.phases.map((p) => p.poolCubeVersionId));
