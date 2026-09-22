@@ -201,7 +201,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] Cube as the drafting hub: Draft this cube, Formats tab (formats belong to a cube); Draft formats page folds into it
 - [x] Tri-colour pool helper: generate the house-rules pool cube from the cube's multicolour cards (from the cube page and the wizard's House rules step)
 - [x] Lobby rework: single column, blocking reasons on Start, inline deck pick with import dialog, invite link, reserved seats
-- [ ] Attention cues: tab title, optional sound, opt-in browser notifications for your pick / your turn / everyone ready / result to confirm
+- [x] Attention cues: tab title, optional sound, opt-in browser notifications for your pick / your turn / everyone ready / result to confirm
 - [ ] End-of-game card with Play again and Stats links instead of the closed-room page
 - [ ] Visual pass: consistent chips, buttons, dialogs, empty states, first-run hints for a new account
 

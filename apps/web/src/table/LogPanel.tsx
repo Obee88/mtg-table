@@ -6,6 +6,7 @@ import { Link } from 'react-router';
 import { PreviewPanel } from '../cards/CardPreview';
 import { api } from '../lib/api';
 import { useNarrowScreen } from '../lib/useMediaQuery';
+import { useTablePref } from './prefs';
 import { mergeEvents } from './log';
 import { playerColor } from './PlayerStrip';
 import { useCards } from './useCards';
@@ -16,6 +17,7 @@ export function LogPanel({ roomId, state, live, status, leaveHref, onCloseRoom, 
   // On a tablet the table needs the width: the log slides over it instead of sitting beside it.
   const narrow = useNarrowScreen();
   const [open, setOpen] = useState(!narrow);
+  const [sound, setSound] = useTablePref('sound');
   const history = useQuery({
     queryKey: ['rooms', roomId, 'events'],
     queryFn: () => api<RoomEvent[]>(`/rooms/${roomId}/events?after=0`),
@@ -55,7 +57,8 @@ export function LogPanel({ roomId, state, live, status, leaveHref, onCloseRoom, 
           <>
             <span className={status === 'open' ? 'text-success' : 'text-accent'}>●</span>
             <span>{status === 'open' ? 'connected' : status === 'connecting' ? 'reconnecting…' : 'offline'}</span>
-            <Link to={leaveHref} className="touch-target ml-auto text-accent hover:underline">Leave</Link>
+            <button type="button" onClick={() => setSound(!sound)} className="touch-target ml-auto text-text-muted hover:text-text" title={sound ? 'Chime when it is my move: on' : 'Chime when it is my move: off'} aria-pressed={sound}>{sound ? '🔔' : '🔕'}</button>
+            <Link to={leaveHref} className="touch-target text-accent hover:underline">Leave</Link>
             {onReport && <button type="button" onClick={onReport} className="touch-target text-accent hover:underline" title="Record who won this game">Report result</button>}
             {onRestart && <button type="button" onClick={onRestart} className="touch-target text-accent hover:underline" title="Deal new hands for everyone">Restart</button>}
             {onCloseRoom && <button type="button" onClick={onCloseRoom} className="touch-target text-danger hover:underline" title="Close the room without recording anything">Abandon</button>}

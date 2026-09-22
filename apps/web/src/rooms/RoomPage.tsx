@@ -13,11 +13,13 @@ import { QuickImportDialog } from './QuickImportDialog';
 import { DraftScreen } from '../draft/DraftScreen';
 import { GameScreen } from '../table/GameScreen';
 import { useRoom } from './useRoom';
+import { useAttentionCues } from '../table/useAttentionCues';
 
 export function RoomPage() {
   const { id = '' } = useParams();
   const me = useMe();
   const room = useRoom(id, me.data ? { id: me.data.id, displayName: me.data.displayName } : undefined);
+  useAttentionCues(room.state, me.data?.id);
 
   if (room.status === 'closed' && !room.state) return <main className="p-6"><ErrorText error={room.lastError ?? 'Room unavailable'} /></main>;
   if (!room.state || !me.data) return <main className="p-6 text-text-muted">Connecting…</main>;

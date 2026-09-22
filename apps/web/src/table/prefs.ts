@@ -6,6 +6,8 @@ const storageKey = (key: string) => `${EVENT}:${key}`;
 /** Every on/off table preference, with its default and the label the preferences dialog shows. */
 export const TABLE_PREFS = {
   commanderDamage: { label: 'Show commander damage counters in the player strips', default: false },
+  sound: { label: 'Play a chime when it is my pick, my turn, or my confirmation is needed', default: false },
+  notifications: { label: 'Show a browser notification for the same, when this tab is in the background', default: false },
 } as const;
 export type TablePref = keyof typeof TABLE_PREFS;
 

@@ -180,8 +180,8 @@ Resolved with the host, standing in for the group; each one binds the M9 step it
    see "reserved" on the seats. — *Steps 2 and 5.*
 2. **Sound is off by default.** "Your pick" and "your turn" get the tab-title cue always; the chime
    and browser notifications are opt-in switches in the UI preferences dialog (already in the game
-   menu), remembered per browser; the draft screen carries a one-click speaker toggle for the
-   same switch. — *Step 6.*
+   menu), remembered per browser; the log column (draft and game screens alike) carries a one-click
+   bell toggle for the chime. — *Step 6. Shipped 2026-09-22.*
 3. **Draft formats belong to their cube.** The standalone Draft formats page goes away: formats are
    edited on the cube's Formats tab and created from the wizard's *Custom…* step, pre-bound to the
    chosen cube. `/drafts` redirects to Cubes; `/drafts/:id` stays the format editor, reached from
