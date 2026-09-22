@@ -10,6 +10,7 @@ import { useMe } from '../lib/auth';
 import { describeSettings } from './describe';
 import { SettingsForm } from './SettingsForm';
 import { QuickImportDialog } from './QuickImportDialog';
+import { EndOfGameCard } from './EndOfGameCard';
 import { DraftScreen } from '../draft/DraftScreen';
 import { GameScreen } from '../table/GameScreen';
 import { useRoom } from './useRoom';
@@ -43,7 +44,7 @@ export function RoomPage() {
         <Link to="/" className="text-sm text-accent hover:underline">Play</Link>
       </header>
       {room.state.phase === 'lobby' && <Lobby state={room.state} meId={me.data.id} connected={room.connected} send={room.send} />}
-      {room.state.phase === 'ended' && <p className="text-text-muted">This room has been closed.</p>}
+      {room.state.phase === 'ended' && (room.state.results.length > 0 ? <EndOfGameCard state={room.state} meId={me.data.id} closed /> : <p className="text-text-muted">This room has been closed. <Link to="/" className="text-accent hover:underline">Back to Play</Link></p>)}
     </main>
   );
 }
@@ -89,6 +90,13 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
+      {played > 0 && (
+        <EndOfGameCard
+          state={state}
+          meId={meId}
+          onPlayAgain={me ? () => void run(isOwner && blockers.length === 0 ? { type: 'start' } : { type: 'setReady', ready: true }) : undefined}
+        />
+      )}
       <Card title={`Seats · ${players.length}/${state.settings.playerCount}`}>
         {reserved.length > 0 && <p className="mb-3 text-sm text-text-muted"><Chip type="primary">reserved</Chip> for {reservedNames.join(', ')} and the host; others can watch.</p>}
         <ul className="flex flex-col gap-2">
@@ -156,18 +164,7 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
       )}
 
       {isOwner && (
-        <Card title={played > 0 ? `Games played · ${played}` : 'Start'}>
-          {played > 0 && (
-            <ul className="mb-3 flex flex-col gap-1 text-sm">
-              {state.results.map((r) => (
-                <li key={r.gameNumber} className="flex items-center gap-2">
-                  <Chip type="neutral">game {r.gameNumber}</Chip>
-                  <span>{r.winners.length === 0 ? 'a draw' : `${r.winners.map((id) => state.players[id]?.displayName ?? '?').join(' & ')} won`}</span>
-                  {r.note && <span className="truncate text-text-muted">— {r.note}</span>}
-                </li>
-              ))}
-            </ul>
-          )}
+        <Card title={played > 0 ? 'Next game' : 'Start'}>
           <div className="flex flex-wrap items-center gap-3">
             <Button onClick={() => (drafting && !drafted ? setNaming(state.name ?? defaultDraftName(state, new Date())) : run({ type: 'start' }))} disabled={blockers.length > 0}>
               {drafting && !drafted ? 'Start the draft' : played > 0 ? 'Start another game' : 'Start the game'}
@@ -178,18 +175,6 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
               <span className="text-sm text-success">Everyone is ready.</span>
             )}
           </div>
-        </Card>
-      )}
-      {!isOwner && played > 0 && (
-        <Card title={`Games played · ${played}`}>
-          <ul className="flex flex-col gap-1 text-sm">
-            {state.results.map((r) => (
-              <li key={r.gameNumber} className="flex items-center gap-2">
-                <Chip type="neutral">game {r.gameNumber}</Chip>
-                <span>{r.winners.length === 0 ? 'a draw' : `${r.winners.map((id) => state.players[id]?.displayName ?? '?').join(' & ')} won`}</span>
-              </li>
-            ))}
-          </ul>
         </Card>
       )}
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { attentionFor, startBlockers } from './attention.js';
 import { decide, type CommandContext } from './decide.js';
 import { initialRoomState, reduce, reduceAll } from './reduce.js';
-import type { RoomSettings } from './types.js';
+import { describeResult, type RoomSettings } from './types.js';
 
 const settings: RoomSettings = { playerCount: 2, mode: '1v1', startingLife: 20, commander: false };
 const ctx = (actorId: string): CommandContext => ({ actorId, actorDisplayName: actorId, now: new Date('2026-01-01') });
@@ -62,5 +62,17 @@ describe('startBlockers', () => {
     expect(startBlockers(s)).toEqual(['Waiting for a to be ready']);
     s = run(s, 'a', { type: 'setReady', ready: true });
     expect(startBlockers(s)).toEqual([]);
+  });
+});
+
+describe('describeResult', () => {
+  it('names the winners or calls it a draw', () => {
+    let s = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings });
+    s = run(s, 'a', { type: 'join' });
+    s = run(s, 'b', { type: 'join' });
+    const at = '2026-01-01T00:00:00.000Z';
+    expect(describeResult({ gameNumber: 2, reportedBy: 'a', winners: ['a'], note: null, at }, s)).toBe('a won game 2');
+    expect(describeResult({ gameNumber: 3, reportedBy: 'a', winners: ['a', 'b'], note: null, at }, s)).toBe('a & b won game 3');
+    expect(describeResult({ gameNumber: 4, reportedBy: 'a', winners: [], note: null, at }, s)).toBe('Game 4 was a draw');
   });
 });

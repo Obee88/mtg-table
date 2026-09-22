@@ -202,7 +202,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] Tri-colour pool helper: generate the house-rules pool cube from the cube's multicolour cards (from the cube page and the wizard's House rules step)
 - [x] Lobby rework: single column, blocking reasons on Start, inline deck pick with import dialog, invite link, reserved seats
 - [x] Attention cues: tab title, optional sound, opt-in browser notifications for your pick / your turn / everyone ready / result to confirm
-- [ ] End-of-game card with Play again and Stats links instead of the closed-room page
+- [x] End-of-game card with Play again and Stats links instead of the closed-room page
 - [ ] Visual pass: consistent chips, buttons, dialogs, empty states, first-run hints for a new account
 
 ---

@@ -311,3 +311,9 @@ export function canSit(state: RoomState, playerId: PlayerId): boolean {
   const reserved = state.settings.reservedPlayerIds ?? [];
   return reserved.length === 0 || state.ownerId === playerId || reserved.includes(playerId);
 }
+
+/** "Alice won game 2", "Alice & Bob won game 3", "Game 4 was a draw" — for the end-of-game card and the room's history. */
+export function describeResult(result: GameResult, state: RoomState): string {
+  const names = result.winners.map((id) => state.players[id]?.displayName ?? 'someone').join(' & ');
+  return result.winners.length === 0 ? `Game ${result.gameNumber} was a draw` : `${names} won game ${result.gameNumber}`;
+}
