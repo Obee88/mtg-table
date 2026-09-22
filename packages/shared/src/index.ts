@@ -7,3 +7,4 @@ export * from './cubes.js';
 export * from './stats.js';
 export * from './draft/index.js';
 export * from './taplands.js';
+export * from './basics.js';

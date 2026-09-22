@@ -1,5 +1,5 @@
 import type { CardPrinting, DraftCard, DraftState, RoomState } from '@mtg/shared';
-import { allDecksSubmitted, gridLine, MIN_DRAFT_DECK, nextPile, nextSeat, rotisserieSeat, usableLibrarians } from '@mtg/shared';
+import { allDecksSubmitted, autoBasics, gridLine, MIN_DRAFT_DECK, nextPile, nextSeat, rotisserieSeat, usableLibrarians } from '@mtg/shared';
 import { useQuery } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
@@ -328,6 +328,12 @@ function DeckBuilder({ draft, meId, printings, send, isOwner }: { draft: DraftSt
     });
   };
   const bump = (id: string, d: number) => setBasics((b) => ({ ...b, [id]: Math.max(0, Math.min(99, (b[id] ?? 0) + d)) }));
+  /** Basics to reach the minimum deck, in the ratio of the main deck's coloured pips (replaces the current basics). */
+  const fillBasics = () => {
+    const cards = mainCards.flatMap((c) => { const p = printings.get(c.printingId); return p ? [p] : []; });
+    const offered = (lands.data?.printings ?? []).map((p) => ({ printingId: p.id, name: p.name }));
+    setBasics(Object.fromEntries(autoBasics(cards, main.size, offered).map((b) => [b.printingId, b.quantity])));
+  };
   const submit = async () => {
     setBusy(true);
     const r = await send({ type: 'submitDraftDeck', main: [...main], basics: basicsList });
@@ -342,6 +348,7 @@ function DeckBuilder({ draft, meId, printings, send, isOwner }: { draft: DraftSt
   const basicsRow = (
     <div className="flex h-12 shrink-0 items-center gap-3 text-[12px] text-white/80">
       <span className="font-semibold text-white/90">Basics · {basicCount}</span>
+      <button type="button" onClick={fillBasics} disabled={!lands.data || main.size === 0 || main.size >= MIN_DRAFT_DECK} className="touch-target rounded border border-white/20 px-2 py-0.5 text-[11px] text-white/80 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40" title={`Fill up to ${MIN_DRAFT_DECK} with basics in the ratio of the coloured mana symbols in your main deck`}>Auto basics</button>
       {lands.data?.printings.map((p) => (
         <span key={p.id} className="flex items-center gap-1">
           <Thumb card={{ id: p.id, printingId: p.id }} printing={p} w={26} />
