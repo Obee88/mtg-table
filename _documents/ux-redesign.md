@@ -6,6 +6,11 @@ instead of what a player wants to do. This document walks the main user stories 
 current UI, names what gets in the way, proposes the target flows, and orders the work.
 Milestone **M9** in `plan.md` tracks it.
 
+**Signed off 2026-09-22** by the host on behalf of the group: the stories and target flows below
+stand as written, with the three open questions settled under *Decisions* at the end. Pain points
+that M8 and the table work of 2026-09-21/22 already removed are marked *(fixed)* in place, so the
+remaining ✗ marks are the actual scope of M9.
+
 ## Who we design for
 
 Four friends who meet online a few evenings a month. One of them (the *host*) owns the cube and
@@ -57,15 +62,19 @@ The table shows "Your turn" in the strip.
 
 ### 4. "We finished; let's play another / let's stop"
 
-Today: toolbar → New game / End game → outcome dialog → everyone confirms. Fine, but:
+Today: game panel ⋯ menu → New game / End game → outcome dialog → everyone confirms. Fine, but:
 
-- ✗ The toolbar is `reveal-on-hover`; players do not find New game / End game until told.
-- ✗ After End game the room closes and the user lands on a "closed" page with no next step
-  (rematch, see stats, back to the table list).
+- *(fixed 2026-09-21)* ~~The toolbar is `reveal-on-hover`; players do not find New game / End game
+  until told.~~ They now live in the game panel's menu, always visible; the tools row (token, dice,
+  undo, help) sits in the log column.
+- *(fixed 2026-09-21)* ~~After End game the room closes~~ — the room returns to the lobby with the
+  result recorded; a new game can start from there. What is still missing is a proper end-of-game
+  card (who won, Play again, Stats) instead of the bare lobby: ✗ stays for M9 step 7.
 
 ### 5. "Where is the deck I drafted last week?"
 
-Today: nowhere (planned in M8 — draft history and save-to-decks).
+*(fixed 2026-09-22, M8)* Home → Past drafts lists every draft with name, date, format and players;
+opening one shows the drafted deck (or pool) in the deck editor with **Save to my decks**.
 
 ### 6. "I'm new here"
 
@@ -127,13 +136,17 @@ Header: name, owner, **Draft this cube** (primary), share. Tabs: **List** (edito
 
 ### Draft, deckbuilding, table
 
-Mostly as now, plus: attention cues (title "● Your pick", optional sound, notification), a visible
-**End game / New game** in the strip (not hover-only), image size slider (M8), auto basics (M8),
-and an end-of-game card ("Bob won game 2 · Play again · Stats") instead of the closed-room page.
+Mostly as now, plus: attention cues (title "● Your pick", optional sound, notification) and an
+end-of-game card ("Bob won game 2 · Play again · Stats") shown over the lobby the room returns to.
+Already there: End game / New game in the game panel menu, the tools row in the log column, the
+phase bar with jump-to-step, the image size slider and auto basics (M8), taplands, extra turns,
+the UI preferences dialog (per-browser toggles; the sound and notification switches of step 6 go
+in there too).
 
 ### Decks
 
-List with import (link or paste) and, from M8, drafted decks saved from draft history.
+List with import (link or paste), the Taplands panel, and drafted decks saved from Past drafts
+(M8). Past drafts stays reachable from Play and from the user menu.
 
 ## Plan of work (M9)
 
@@ -158,10 +171,19 @@ Ordered so each step is shippable and useful on its own; each is one `/go-next` 
 Out of scope here: mobile/tablet layouts (M7 item), the table's card interactions (settled in
 `table-design.md`).
 
-## Open questions for the group
+## Decisions (2026-09-22)
 
-- Should open lobbies be visible to everyone in the group by default (today: yes), or only to
-  reserved players?
-- Sound on by default for "your pick"? (Proposal: off, one-click enable in the draft screen.)
-- Keep "Draft formats" reachable as its own page for people who like to tune formats, or only via
-  the cube's Formats tab? (Proposal: via the cube only, plus a link from Play → New draft → Custom.)
+Resolved with the host, standing in for the group; each one binds the M9 step it names.
+
+1. **Open lobbies are visible to everyone in the group** (as today). A lobby created with
+   *reserved* seats still shows on Play for everyone, but only the named players can sit; the rest
+   see "reserved" on the seats. — *Steps 2 and 5.*
+2. **Sound is off by default.** "Your pick" and "your turn" get the tab-title cue always; the chime
+   and browser notifications are opt-in switches in the UI preferences dialog (already in the game
+   menu), remembered per browser; the draft screen carries a one-click speaker toggle for the
+   same switch. — *Step 6.*
+3. **Draft formats belong to their cube.** The standalone Draft formats page goes away: formats are
+   edited on the cube's Formats tab and created from the wizard's *Custom…* step, pre-bound to the
+   chosen cube. `/drafts` and `/drafts/:id` redirect to the owning cube's Formats tab (a format
+   with pools from several cubes opens on the first pool's cube). Past drafts (`/drafts/history`)
+   is unaffected. — *Steps 3 and 4.*

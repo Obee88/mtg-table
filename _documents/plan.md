@@ -194,7 +194,7 @@ Ordered checklist. `/go-next` takes the first unchecked item. Split an item in p
 - [x] "Auto basics" in the deck builder: fills the remaining slots up to 40 with basic lands in the ratio of coloured mana symbols in the main deck's mana costs (colourless-only deck → Wastes if the database has them, else an even split)
 
 **M9 — UX redesign** (analysis in `_documents/ux-redesign.md`, written 2026-09-21)
-- [ ] Analysis sign-off: walk the user stories and target flows in `ux-redesign.md` with the group; resolve its open questions; update the document
+- [x] Analysis sign-off: walk the user stories and target flows in `ux-redesign.md` with the group; resolve its open questions; update the document (signed off 2026-09-22; decisions recorded at the end of the document)
 - [ ] App shell (Play · Decks · Cubes · Stats) and the Play home: rooms I am in with state and Rejoin, open lobbies with Join, New game / New draft; old routes redirect
 - [ ] New game / New draft wizard replacing the room-creation form: what → cube → format (house rules default, cube's saved formats, custom) → players → name → open or reserved seats
 - [ ] Cube as the drafting hub: Draft this cube, Formats tab (formats belong to a cube), tri-colour pool helper; Draft formats page folds into it
