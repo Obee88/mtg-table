@@ -11,6 +11,7 @@ const idParam = z.object({ id: z.uuid() });
 const memberInput = z.object({ userId: z.uuid() });
 const memberParam = z.object({ id: z.uuid(), userId: z.uuid() });
 const roomParam = z.object({ roomId: z.uuid() });
+const membershipInput = z.object({ accept: z.boolean() });
 
 /** Cube and size of each referenced version, for display and validation. */
 export async function poolInfo(db: Db, versionIds: string[]): Promise<DraftPoolInfo[]> {
@@ -47,15 +48,19 @@ export async function draftConfigRoutes(app: FastifyInstance): Promise<void> {
   async function accessible(id: string, userId: string): Promise<DraftConfigRow> {
     const [row] = await db.select().from(schema.draftConfigs).where(eq(schema.draftConfigs.id, id));
     if (!row) throw notFound('Draft configuration not found');
-    if (row.ownerId === userId) return row;
-    const [member] = await db.select().from(schema.draftConfigMembers).where(and(eq(schema.draftConfigMembers.configId, id), eq(schema.draftConfigMembers.userId, userId)));
+    // The owner deleted it: gone for them; accepted members still see it, to copy it or let it go.
+    if (row.ownerId === userId) {
+      if (row.deletedAt) throw notFound('Draft configuration not found');
+      return row;
+    }
+    const [member] = await db.select().from(schema.draftConfigMembers).where(and(eq(schema.draftConfigMembers.configId, id), eq(schema.draftConfigMembers.userId, userId), eq(schema.draftConfigMembers.status, 'accepted')));
     if (!member) throw notFound('Draft configuration not found');
     return row;
   }
 
-  async function membersOf(configId: string): Promise<{ id: string; displayName: string }[]> {
+  async function membersOf(configId: string): Promise<{ id: string; displayName: string; status: 'pending' | 'accepted' }[]> {
     return db
-      .select({ id: schema.users.id, displayName: schema.users.displayName })
+      .select({ id: schema.users.id, displayName: schema.users.displayName, status: schema.draftConfigMembers.status })
       .from(schema.draftConfigMembers)
       .innerJoin(schema.users, eq(schema.users.id, schema.draftConfigMembers.userId))
       .where(eq(schema.draftConfigMembers.configId, configId))
@@ -67,7 +72,7 @@ export async function draftConfigRoutes(app: FastifyInstance): Promise<void> {
     const ids = [...new Set(config.phases.map((p) => p.poolCubeVersionId))];
     const pools = await poolInfo(db, ids);
     const mine = await db.select({ id: schema.cubes.id }).from(schema.cubes).where(eq(schema.cubes.ownerId, userId));
-    const shared = await db.select({ id: schema.cubeMembers.cubeId }).from(schema.cubeMembers).where(eq(schema.cubeMembers.userId, userId));
+    const shared = await db.select({ id: schema.cubeMembers.cubeId }).from(schema.cubeMembers).where(and(eq(schema.cubeMembers.userId, userId), eq(schema.cubeMembers.status, 'accepted')));
     const allowed = new Set([...mine, ...shared].map((c) => c.id));
     const missing = ids.filter((id) => !pools.some((p) => p.versionId === id && allowed.has(p.cubeId)));
     if (missing.length > 0) throw badRequest('Every phase must draw from a version of one of your cubes, or a cube shared with you');
@@ -75,13 +80,14 @@ export async function draftConfigRoutes(app: FastifyInstance): Promise<void> {
   }
 
   const toResponse = async (row: DraftConfigRow, pools: DraftPoolInfo[]): Promise<DraftConfigResponse> => ({
-    id: row.id, ownerId: row.ownerId, name: row.name, config: row.config, pools, members: await membersOf(row.id), createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(),
+    id: row.id, ownerId: row.ownerId, name: row.name, config: row.config, pools, members: await membersOf(row.id), deletedByOwner: !!row.deletedAt, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(),
   });
 
   /** Own formats first, then formats shared with the caller. */
   app.get('/draft-configs', async (req): Promise<DraftConfigSummary[]> => {
     const me = req.user!.id;
-    const shared = await db.select({ id: schema.draftConfigMembers.configId }).from(schema.draftConfigMembers).where(eq(schema.draftConfigMembers.userId, me));
+    const shared = await db.select({ id: schema.draftConfigMembers.configId, status: schema.draftConfigMembers.status }).from(schema.draftConfigMembers).where(eq(schema.draftConfigMembers.userId, me));
+    const statusOf = new Map(shared.map((s) => [s.id, s.status]));
     const rows = await db
       .select({ row: schema.draftConfigs, ownerName: schema.users.displayName })
       .from(schema.draftConfigs)
@@ -93,8 +99,12 @@ export async function draftConfigRoutes(app: FastifyInstance): Promise<void> {
     const versions = versionIds.length ? await db.select({ id: schema.cubeVersions.id, cubeId: schema.cubeVersions.cubeId }).from(schema.cubeVersions).where(inArray(schema.cubeVersions.id, versionIds)) : [];
     const cubeOf = new Map(versions.map((v) => [v.id, v.cubeId]));
     return rows
+      // A format the owner deleted stays only for the members it was shared with.
+      .filter(({ row: r }) => !(r.deletedAt && r.ownerId === me))
       .map(({ row: r, ownerName }) => ({
         id: r.id, name: r.name, ownerId: r.ownerId, ownerName, shared: r.ownerId !== me, seats: r.config.seats, phaseCount: r.config.phases.length,
+        membership: (r.ownerId === me ? 'owner' : statusOf.get(r.id) === 'accepted' ? 'member' : 'invited') as 'owner' | 'member' | 'invited',
+        deletedByOwner: !!r.deletedAt,
         cubeIds: [...new Set(r.config.phases.flatMap((p) => { const c = cubeOf.get(p.poolCubeVersionId); return c ? [c] : []; }))],
         updatedAt: r.updatedAt.toISOString(),
       }))
@@ -114,8 +124,21 @@ export async function draftConfigRoutes(app: FastifyInstance): Promise<void> {
     if (userId === row.ownerId) throw badRequest('You already own this format');
     const [user] = await db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.id, userId));
     if (!user) throw notFound('User not found');
-    await db.insert(schema.draftConfigMembers).values({ configId: id, userId }).onConflictDoNothing();
+    // An offer: the player sees it on the cube's Formats tab and accepts or rejects it.
+    await db.insert(schema.draftConfigMembers).values({ configId: id, userId, status: 'pending' }).onConflictDoNothing();
     return reply.code(201).send({ members: await membersOf(id) });
+  });
+
+  /** The invited player's answer: accept (the format joins their list) or reject (the offer disappears). */
+  app.post('/draft-configs/:id/membership', async (req) => {
+    const { id } = parse(idParam, req.params);
+    const { accept } = parse(membershipInput, req.body);
+    const me = req.user!.id;
+    const [member] = await db.select().from(schema.draftConfigMembers).where(and(eq(schema.draftConfigMembers.configId, id), eq(schema.draftConfigMembers.userId, me)));
+    if (!member) throw notFound('No such invitation');
+    if (accept) await db.update(schema.draftConfigMembers).set({ status: 'accepted' }).where(and(eq(schema.draftConfigMembers.configId, id), eq(schema.draftConfigMembers.userId, me)));
+    else await db.delete(schema.draftConfigMembers).where(and(eq(schema.draftConfigMembers.configId, id), eq(schema.draftConfigMembers.userId, me)));
+    return { accepted: accept };
   });
 
   app.delete('/draft-configs/:id/members/:userId', async (req) => {
@@ -149,11 +172,40 @@ export async function draftConfigRoutes(app: FastifyInstance): Promise<void> {
     return toResponse(row!, pools);
   });
 
+  /** As for cubes: the owner deletes for good when nobody else has it, else leaves it to the members; a member just lets go. */
   app.delete('/draft-configs/:id', async (req, reply) => {
     const { id } = parse(idParam, req.params);
-    await owned(id, req.user!.id);
-    await db.delete(schema.draftConfigs).where(eq(schema.draftConfigs.id, id));
+    const me = req.user!.id;
+    const [row] = await db.select().from(schema.draftConfigs).where(eq(schema.draftConfigs.id, id));
+    if (!row) throw notFound('Draft configuration not found');
+    if (row.ownerId === me) {
+      if (row.deletedAt) throw notFound('Draft configuration not found');
+      const members = await membersOf(id);
+      if (members.length === 0) await db.delete(schema.draftConfigs).where(eq(schema.draftConfigs.id, id));
+      else await db.update(schema.draftConfigs).set({ deletedAt: new Date() }).where(eq(schema.draftConfigs.id, id));
+      return reply.code(204).send();
+    }
+    const [member] = await db.select().from(schema.draftConfigMembers).where(and(eq(schema.draftConfigMembers.configId, id), eq(schema.draftConfigMembers.userId, me)));
+    if (!member) throw notFound('Draft configuration not found');
+    await letGo(row, me);
     return reply.code(204).send();
+  });
+
+  async function letGo(row: DraftConfigRow, userId: string): Promise<void> {
+    await db.delete(schema.draftConfigMembers).where(and(eq(schema.draftConfigMembers.configId, row.id), eq(schema.draftConfigMembers.userId, userId)));
+    if (row.deletedAt && (await membersOf(row.id)).length === 0) await db.delete(schema.draftConfigs).where(eq(schema.draftConfigs.id, row.id));
+  }
+
+  /** A copy under the caller's name. A member copying a format its owner deleted lets the original go. */
+  app.post('/draft-configs/:id/copy', async (req, reply) => {
+    const { id } = parse(idParam, req.params);
+    const me = req.user!.id;
+    const source = await accessible(id, me);
+    const pools = await checkPools(source.config, me);
+    const name = `${source.name} (copy)`;
+    const [row] = await db.insert(schema.draftConfigs).values({ ownerId: me, name, config: { ...source.config, name } }).returning();
+    if (source.ownerId !== me && source.deletedAt) await letGo(source, me);
+    return reply.code(201).send(await toResponse(row!, pools));
   });
 
   // ---- history: drafts the caller took part in ----

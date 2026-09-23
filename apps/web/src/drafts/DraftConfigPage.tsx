@@ -92,6 +92,7 @@ export function DraftConfigPage() {
         <input className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent text-2xl font-semibold hover:border-border focus:border-border disabled:hover:border-transparent" value={config.name} disabled={!canEdit} onChange={(e) => set({ name: e.target.value })} aria-label="format name" />
         <Link to={phaseCubes[0] ? `/cubes/${phaseCubes[0]}?tab=formats` : '/cubes'} className="text-sm text-accent hover:underline">Cube formats</Link>
       </header>
+      {existing.data?.deletedByOwner && <p className="rounded-md border border-warning/40 bg-warning/5 px-3 py-2 text-sm">The owner deleted this format. Keep a copy or delete it from the cube's Formats tab.</p>}
       {!canEdit && <p className="text-sm text-text-muted">Shared with you by the owner: you can start drafts with this format, but not change it.</p>}
       {id && canEdit && existing.data && (
         <ShareCard description="These players can start drafts with this format." members={existing.data.members} ownerId={existing.data.ownerId} basePath={`/draft-configs/${id}`} onChanged={() => void qc.invalidateQueries({ queryKey: ['draft-configs', id] })} />

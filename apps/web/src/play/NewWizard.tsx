@@ -55,7 +55,7 @@ export function NewWizard() {
   const saved = useQuery({ queryKey: ['draft-configs', formatId], queryFn: () => api<DraftConfigResponse>(`/draft-configs/${formatId}`), enabled: kind === 'draft' && formatId !== 'house' });
   const cube = cubes.data?.find((c) => c.id === cubeId);
   const tri = cubes.data?.find((c) => c.id === (triCubeId || cubeId));
-  const cubeFormats = formats.data?.filter((f) => f.cubeIds.includes(cubeId)) ?? [];
+  const cubeFormats = formats.data?.filter((f) => f.cubeIds.includes(cubeId) && !f.deletedByOwner && f.membership !== 'invited') ?? [];
   /** The draft config the room will carry. */
   const config: DraftConfig | null =
     kind !== 'draft' ? null
@@ -125,7 +125,7 @@ export function NewWizard() {
             <p className="text-sm text-text-muted">Which cube are we drafting?</p>
             <ErrorText error={cubes.error} />
             <div className="flex flex-wrap gap-3">
-              {cubes.data?.map((c) => (
+              {cubes.data?.filter((c) => !c.deletedByOwner && c.membership !== 'invited').map((c) => (
                 <Choice key={c.id} selected={cubeId === c.id} onClick={() => { setCubeId(c.id); setFormatId('house'); setTriCubeId(''); }} disabled={!c.latestVersionId} title={c.name} text={<>{c.cardCount} cards · v{c.latestVersion}{c.shared && <Chip type="primary" className="ml-2">by {c.ownerName}</Chip>}</>} />
               ))}
             </div>

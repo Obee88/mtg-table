@@ -25,6 +25,11 @@ export interface CubeSummary {
   ownerName: string;
   /** Shared with the caller by its owner (read-only, but usable in drafts). */
   shared: boolean;
+  membership: Membership;
+  /** Players who accepted the share. */
+  memberCount: number;
+  /** The owner deleted it; it lives on for its members until they copy it or let it go. */
+  deletedByOwner: boolean;
   latestVersion: number;
   /** Id of that version (null for a cube with no version yet), for starting a draft from the list. */
   latestVersionId: string | null;
@@ -34,9 +39,9 @@ export interface CubeSummary {
 
 /** A cube with one version's contents (the latest unless a version was requested). */
 export interface CubeResponse {
-  cube: { id: string; name: string; ownerId: string; createdAt: string; updatedAt: string };
-  /** Players the owner shares the cube with. */
-  members: { id: string; displayName: string }[];
+  cube: { id: string; name: string; ownerId: string; deletedByOwner: boolean; createdAt: string; updatedAt: string };
+  /** Players the owner shares the cube with, accepted or still invited. */
+  members: SharedMember[];
   version: CubeVersionSummary & { cards: CubeCard[] };
   versions: CubeVersionSummary[];
   /** Every printing referenced by the shown version. */
@@ -163,4 +168,13 @@ export const TRI_COLOUR_POOL_SIZE = 20;
 export function triColourPool(cards: CubeCard[], printings: Map<string, CardPrinting> | CardPrinting[], colours = 3): CubeCard[] {
   const byId = printings instanceof Map ? printings : new Map(printings.map((p) => [p.id, p]));
   return cards.filter((c) => byId.get(c.printingId)?.colorIdentity.length === colours);
+}
+
+/** How the caller relates to something shared: theirs, shared with them (accepted), or offered and not yet answered. */
+export type Membership = 'owner' | 'member' | 'invited';
+export interface SharedMember {
+  id: string;
+  displayName: string;
+  /** 'pending' until the player accepts the offer. */
+  status: 'pending' | 'accepted';
 }

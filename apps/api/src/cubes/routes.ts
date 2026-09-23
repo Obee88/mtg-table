@@ -18,6 +18,7 @@ const idParam = z.object({ id: z.uuid() });
 const versionQuery = z.object({ version: z.coerce.number().int().min(1).optional() });
 const cobraInput = z.object({ ref: z.string().trim().min(1).max(300) });
 const diffQuery = z.object({ from: z.coerce.number().int().min(1).optional(), to: z.coerce.number().int().min(1).optional() });
+const membershipInput = z.object({ accept: z.boolean() });
 const restoreInput = z.object({ version: z.number().int().min(1) });
 const memberInput = z.object({ userId: z.uuid() });
 const memberParam = z.object({ id: z.uuid(), userId: z.uuid() });
@@ -55,15 +56,19 @@ export async function cubeRoutes(app: FastifyInstance): Promise<void> {
   async function accessibleCube(id: string, userId: string): Promise<CubeRow> {
     const [row] = await db.select().from(schema.cubes).where(eq(schema.cubes.id, id));
     if (!row) throw notFound('Cube not found');
-    if (row.ownerId === userId) return row;
-    const [member] = await db.select().from(schema.cubeMembers).where(and(eq(schema.cubeMembers.cubeId, id), eq(schema.cubeMembers.userId, userId)));
+    // The owner deleted it: gone for them; members still see it, to copy it or let it go.
+    if (row.ownerId === userId) {
+      if (row.deletedAt) throw notFound('Cube not found');
+      return row;
+    }
+    const [member] = await db.select().from(schema.cubeMembers).where(and(eq(schema.cubeMembers.cubeId, id), eq(schema.cubeMembers.userId, userId), eq(schema.cubeMembers.status, 'accepted')));
     if (!member) throw notFound('Cube not found');
     return row;
   }
 
-  async function membersOf(cubeId: string): Promise<{ id: string; displayName: string }[]> {
+  async function membersOf(cubeId: string): Promise<{ id: string; displayName: string; status: 'pending' | 'accepted' }[]> {
     return db
-      .select({ id: schema.users.id, displayName: schema.users.displayName })
+      .select({ id: schema.users.id, displayName: schema.users.displayName, status: schema.cubeMembers.status })
       .from(schema.cubeMembers)
       .innerJoin(schema.users, eq(schema.users.id, schema.cubeMembers.userId))
       .where(eq(schema.cubeMembers.cubeId, cubeId))
@@ -101,7 +106,7 @@ export async function cubeRoutes(app: FastifyInstance): Promise<void> {
     const rows = await db.select().from(schema.cubeVersionCards).where(eq(schema.cubeVersionCards.versionId, shown.id));
     const cards = rows.map((r) => ({ printingId: r.cardId, quantity: r.quantity }));
     return {
-      cube: { id: cube.id, name: cube.name, ownerId: cube.ownerId, createdAt: cube.createdAt.toISOString(), updatedAt: cube.updatedAt.toISOString() },
+      cube: { id: cube.id, name: cube.name, ownerId: cube.ownerId, deletedByOwner: !!cube.deletedAt, createdAt: cube.createdAt.toISOString(), updatedAt: cube.updatedAt.toISOString() },
       members: await membersOf(cube.id),
       version: { ...shown, cards },
       versions,
@@ -118,7 +123,8 @@ export async function cubeRoutes(app: FastifyInstance): Promise<void> {
   /** Own cubes first, then cubes shared with the caller. */
   app.get('/cubes', async (req): Promise<CubeSummary[]> => {
     const me = req.user!.id;
-    const shared = await db.select({ id: schema.cubeMembers.cubeId }).from(schema.cubeMembers).where(eq(schema.cubeMembers.userId, me));
+    const shared = await db.select({ id: schema.cubeMembers.cubeId, status: schema.cubeMembers.status }).from(schema.cubeMembers).where(eq(schema.cubeMembers.userId, me));
+    const statusOf = new Map(shared.map((s) => [s.id, s.status]));
     const rows = await db
       .select({ cube: schema.cubes, ownerName: schema.users.displayName })
       .from(schema.cubes)
@@ -127,10 +133,18 @@ export async function cubeRoutes(app: FastifyInstance): Promise<void> {
       .orderBy(desc(schema.cubes.updatedAt));
     const out: CubeSummary[] = [];
     for (const { cube, ownerName } of rows) {
+      // A cube the owner deleted stays only for the members it was shared with.
+      if (cube.deletedAt && cube.ownerId === me) continue;
       const [latest] = await versionSummaries(cube.id);
-      out.push({ id: cube.id, name: cube.name, ownerId: cube.ownerId, ownerName, shared: cube.ownerId !== me, latestVersion: latest?.number ?? 0, latestVersionId: latest?.id ?? null, cardCount: latest?.cardCount ?? 0, updatedAt: cube.updatedAt.toISOString() });
+      const members = await membersOf(cube.id);
+      const membership = cube.ownerId === me ? 'owner' : statusOf.get(cube.id) === 'accepted' ? 'member' : 'invited';
+      out.push({
+        id: cube.id, name: cube.name, ownerId: cube.ownerId, ownerName, shared: cube.ownerId !== me, membership, latestVersion: latest?.number ?? 0, latestVersionId: latest?.id ?? null, cardCount: latest?.cardCount ?? 0,
+        memberCount: members.filter((m) => m.status === 'accepted').length, deletedByOwner: !!cube.deletedAt, updatedAt: cube.updatedAt.toISOString(),
+      });
     }
-    return out.sort((a, b) => Number(a.shared) - Number(b.shared));
+    // Invitations first, then own cubes, then the rest.
+    return out.sort((a, b) => Number(a.membership === 'member') - Number(b.membership === 'member') || Number(a.membership === 'owner') - Number(b.membership === 'owner'));
   });
 
   /** Who may draft with this cube besides the owner. */
@@ -147,8 +161,21 @@ export async function cubeRoutes(app: FastifyInstance): Promise<void> {
     if (userId === cube.ownerId) throw badRequest('You already own this cube');
     const [user] = await db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.id, userId));
     if (!user) throw notFound('User not found');
-    await db.insert(schema.cubeMembers).values({ cubeId: id, userId }).onConflictDoNothing();
+    // An offer: the player sees it in their cube list and accepts or rejects it.
+    await db.insert(schema.cubeMembers).values({ cubeId: id, userId, status: 'pending' }).onConflictDoNothing();
     return reply.code(201).send({ members: await membersOf(id) });
+  });
+
+  /** The invited player's answer: accept (the cube joins their list) or reject (the offer disappears). */
+  app.post('/cubes/:id/membership', async (req) => {
+    const { id } = parse(idParam, req.params);
+    const { accept } = parse(membershipInput, req.body);
+    const me = req.user!.id;
+    const [member] = await db.select().from(schema.cubeMembers).where(and(eq(schema.cubeMembers.cubeId, id), eq(schema.cubeMembers.userId, me)));
+    if (!member) throw notFound('No such invitation');
+    if (accept) await db.update(schema.cubeMembers).set({ status: 'accepted' }).where(and(eq(schema.cubeMembers.cubeId, id), eq(schema.cubeMembers.userId, me)));
+    else await db.delete(schema.cubeMembers).where(and(eq(schema.cubeMembers.cubeId, id), eq(schema.cubeMembers.userId, me)));
+    return { accepted: accept };
   });
 
   app.delete('/cubes/:id/members/:userId', async (req) => {
@@ -255,10 +282,47 @@ export async function cubeRoutes(app: FastifyInstance): Promise<void> {
     return reply.code(201).send(await respond(cube));
   });
 
+  /**
+   * Delete means different things: the owner removes the cube for good if
+   * nobody else has it, else marks it deleted and leaves it to the members;
+   * a member just stops seeing it. The last member to let go of a deleted
+   * cube takes it with them.
+   */
   app.delete('/cubes/:id', async (req, reply) => {
     const { id } = parse(idParam, req.params);
-    await ownedCube(id, req.user!.id);
-    await db.delete(schema.cubes).where(eq(schema.cubes.id, id));
+    const me = req.user!.id;
+    const [row] = await db.select().from(schema.cubes).where(eq(schema.cubes.id, id));
+    if (!row) throw notFound('Cube not found');
+    if (row.ownerId === me) {
+      if (row.deletedAt) throw notFound('Cube not found');
+      const members = await membersOf(id);
+      if (members.length === 0) await db.delete(schema.cubes).where(eq(schema.cubes.id, id));
+      else await db.update(schema.cubes).set({ deletedAt: new Date() }).where(eq(schema.cubes.id, id));
+      return reply.code(204).send();
+    }
+    const [member] = await db.select().from(schema.cubeMembers).where(and(eq(schema.cubeMembers.cubeId, id), eq(schema.cubeMembers.userId, me)));
+    if (!member) throw notFound('Cube not found');
+    await letGo(row, me);
     return reply.code(204).send();
+  });
+
+  /** A member stops sharing a cube; a cube its owner already deleted goes for good once nobody has it. */
+  async function letGo(cube: CubeRow, userId: string): Promise<void> {
+    await db.delete(schema.cubeMembers).where(and(eq(schema.cubeMembers.cubeId, cube.id), eq(schema.cubeMembers.userId, userId)));
+    if (cube.deletedAt && (await membersOf(cube.id)).length === 0) await db.delete(schema.cubes).where(eq(schema.cubes.id, cube.id));
+  }
+
+  /** A copy of the latest version as a new cube of the caller's. A member copying a cube its owner deleted lets the original go. */
+  app.post('/cubes/:id/copy', async (req, reply) => {
+    const { id } = parse(idParam, req.params);
+    const me = req.user!.id;
+    const source = await accessibleCube(id, me);
+    const [latest] = await versionSummaries(source.id);
+    if (!latest) throw badRequest('This cube has no version to copy');
+    const rows = await db.select().from(schema.cubeVersionCards).where(eq(schema.cubeVersionCards.versionId, latest.id));
+    const [cube] = await db.insert(schema.cubes).values({ ownerId: me, name: `${source.name} (copy)` }).returning();
+    await addVersion(cube!, me, rows.map((r) => ({ printingId: r.cardId, quantity: r.quantity })), `Copied from ${source.name} v${latest.number}`);
+    if (source.ownerId !== me && source.deletedAt) await letGo(source, me);
+    return reply.code(201).send(await respond(cube!));
   });
 }

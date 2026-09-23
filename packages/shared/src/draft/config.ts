@@ -1,3 +1,4 @@
+import type { Membership, SharedMember } from '../cubes.js';
 import { cardsNeeded, type DraftConfig, type DraftPhaseConfig, type RotisserieConfig } from './types.js';
 
 /** A saved, user-owned draft recipe. */
@@ -8,6 +9,9 @@ export interface DraftConfigSummary {
   ownerName: string;
   /** Shared with the caller by its owner (read-only, but usable to start drafts). */
   shared: boolean;
+  membership: Membership;
+  /** The owner deleted it; it lives on for its members until they copy it or let it go. */
+  deletedByOwner: boolean;
   seats: 2 | 4;
   phaseCount: number;
   /** Cubes its phases deal from (a format belongs to its cube in the UI). */
@@ -30,8 +34,9 @@ export interface DraftConfigResponse {
   name: string;
   config: DraftConfig;
   pools: DraftPoolInfo[];
-  /** Players the owner shares the format with. */
-  members: { id: string; displayName: string }[];
+  /** Players the owner shares the format with, accepted or still invited. */
+  members: SharedMember[];
+  deletedByOwner: boolean;
   createdAt: string;
   updatedAt: string;
 }

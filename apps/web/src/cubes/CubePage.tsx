@@ -11,6 +11,7 @@ import { useMe } from '../lib/auth';
 import { CubeEditor } from './CubeEditor';
 import { VersionDiff } from './VersionDiff';
 import { CubeFormatsTab } from './CubeFormatsTab';
+import { deleteQuestion } from './CubeListPage';
 import { countCubeCards, cubeToText, fromCubeResponse, fromImport, mergeCubeCards, toCubeCards, type EditableCubeCard } from './model';
 
 /** View a cube version, edit the list (printings, quantities, add by paste) and save it as a new version. */
@@ -47,6 +48,13 @@ export function CubePage() {
   const rename = useMutation({
     mutationFn: (name: string) => api<CubeResponse>(`/cubes/${id}`, { method: 'PUT', body: { name } }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['cubes'] }),
+  });
+  const copyCube = useMutation({
+    mutationFn: () => api<CubeResponse>(`/cubes/${id}/copy`, { method: 'POST' }),
+    onSuccess: (res) => {
+      void qc.invalidateQueries({ queryKey: ['cubes'] });
+      navigate(`/cubes/${res.cube.id}`);
+    },
   });
   const remove = useMutation({
     mutationFn: () => api<void>(`/cubes/${id}`, { method: 'DELETE' }),
@@ -103,6 +111,13 @@ export function CubePage() {
           <Link to="/cubes" className="text-accent hover:underline">Cubes</Link>
         </span>
       </header>
+      {cube.deletedByOwner && (
+        <div className="flex flex-wrap items-center gap-3 rounded-md border border-warning/40 bg-warning/5 px-3 py-2 text-sm">
+          <span className="flex-1">The owner deleted this cube. Keep a copy of your own, or delete it too; it stays read-only meanwhile.</span>
+          <Button variant="ghost" className="text-danger" onClick={() => remove.mutate()} disabled={remove.isPending}>Delete</Button>
+          <Button onClick={() => copyCube.mutate()} disabled={copyCube.isPending}>Create a copy</Button>
+        </div>
+      )}
       <nav className="flex items-center gap-1 border-b border-border pb-2">
         <button type="button" className={tabClass('list')} onClick={() => goTab('list')}>List</button>
         <button type="button" className={tabClass('versions')} onClick={() => goTab('versions')}>Versions</button>
@@ -123,7 +138,8 @@ export function CubePage() {
                 <div className="flex flex-wrap gap-2">
                   <CopyButton text={() => cubeToText(cards)} title="Copy the cube list to the clipboard">Copy as text</CopyButton>
                   {canEdit && <Button variant="ghost" onClick={() => oldestAll.mutate(cards)} disabled={oldestAll.isPending} title="Reset every card to its oldest English paper printing">Use oldest printings</Button>}
-                  {canEdit && <Button variant="ghost" className="text-danger" onClick={() => confirm(`Delete “${cube.name}” and all versions?`) && remove.mutate()}>Delete cube</Button>}
+                  {canEdit && <Button variant="ghost" className="text-danger" onClick={() => confirm(deleteQuestion({ name: cube.name, membership: 'owner', memberCount: members.filter((m) => m.status === 'accepted').length })) && remove.mutate()}>Delete cube</Button>}
+                  {!canEdit && !cube.deletedByOwner && <Button variant="ghost" onClick={() => confirm(deleteQuestion({ name: cube.name, membership: 'member', memberCount: 0 })) && remove.mutate()}>Remove from my list</Button>}
                 </div>
                 <ErrorText error={rename.error ?? remove.error ?? oldestAll.error} />
               </div>

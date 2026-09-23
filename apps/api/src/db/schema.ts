@@ -180,6 +180,8 @@ export const cubes = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
+    /** Set when the owner deleted a cube still shared with others: they keep it until the last of them lets go or copies it. */
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -266,6 +268,8 @@ export const draftConfigs = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
+    /** As on cubes: deleted by the owner while still shared. */
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
     config: jsonb('config').$type<DraftConfig>().notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -315,6 +319,8 @@ export const cubeMembers = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Sharing is an offer until the player accepts it; only accepted members see the cube. */
+    status: text('status', { enum: ['pending', 'accepted'] }).notNull().default('accepted'),
   },
   (t) => [primaryKey({ columns: [t.cubeId, t.userId] }), index('cube_members_user_id_idx').on(t.userId)],
 );
@@ -330,6 +336,7 @@ export const draftConfigMembers = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    status: text('status', { enum: ['pending', 'accepted'] }).notNull().default('accepted'),
   },
   (t) => [primaryKey({ columns: [t.configId, t.userId] }), index('draft_config_members_user_id_idx').on(t.userId)],
 );
