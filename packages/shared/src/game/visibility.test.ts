@@ -206,22 +206,23 @@ describe('reveals', () => {
     let s = setup();
     const lib = s.game!.players.a!.zones.library;
     expect(lib).toHaveLength(2); // 9-card deck, 7 drawn
-    s = step(s, 'a', { type: 'lookAtTop', count: 1 });
+    s = step(s, 'a', { type: 'openLibraryView', kind: 'top', count: 1 });
     expect(seen(s, 'a', lib[0]!)).toBe(true);
     expect(seen(s, 'a', lib[1]!)).toBe(false);
     expect(seen(s, 'b', lib[0]!)).toBe(false);
     expect(decide(s, { type: 'reorderLibraryTop', instanceIds: [lib[0]!, 'nope'] }, ctx('a')).ok).toBe(false);
     s = step(s, 'a', { type: 'reorderLibraryTop', instanceIds: [lib[1]!, lib[0]!] });
     expect(s.game!.players.a!.zones.library).toEqual([lib[1], lib[0]]);
-    s = step(s, 'a', { type: 'dismissReveal' });
+    s = step(s, 'a', { type: 'closeLibraryView', shuffle: false });
     expect(seen(s, 'a', lib[0]!)).toBe(false);
+    expect(s.game!.players.a!.libraryView).toBeNull();
     for (const v of ['a', 'b']) assertNoLeak(s, v);
   });
 
-  it('reveal top to everyone, and the permanent top-card reveal follows the library', () => {
+  it('reveals a top card to everyone, and the permanent top-card reveal follows the library', () => {
     let s = setup();
     const lib = s.game!.players.a!.zones.library;
-    s = step(s, 'a', { type: 'revealTop', count: 1, to: 'all' });
+    s = step(s, 'a', { type: 'revealCards', instanceIds: [lib[0]!], to: 'all', until: 'dismissed' });
     expect(seen(s, 'b', lib[0]!)).toBe(true);
     s = step(s, 'a', { type: 'dismissReveal', instanceIds: [lib[0]!] });
     expect(seen(s, 'b', lib[0]!)).toBe(false);
@@ -251,7 +252,7 @@ describe('reveals', () => {
     const { state, log } = game(twoPlayer, ['a', 'b']);
     const lib = state.game!.players.a!.zones.library;
     const cmds: [string, Parameters<typeof decide>[1]][] = [
-      ['a', { type: 'revealTop', count: 2, to: ['b'] }],
+      ['a', { type: 'revealCards', instanceIds: [lib[0]!, lib[1]!], to: ['b'], until: 'dismissed' }],
       ['a', { type: 'reorderLibraryTop', instanceIds: [lib[1]!, lib[0]!] }],
       ['a', { type: 'dismissReveal' }],
       ['a', { type: 'setTopRevealed', enabled: true }],
@@ -280,7 +281,7 @@ describe('hidden identities', () => {
   it('tells the viewer to forget a card after a dismissed reveal', () => {
     const { state, log } = game(twoPlayer, ['a', 'b']);
     const top = state.game!.players.a!.zones.library[0]!;
-    const d1 = decide(state, { type: 'revealTop', count: 1, to: 'all' }, ctx('a'));
+    const d1 = decide(state, { type: 'revealCards', instanceIds: [top], to: 'all', until: 'dismissed' }, ctx('a'));
     const s1 = reduceAll(state, d1.ok ? d1.events : []);
     const d2 = decide(s1, { type: 'dismissReveal' }, ctx('a'));
     const events: RoomEvent[] = [...(d1.ok ? d1.events : []), ...(d2.ok ? d2.events : [])].map((event, i) => ({ seq: log.length + i + 1, actorId: 'a', at: '', event }));
@@ -329,5 +330,61 @@ describe('top card revealed across shuffles', () => {
     expect(bob).toEqual(projectState(state, 'b'));
     // The rest of the library stays hidden.
     expect(state.game!.players.a!.zones.library.slice(1).every((id) => bob.game!.cards[id]!.printingId === null)).toBe(true);
+  });
+});
+
+describe('library views', () => {
+  const setup = () => {
+    const { state } = game(twoPlayer, ['a', 'b']);
+    return state;
+  };
+  const step = (s: RoomState, actor: string, c: Parameters<typeof decide>[1]) => {
+    const d = decide(s, c, ctx(actor));
+    if (!d.ok) throw new Error(d.error);
+    return reduceAll(s, d.events);
+  };
+  const seen = (s: RoomState, viewer: string, id: string) => projectState(s, viewer).game!.cards[id]!.printingId !== null;
+
+  it('shows the owner the top cards, tracks where they go and what was revealed, and hides them again on close', () => {
+    let s = setup();
+    const lib = s.game!.players.a!.zones.library;
+    expect(lib).toHaveLength(2);
+    s = step(s, 'a', { type: 'openLibraryView', kind: 'top', count: 5 }); // clamps to what is there
+    const view = () => s.game!.players.a!.libraryView!;
+    expect(view()).toEqual({ kind: 'top', cards: [lib[0], lib[1]], placed: {}, revealed: [] });
+    expect(seen(s, 'a', lib[0]!)).toBe(true);
+    expect(seen(s, 'b', lib[0]!)).toBe(false);
+    expect(decide(s, { type: 'openLibraryView', kind: 'search' }, ctx('a'))).toEqual({ ok: false, error: 'Close the current library view first' });
+
+    // Reveal one to everyone; put the other on the bottom; the peek learns both.
+    s = step(s, 'a', { type: 'revealCards', instanceIds: [lib[0]!], to: 'all', until: 'dismissed' });
+    expect(seen(s, 'b', lib[0]!)).toBe(true);
+    expect(view().revealed).toEqual([lib[0]]);
+    s = step(s, 'a', { type: 'moveCard', instanceId: lib[1]!, to: 'library', libraryPosition: 'bottom' });
+    expect(view().placed).toEqual({ [lib[1]!]: 'bottom' });
+    s = step(s, 'a', { type: 'moveCard', instanceId: lib[0]!, to: 'hand' });
+    expect(view().placed).toEqual({ [lib[1]!]: 'bottom', [lib[0]!]: 'hand' });
+    for (const v of ['a', 'b']) assertNoLeak(s, v);
+
+    // Done: what is left in the library is hidden from everyone again, the view is gone.
+    s = step(s, 'a', { type: 'closeLibraryView', shuffle: false });
+    expect(s.game!.players.a!.libraryView).toBeNull();
+    expect(seen(s, 'a', lib[1]!)).toBe(false);
+    expect(decide(s, { type: 'closeLibraryView', shuffle: false }, ctx('a'))).toEqual({ ok: false, error: 'No library view is open' });
+    for (const v of ['a', 'b']) assertNoLeak(s, v);
+  });
+
+  it('a search covers the whole library, and shuffling closes it', () => {
+    let s = setup();
+    const lib = [...s.game!.players.a!.zones.library];
+    s = step(s, 'a', { type: 'openLibraryView', kind: 'search' });
+    expect(s.game!.players.a!.libraryView!.cards).toEqual(lib);
+    expect(lib.every((id) => seen(s, 'a', id))).toBe(true);
+    const d = decide(s, { type: 'closeLibraryView', shuffle: true }, { ...ctx('a'), random: () => 0.3, newId: () => `n${Math.random()}` });
+    expect(d.ok && d.events.map((e) => e.type)).toEqual(['libraryViewClosed', 'libraryShuffled']);
+    s = reduceAll(s, d.ok ? d.events : []);
+    expect(s.game!.players.a!.libraryView).toBeNull();
+    expect(s.game!.players.a!.zones.library.every((id) => !seen(s, 'a', id))).toBe(true);
+    for (const v of ['a', 'b']) assertNoLeak(s, v);
   });
 });

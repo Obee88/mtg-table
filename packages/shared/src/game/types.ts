@@ -71,6 +71,8 @@ export interface PlayerGameState {
   manaOpen: boolean;
   /** Top card of the library is permanently revealed to everyone. */
   topRevealed: boolean;
+  /** Set while the player looks through their library. */
+  libraryView?: LibraryView | null | undefined;
   /** Ordered instance ids per zone; library index 0 is the top. */
   zones: Record<ZoneName, InstanceId[]>;
 }
@@ -316,4 +318,20 @@ export function canSit(state: RoomState, playerId: PlayerId): boolean {
 export function describeResult(result: GameResult, state: RoomState): string {
   const names = result.winners.map((id) => state.players[id]?.displayName ?? 'someone').join(' & ');
   return result.winners.length === 0 ? `Game ${result.gameNumber} was a draw` : `${names} won game ${result.gameNumber}`;
+}
+
+/**
+ * A player looking through their library: the top n cards, or the whole
+ * library (a search). While it is open the owner sees those cards; the others
+ * see that it is happening, which cards were revealed, and where each acted-on
+ * card went. Closing hides the cards again (and may shuffle).
+ */
+export interface LibraryView {
+  kind: 'top' | 'search';
+  /** Cards on view when it opened (top: that many from the top; search: the whole library), in library order. */
+  cards: InstanceId[];
+  /** Where a card went while the view was open: a zone, or top / bottom of the library. */
+  placed: Record<InstanceId, ZoneName | 'top' | 'bottom'>;
+  /** Cards revealed to everyone while the view was open. */
+  revealed: InstanceId[];
 }

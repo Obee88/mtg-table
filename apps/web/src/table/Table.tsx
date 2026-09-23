@@ -12,7 +12,8 @@ import { MulliganOverlay } from './MulliganOverlay';
 import { SideboardOverlay } from './SideboardOverlay';
 import { GENERAL_COUNTER } from './counters';
 import { Hand } from './Hand';
-import { LibraryDialog } from './LibraryDialog';
+import { LibraryViewDialog } from './LibraryViewDialog';
+import { LibraryPeek } from './LibraryPeek';
 import { playerColor, PlayerStrip } from './PlayerStrip';
 import { Toolbar } from './Toolbar';
 import { ShortcutsDialog } from './ShortcutsDialog';
@@ -57,7 +58,6 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
     localStorage.setItem(STACK_SHOWN, show ? '1' : '0');
   };
   const [tokenDialog, setTokenDialog] = useState(false);
-  const [libraryDialog, setLibraryDialog] = useState(false);
   const [drawDialog, setDrawDialog] = useState(false);
   const [helpDialog, setHelpDialog] = useState(false);
   const [prefsDialog, setPrefsDialog] = useState(false);
@@ -359,17 +359,13 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
       return Number.isInteger(n) && n >= 1 ? Math.min(n, max) : null;
     };
     return [
-      { label: 'Look at top…', onSelect: () => { const n = ask('Look at how many?', pgs?.zones.library.length ?? 0); if (n) { void run({ type: 'lookAtTop', count: n }); setLibraryDialog(true); } } },
-      { label: 'Reveal top… to everyone', onSelect: () => { const n = ask('Reveal how many?', pgs?.zones.library.length ?? 0); if (n) void run({ type: 'revealTop', count: n, to: 'all' }); } },
-      { label: 'Search library', onSelect: () => { void run({ type: 'lookAtTop', count: Math.max(1, pgs?.zones.library.length ?? 1) }); setLibraryDialog(true); } },
+      { label: 'Look at top n…', onSelect: () => { const n = ask('Look at how many cards?', pgs?.zones.library.length ?? 0); if (n) void run({ type: 'openLibraryView', kind: 'top', count: n }); } },
+      { label: 'Search library', onSelect: () => void run({ type: 'openLibraryView', kind: 'search' }) },
       { label: 'Draw by name…', onSelect: () => setDrawDialog(true) },
-      { label: 'Browse visible cards', onSelect: () => setLibraryDialog(true) },
       'sep',
       { label: pgs?.topRevealed ? 'Stop revealing top card' : 'Play with top card revealed', onSelect: () => void run({ type: 'setTopRevealed', enabled: !pgs?.topRevealed }) },
       { label: 'Hide all revealed cards', onSelect: () => void run({ type: 'dismissReveal' }) },
       { label: 'Shuffle (s)', onSelect: () => void run({ type: 'shuffleLibrary' }) },
-      'sep',
-      { label: `Discard hand (${pgs?.zones.hand.length ?? 0})`, disabled: !pgs?.zones.hand.length, onSelect: () => void run({ type: 'discardHand' }) },
     ];
   };
 
@@ -485,11 +481,11 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
       {handMenu && <ContextMenu x={handMenu.x} y={handMenu.y} items={handItems()} onClose={() => setHandMenu(null)} header="Hand" />}
       <CardSizeProvider size={DEFAULT_CARD_SIZE}>
         {drawDialog && me && (
-          <DrawByNameDialog library={game.players[me.id]!.zones.library} cards={game.cards} printings={printings} run={run} onClose={() => setDrawDialog(false)} />
+          <DrawByNameDialog view={game.players[me.id]?.libraryView} cards={game.cards} printings={printings} run={run} onClose={() => setDrawDialog(false)} />
         )}
-        {libraryDialog && me && (
-          <LibraryDialog library={game.players[me.id]!.zones.library} cards={game.cards} printings={printings} run={run} onClose={() => setLibraryDialog(false)} />
-        )}
+        {/* My own look through the library is state-driven, so it survives a reload; the others see a peek of it. */}
+        {!drawDialog && me && game.players[me.id]?.libraryView && <LibraryViewDialog view={game.players[me.id]!.libraryView!} cards={game.cards} printings={printings} run={run} />}
+        {opponents.map((o) => game.players[o.id]?.libraryView && <LibraryPeek key={o.id} player={o} view={game.players[o.id]!.libraryView!} cards={game.cards} printings={printings} />)}
         {tokenDialog && (
           <TokenDialog
             deckId={me?.deckId ?? null}

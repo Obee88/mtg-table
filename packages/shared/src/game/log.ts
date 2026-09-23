@@ -129,6 +129,10 @@ export function describeEvent(e: RoomEvent, ctx: LogContext): string | null {
       return null; // arranging one's own hand is nobody else's business
     case 'libraryReordered':
       return `${ctx.playerName(ev.playerId)} reordered the top ${ev.top.length} cards of their library`;
+    case 'libraryViewOpened':
+      return ev.kind === 'search' ? `${ctx.playerName(ev.playerId)} is searching their library` : `${ctx.playerName(ev.playerId)} is looking at the top ${ev.instanceIds.length} card${ev.instanceIds.length === 1 ? '' : 's'} of their library`;
+    case 'libraryViewClosed':
+      return `${ctx.playerName(ev.playerId)} put their library back`;
     case 'topRevealedChanged':
       return `${ctx.playerName(ev.playerId)} ${ev.enabled ? 'now plays with the top card revealed' : 'stopped revealing the top card'}`;
     case 'actionUndone':

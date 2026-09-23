@@ -74,9 +74,10 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
   /** Reveal specific own cards (hand, library, face-down) to everyone or to given players. */
   z.object({ type: z.literal('revealCards'), instanceIds: z.array(z.string()).min(1).max(200), to: revealTargetSchema, until: z.enum(['dismissed', 'zoneChange']) }),
   z.object({ type: z.literal('revealHand'), to: revealTargetSchema }),
-  z.object({ type: z.literal('revealTop'), count: z.number().int().min(1).max(200), to: revealTargetSchema }),
   /** Look at the top N privately (scry, surveil, search = whole library). */
-  z.object({ type: z.literal('lookAtTop'), count: z.number().int().min(1).max(500) }),
+  /** Look through the library: the top n cards, or all of it (a search). One view at a time; close it to hide the cards again, shuffling or not. */
+  z.object({ type: z.literal('openLibraryView'), kind: z.enum(['top', 'search']), count: z.number().int().min(1).max(500).optional() }),
+  z.object({ type: z.literal('closeLibraryView'), shuffle: z.boolean() }),
   /** New order for the top cards; must be a permutation of the current top N. */
   z.object({ type: z.literal('reorderLibraryTop'), instanceIds: z.array(z.string()).min(1).max(500) }),
   /** New order for the whole hand (dragging a card to another place in it). */

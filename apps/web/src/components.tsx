@@ -48,14 +48,14 @@ export function Textarea({ label, className = '', ...props }: TextareaHTMLAttrib
   );
 }
 
-export function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Dialog({ title, onClose, children, dismissible = true }: { title: string; onClose: () => void; children: ReactNode; /** false: no Close button, no click-outside, no Escape — the content offers the ways out. */ dismissible?: boolean }) {
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && dismissible && onClose();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, dismissible]);
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-6" onClick={onClose} role="presentation">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-6" onClick={dismissible ? onClose : undefined} role="presentation">
       <div
         role="dialog"
         aria-label={title}
@@ -64,7 +64,7 @@ export function Dialog({ title, onClose, children }: { title: string; onClose: (
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">{title}</h2>
-          <Button variant="ghost" onClick={onClose}>Close</Button>
+          {dismissible && <Button variant="ghost" onClick={onClose}>Close</Button>}
         </div>
         {children}
       </div>

@@ -214,7 +214,9 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       const pgs = ownGame(state, ctx.actorId);
       if ('error' in pgs) return reject(pgs.error);
       if (!ctx.random || !ctx.newId) return reject('Randomness unavailable');
-      return accept(shuffleEvent(state, ctx.actorId, pgs.zones.library, ctx.random, ctx.newId));
+      // Shuffling ends any look through the library: the cards get new ids anyway.
+      const closing: GameEvent[] = pgs.libraryView ? [{ type: 'libraryViewClosed', playerId: ctx.actorId }] : [];
+      return accept(...closing, shuffleEvent(state, ctx.actorId, pgs.zones.library, ctx.random, ctx.newId));
     }
 
     case 'sideboardSwap': {
@@ -477,20 +479,24 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       return accept(...pgs.zones.hand.map((id) => revealEvent(state.game!.cards[id]!, ctx.actorId, command.to, 'zoneChange')));
     }
 
-    case 'revealTop': {
+    case 'openLibraryView': {
       const pgs = ownGame(state, ctx.actorId);
       if ('error' in pgs) return reject(pgs.error);
-      const top = pgs.zones.library.slice(0, command.count);
-      if (top.length === 0) return reject('Library is empty');
-      return accept(...top.map((id) => revealEvent(state.game!.cards[id]!, ctx.actorId, command.to, 'dismissed')));
+      if (pgs.libraryView) return reject('Close the current library view first');
+      if (command.kind === 'top' && !command.count) return reject('How many cards?');
+      const ids = command.kind === 'top' ? pgs.zones.library.slice(0, command.count) : [...pgs.zones.library];
+      if (ids.length === 0) return reject('Library is empty');
+      return accept({ type: 'libraryViewOpened', playerId: ctx.actorId, kind: command.kind, instanceIds: ids });
     }
 
-    case 'lookAtTop': {
+    case 'closeLibraryView': {
       const pgs = ownGame(state, ctx.actorId);
       if ('error' in pgs) return reject(pgs.error);
-      const top = pgs.zones.library.slice(0, command.count);
-      if (top.length === 0) return reject('Library is empty');
-      return accept(...top.map((id) => revealEvent(state.game!.cards[id]!, ctx.actorId, [], 'dismissed')));
+      if (!pgs.libraryView) return reject('No library view is open');
+      const closed: GameEvent = { type: 'libraryViewClosed', playerId: ctx.actorId };
+      if (!command.shuffle) return accept(closed);
+      if (!ctx.random || !ctx.newId) return reject('Randomness unavailable');
+      return accept(closed, shuffleEvent(state, ctx.actorId, pgs.zones.library, ctx.random, ctx.newId));
     }
 
     case 'reorderHand': {

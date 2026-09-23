@@ -1,6 +1,6 @@
 import { reduceDraft } from '../draft/reduce.js';
 import type { GameEvent } from './events.js';
-import { emptyPlayerGameState, withRoomSeats, type CardInstance, type GameState, type PlayerGameState, type RoomState, type ZoneName } from './types.js';
+import { emptyPlayerGameState, withRoomSeats, type CardInstance, type GameState, type LibraryView, type PlayerGameState, type RoomState, type ZoneName } from './types.js';
 
 /** Who may see a card's identity by default when it enters a zone. */
 export function defaultVisibility(zone: ZoneName): CardInstance['visibleTo'] {
@@ -125,8 +125,14 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
       if (!state.game) return state;
       const card = state.game.cards[event.instanceId];
       if (!card) return state;
-      const owner = state.game.players[card.ownerId];
-      if (!owner) return state;
+      const ownerBefore = state.game.players[card.ownerId];
+      if (!ownerBefore) return state;
+      // While the owner looks through their library, note where each card on view went (the others see the label).
+      const view = ownerBefore.libraryView;
+      const placedTo: LibraryView['placed'][string] | null = view && event.from === 'library' && (view.kind === 'search' || view.cards.includes(card.id))
+        ? (event.to === 'library' ? (event.libraryPosition === 'bottom' ? 'bottom' : typeof event.libraryPosition === 'number' ? 'library' : 'top') : event.to)
+        : null;
+      const owner: PlayerGameState = placedTo && view ? { ...ownerBefore, libraryView: { ...view, placed: { ...view.placed, [card.id]: placedTo } } } : ownerBefore;
 
       const zones = { ...owner.zones, [event.from]: owner.zones[event.from].filter((id) => id !== event.instanceId) };
       const cards = { ...state.game.cards };
@@ -203,7 +209,7 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
         };
       }
       const zones = { ...owner.zones, library: event.cards.map((c) => c.id) };
-      return { ...state, game: { ...state.game, cards, players: { ...state.game.players, [event.playerId]: { ...owner, zones } } } };
+      return { ...state, game: { ...state.game, cards, players: { ...state.game.players, [event.playerId]: { ...owner, zones, libraryView: null } } } };
     }
 
     case 'cardTransformed':
@@ -298,8 +304,41 @@ export function reduce(state: RoomState, event: GameEvent): RoomState {
     case 'coinFlipped':
       return state; // log-only facts
 
-    case 'visibilityChanged':
-      return patchCard(state, event.instanceId, { visibleTo: event.visibleTo, revealUntil: event.revealUntil });
+    case 'visibilityChanged': {
+      const next = patchCard(state, event.instanceId, { visibleTo: event.visibleTo, revealUntil: event.revealUntil });
+      // Revealed to everyone while its owner looks through the library: the others get to see it in their peek.
+      const card = next.game?.cards[event.instanceId];
+      const owner = card && next.game?.players[card.ownerId];
+      const view = owner?.libraryView;
+      if (!next.game || !card || !owner || !view || event.visibleTo !== 'all' || view.revealed.includes(card.id) || !(view.kind === 'search' || view.cards.includes(card.id))) return next;
+      return { ...next, game: { ...next.game, players: { ...next.game.players, [card.ownerId]: { ...owner, libraryView: { ...view, revealed: [...view.revealed, card.id] } } } } };
+    }
+
+    case 'libraryViewOpened': {
+      if (!state.game) return state;
+      const owner = state.game.players[event.playerId];
+      if (!owner) return state;
+      const cards = { ...state.game.cards };
+      for (const id of event.instanceIds) {
+        const c = cards[id];
+        if (c && c.zone === 'library' && c.visibleTo !== 'all') cards[id] = { ...c, visibleTo: [event.playerId], revealUntil: 'dismissed' };
+      }
+      const libraryView = { kind: event.kind, cards: [...event.instanceIds], placed: {}, revealed: [] };
+      return { ...state, game: { ...state.game, cards, players: { ...state.game.players, [event.playerId]: { ...owner, libraryView } } } };
+    }
+
+    case 'libraryViewClosed': {
+      if (!state.game) return state;
+      const owner = state.game.players[event.playerId];
+      if (!owner?.libraryView) return state;
+      // Whatever is still in the library goes back to being hidden, reveals included: the look is over.
+      const cards = { ...state.game.cards };
+      for (const id of owner.libraryView.cards) {
+        const c = cards[id];
+        if (c && c.zone === 'library') cards[id] = { ...c, visibleTo: [], revealUntil: null };
+      }
+      return { ...state, game: { ...state.game, cards, players: { ...state.game.players, [event.playerId]: { ...owner, libraryView: null } } } };
+    }
 
     case 'handReordered': {
       const pgs = state.game?.players[event.playerId];
