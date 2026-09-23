@@ -349,6 +349,7 @@ export function Table({ state, meId, send, live = [], connected = [], onEndGame,
     items.push({ label: 'Hide my revealed cards', disabled: !shown, onSelect: () => void run({ type: 'dismissReveal' }) });
     items.push('sep');
     items.push({ label: `Discard hand (${hand.length})`, disabled: hand.length === 0, onSelect: () => void run({ type: 'discardHand' }) });
+    items.push({ label: 'Discard at random…', disabled: hand.length === 0, onSelect: () => { const n = Number(prompt('Discard how many at random?', '1')); if (Number.isInteger(n) && n >= 1) void run({ type: 'discardRandom', count: Math.min(n, hand.length) }); } });
     return items;
   };
 

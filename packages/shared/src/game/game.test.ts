@@ -815,6 +815,17 @@ describe('turns', () => {
     expect(s.game!.players.b!.zones.hand).toEqual([]);
     expect(s.game!.players.b!.zones.graveyard).toHaveLength(handSize);
     expect(decide(s, { type: 'discardHand' }, ctx('b'))).toEqual({ ok: false, error: 'Your hand is empty' });
+
+    // Discarding at random needs the server's randomness, picks distinct cards, and never more than the hand holds.
+    const aHand = s.game!.players.a!.zones.hand;
+    expect(decide(s, { type: 'discardRandom', count: 2 }, ctx('a'))).toEqual({ ok: false, error: 'Randomness unavailable' });
+    const two = decide(s, { type: 'discardRandom', count: 2 }, { ...ctx('a'), random: () => 0.42 });
+    const ids = two.ok ? two.events.map((e) => (e.type === 'cardMoved' ? e.instanceId : '')) : [];
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
+    expect(ids.every((id) => aHand.includes(id))).toBe(true);
+    const all = decide(s, { type: 'discardRandom', count: 20 }, { ...ctx('a'), random: () => 0.1 });
+    expect(all.ok && all.events).toHaveLength(aHand.length);
   });
 
   it('puts taplands onto the battlefield tapped, front or back face', () => {

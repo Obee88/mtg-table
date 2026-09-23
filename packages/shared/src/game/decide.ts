@@ -386,6 +386,15 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       return accept(...pgs.zones.hand.map((id): GameEvent => ({ type: 'cardMoved', instanceId: id, from: 'hand', to: 'graveyard', position: null, libraryPosition: null })));
     }
 
+    case 'discardRandom': {
+      const pgs = ownGame(state, ctx.actorId);
+      if ('error' in pgs) return reject(pgs.error);
+      if (pgs.zones.hand.length === 0) return reject('Your hand is empty');
+      if (!ctx.random) return reject('Randomness unavailable');
+      const picked = shuffled(pgs.zones.hand, ctx.random).slice(0, command.count);
+      return accept(...picked.map((id): GameEvent => ({ type: 'cardMoved', instanceId: id, from: 'hand', to: 'graveyard', position: null, libraryPosition: null })));
+    }
+
     case 'adjustPoison': {
       const pgs = ownGame(state, ctx.actorId);
       if ('error' in pgs) return reject(pgs.error);

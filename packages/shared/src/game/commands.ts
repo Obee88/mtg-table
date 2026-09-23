@@ -91,6 +91,8 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('adjustLife'), delta: z.number().int().min(-999).max(999), playerId: z.string().optional() }),
   /** Every card in hand to the graveyard, as one undoable action. */
   z.object({ type: z.literal('discardHand') }),
+  /** Discard n cards chosen at random from the hand (the server picks). */
+  z.object({ type: z.literal('discardRandom'), count: z.number().int().min(1).max(20) }),
   /** Time Walk and friends: the named player (default: the actor) takes an extra turn right after the current one. */
   z.object({ type: z.literal('queueExtraTurn'), playerId: z.string().optional() }),
   z.object({ type: z.literal('cancelExtraTurn'), playerId: z.string().optional() }),
