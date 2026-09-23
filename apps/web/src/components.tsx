@@ -1,12 +1,15 @@
 import { useEffect, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 
-export function Button({ className = '', variant = 'primary', ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'ghost' }) {
-  const base = 'rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
-  const look =
-    variant === 'primary'
-      ? 'bg-accent text-bg hover:bg-accent-hover'
-      : 'bg-transparent text-text border border-border hover:bg-surface-raised';
-  return <button className={`${base} ${look} ${className}`} {...props} />;
+export type ButtonVariant = 'primary' | 'secondary' | 'secondary-inverted' | 'tertiary' | 'success' | 'warning' | 'danger' | 'ghost';
+
+/**
+ * The styleguide's button (bootstrap 5.3 skin): variants as in the guide, small
+ * by default. `ghost` is an alias of `secondary` (the outlined one); `iconOnly`
+ * tightens the padding around a lone icon.
+ */
+export function Button({ className = '', variant = 'primary', size = 'sm', iconOnly = false, type = 'button', ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant; size?: 'sm' | 'md' | 'lg'; iconOnly?: boolean }) {
+  const look = variant === 'ghost' ? 'secondary' : variant;
+  return <button type={type} className={['btn', `btn-${look}`, size !== 'sm' && `btn-${size}`, iconOnly && 'btn-with-icon-only', className].filter(Boolean).join(' ')} {...props} />;
 }
 
 export function Input({ label, className = '', ...props }: InputHTMLAttributes<HTMLInputElement> & { label: string }) {

@@ -151,7 +151,7 @@ the **dark mapping** is wired: soft = deep fill + white text + saturated border;
 ramp's *dark* step as fill, white text, light step as border (white-filled badges read wrong on felt). Hover:
 no shadow, background shifts one step. A light mapping can be added under `[data-theme="light"]`.
 
-Decided 2026-09-23: one look for every chip, the styleguide's "medium · alternative" badge — a 24px pill with a tinted fill and light text; `solid` is reserved for an ask waiting on the player. P/T badge (solid pill: success/error/neutral), general counter (solid
+Buttons (2026-09-23): the same styleguide's bootstrap-skinned `.btn` with its variants (primary, secondary, secondary-inverted, tertiary, success, warning, danger), `.btn-sm` as the default size. Decided 2026-09-23: one look for every chip, the styleguide's "medium · alternative" badge — a 24px pill with a tinted fill and light text; `solid` is reserved for an ask waiting on the player. P/T badge (solid pill: success/error/neutral), general counter (solid
 pill, circular), token mark (primary solid pill "T"), revealed eye (success solid pill), notes
 (warning soft), custom token names / face-down hints (neutral soft), pile labels, the stack
 header and "top" marker, selection/banner in the strip, "1st", player counters, lobby host /

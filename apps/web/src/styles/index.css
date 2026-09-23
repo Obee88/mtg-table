@@ -213,3 +213,38 @@ body {
 .card-target-frame {
   animation: target-shine 1.2s ease-in-out infinite;
 }
+
+/* ---- Buttons: the styleguide's skin over bootstrap 5.3 .btn (decided 2026-09-23); .btn-sm is the default size ----
+   Variants: primary (filled), secondary (outlined), secondary-inverted (filled light, for dark art), tertiary (bare),
+   success / warning / danger (filled). States: hover, active, focus ring, disabled. */
+.btn {
+  --btn-bg: transparent; --btn-fg: var(--color-text); --btn-bd: transparent;
+  --btn-hover-bg: var(--btn-bg); --btn-hover-fg: var(--btn-fg); --btn-hover-bd: var(--btn-bd);
+  --btn-active-bg: var(--btn-hover-bg); --btn-ring: color-mix(in srgb, var(--primary) 45%, transparent);
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  box-sizing: border-box; white-space: nowrap; user-select: none; vertical-align: middle;
+  font-family: var(--font-sans); font-weight: 500; line-height: 1.5;
+  border: 1px solid var(--btn-bd); background: var(--btn-bg); color: var(--btn-fg);
+  transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  /* .btn-sm */
+  padding: 0.25rem 0.5rem; font-size: 0.875rem; border-radius: 0.25rem;
+}
+.btn-md { padding: 0.375rem 0.75rem; font-size: 1rem; border-radius: 0.375rem; }
+.btn-lg { padding: 0.5rem 1rem; font-size: 1.25rem; border-radius: 0.5rem; }
+.btn:hover:not(:disabled) { background: var(--btn-hover-bg); color: var(--btn-hover-fg); border-color: var(--btn-hover-bd); }
+.btn:active:not(:disabled), .btn.active { background: var(--btn-active-bg); color: var(--btn-hover-fg); border-color: var(--btn-hover-bd); }
+.btn:focus-visible, .btn.focus { outline: 0; box-shadow: 0 0 0 0.25rem var(--btn-ring); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn svg { width: 1.25em; height: 1.25em; fill: currentColor; flex: none; }
+.btn-with-icon-only { padding-left: 0.5rem; padding-right: 0.5rem; }
+.btn-with-icon-only.btn-md { padding-left: 0.625rem; padding-right: 0.625rem; }
+
+.btn-primary { --btn-bg: var(--primary); --btn-fg: #fff; --btn-bd: var(--primary); --btn-hover-bg: var(--primary-dark); --btn-hover-bd: var(--primary-dark); --btn-active-bg: var(--primary-darker); }
+.btn-secondary { --btn-bg: transparent; --btn-fg: var(--n300); --btn-bd: var(--n600); --btn-hover-bg: var(--n800); --btn-hover-fg: #fff; --btn-hover-bd: var(--n550); --btn-active-bg: var(--n850); --btn-ring: color-mix(in srgb, var(--n500) 40%, transparent); }
+.btn-secondary-inverted { --btn-bg: var(--n200); --btn-fg: var(--n900); --btn-bd: var(--n200); --btn-hover-bg: #fff; --btn-hover-fg: var(--n950); --btn-hover-bd: #fff; --btn-active-bg: var(--n400); --btn-ring: color-mix(in srgb, #fff 35%, transparent); }
+.btn-tertiary { --btn-bg: transparent; --btn-fg: var(--primary-light); --btn-bd: transparent; --btn-hover-bg: color-mix(in srgb, var(--primary) 16%, transparent); --btn-hover-fg: var(--primary-lighter); --btn-active-bg: color-mix(in srgb, var(--primary) 26%, transparent); }
+.btn-success { --btn-bg: var(--green); --btn-fg: var(--n950); --btn-bd: var(--green); --btn-hover-bg: var(--green-dark); --btn-hover-fg: #fff; --btn-hover-bd: var(--green-dark); --btn-active-bg: var(--green-darker); --btn-ring: color-mix(in srgb, var(--green) 45%, transparent); }
+.btn-warning { --btn-bg: var(--yellow); --btn-fg: var(--n950); --btn-bd: var(--yellow); --btn-hover-bg: var(--yellow-dark); --btn-hover-fg: #fff; --btn-hover-bd: var(--yellow-dark); --btn-active-bg: var(--yellow-darker); --btn-ring: color-mix(in srgb, var(--yellow) 45%, transparent); }
+.btn-danger { --btn-bg: var(--red); --btn-fg: #fff; --btn-bd: var(--red); --btn-hover-bg: var(--red-dark); --btn-hover-bd: var(--red-dark); --btn-active-bg: var(--red-darker); --btn-ring: color-mix(in srgb, var(--red) 45%, transparent); }
+/* An outlined button that warns: the old `ghost` + text-danger pairing keeps working. */
+.btn-secondary.text-danger { --btn-fg: var(--red-light); --btn-bd: color-mix(in srgb, var(--red) 55%, var(--n600)); --btn-hover-bg: color-mix(in srgb, var(--red) 20%, var(--n900)); --btn-hover-fg: var(--red-light); --btn-hover-bd: var(--red); --btn-ring: color-mix(in srgb, var(--red) 45%, transparent); }
