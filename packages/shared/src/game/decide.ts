@@ -556,6 +556,8 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
           to: command.to,
           position: command.to === 'battlefield' ? (command.positions?.[card.id] ?? card.position ?? nextSlot(state, card.controllerId, 0, events.length)) : null,
           libraryPosition: command.to === 'library' ? (command.libraryPosition ?? 'top') : null,
+          // Drag-and-drop moves cards this way too: a card marked as entering tapped comes in tapped.
+          ...(command.to === 'battlefield' && card.zone !== 'battlefield' && !!card.printingId && entersTapped(ctx.taplands?.(card.printingId), false) ? { tapped: true } : {}),
         });
         events.push(...commanderTaxOnCast(state, card, command.to));
       }

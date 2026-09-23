@@ -21,11 +21,13 @@ export async function loadTaplands(db: Db): Promise<void> {
 /** Which face of the named card is a land that always enters tapped, if marked. */
 export const taplandFace = (name: string): TaplandFace | null => faces.get(name) ?? null;
 
-/** The same, for a printing id (one indexed lookup). */
-export async function taplandForPrinting(db: Db, printingId: string): Promise<TaplandFace | null> {
-  if (faces.size === 0) return null;
-  const [row] = await db.select({ name: schema.cards.name }).from(schema.cards).where(eq(schema.cards.id, printingId));
-  return row ? taplandFace(row.name) : null;
+/** The same, for printing ids (one indexed lookup): a lookup function for the engine's context. */
+export async function taplandsForPrintings(db: Db, printingIds: string[]): Promise<(printingId: string) => TaplandFace | null> {
+  const ids = [...new Set(printingIds)];
+  if (faces.size === 0 || ids.length === 0) return () => null;
+  const rows = await db.select({ id: schema.cards.id, name: schema.cards.name }).from(schema.cards).where(inArray(schema.cards.id, ids));
+  const byId = new Map(rows.map((r) => [r.id, taplandFace(r.name)]));
+  return (id) => byId.get(id) ?? null;
 }
 
 const setInput = z.object({ name: z.string().trim().min(1).max(200), face: z.enum(['front', 'back']).nullable() });

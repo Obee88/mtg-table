@@ -855,6 +855,11 @@ describe('turns', () => {
     expect(none.ok && none.events[0]).not.toHaveProperty('tapped');
     s = reduceAll(s, none.ok ? none.events : []);
     expect(s.game!.cards[c3!]!.tapped).toBe(false);
+
+    // Drag-and-drop moves several at once (moveCards): the same rule applies per card.
+    const [c4, c5] = s.game!.players.a!.zones.hand;
+    const many = decide(s, { type: 'moveCards', instanceIds: [c4!, c5!], to: 'battlefield' }, taplands('front'));
+    expect(many.ok && many.events.filter((e) => e.type === 'cardMoved').map((e) => 'tapped' in e && e.tapped)).toEqual([true, true]);
   });
 });
 
