@@ -23,6 +23,7 @@ import { HttpError } from './errors.js';
 import { healthRoutes } from './routes/health.js';
 import { inviteRoutes } from './routes/invites.js';
 import { resetRoutes } from './auth/reset.js';
+import { adminUserRoutes } from './auth/admin-users.js';
 import { roomRoutes } from './rooms/routes.js';
 import { RoomService } from './rooms/service.js';
 import { roomSocketRoutes } from './rooms/ws.js';
@@ -110,6 +111,7 @@ export async function buildApp(config: Config, db: Db, deps: AppDeps = {}): Prom
   await app.register(authRoutes);
   await app.register(inviteRoutes);
   await app.register(resetRoutes);
+  await app.register(adminUserRoutes);
   await app.register(cardAdminRoutes);
   await app.register(cardRoutes);
   await app.register(deckRoutes);

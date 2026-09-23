@@ -62,3 +62,19 @@ describe('change password', () => {
     expect((await post('/auth/password', { current: 'x', next: 'y-long-enough' })).statusCode).toBe(401);
   });
 });
+
+describe('admin users', () => {
+  it('lists the accounts and lets the admin set a password, signing that account out', async () => {
+    const admin = sessionCookie(await post('/auth/login', { email: 'admin@x.io', password: 'admin-password' }));
+    const bob = sessionCookie(await post('/auth/login', { email: 'bob@x.io', password: 'new-password' }));
+    expect((await app.inject({ url: '/admin/users', headers: { cookie: bob } })).statusCode).toBe(403);
+    const users = (await app.inject({ url: '/admin/users', headers: { cookie: admin } })).json() as { id: string; email: string; isAdmin: boolean }[];
+    expect(users.map((u) => [u.email, u.isAdmin])).toEqual([['admin@x.io', true], ['bob@x.io', false], ['carol@x.io', false]]);
+    const bobId = users.find((u) => u.email === 'bob@x.io')!.id;
+    expect((await post(`/admin/users/${bobId}/password`, { password: 'short' }, { cookie: admin })).statusCode).toBe(400);
+    expect((await post(`/admin/users/${bobId}/password`, { password: 'admin-set-password' }, { cookie: admin })).statusCode).toBe(204);
+    expect((await app.inject({ url: '/me', headers: { cookie: bob } })).statusCode).toBe(401);
+    expect((await post('/auth/login', { email: 'bob@x.io', password: 'admin-set-password' })).statusCode).toBe(200);
+    expect((await post('/admin/users/00000000-0000-4000-8000-000000000000/password', { password: 'whatever-long' }, { cookie: admin })).statusCode).toBe(404);
+  });
+});

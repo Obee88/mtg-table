@@ -69,3 +69,12 @@ export interface PasswordReset {
 
 export const changePasswordSchema = z.object({ current: z.string().min(1).max(200), next: passwordSchema });
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
+/** An account as the admin sees it. */
+export interface AdminUser {
+  id: string;
+  email: string;
+  displayName: string;
+  isAdmin: boolean;
+  createdAt: string;
+}

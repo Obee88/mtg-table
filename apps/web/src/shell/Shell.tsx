@@ -26,6 +26,7 @@ export function Shell() {
           <NavLink to="/cubes" className={tab}>Cubes</NavLink>
           <NavLink to="/players/me/stats" className={tab}>Stats</NavLink>
           {user?.isAdmin && <NavLink to="/invites" className={tab}>Invites</NavLink>}
+          {user?.isAdmin && <NavLink to="/users" className={tab}>Users</NavLink>}
           <span className="ml-auto" />
           {user && <UserMenu name={user.displayName} />}
         </nav>
