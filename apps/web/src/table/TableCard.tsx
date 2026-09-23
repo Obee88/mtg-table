@@ -102,8 +102,8 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
       onContextMenu={onContextMenu}
       {...preview}
       data-instance-id={card.id}
-      className={`card-enter card-shadow card-lift relative select-none touch-none rounded-[4.5%] transition-[transform,box-shadow] duration-150 ${mine ? 'cursor-grab active:cursor-grabbing' : ''} ${card.tapped ? 'rotate-90' : ''} ${card.flipped ? 'rotate-180' : ''} ${selected ? 'rounded-[4.5%] ring-2 ring-accent ring-offset-1 ring-offset-bg' : ''} ${targetColors.length > 0 ? 'card-targeted' : ''}`}
-      style={{ width: w, height: h, ...(targetColors.length > 0 ? { '--target-color': targetColors[0] } as CSSProperties : {}) }}
+      className={`card-enter card-shadow card-lift relative select-none touch-none rounded-[4.5%] transition-[transform,box-shadow] duration-150 ${mine ? 'cursor-grab active:cursor-grabbing' : ''} ${card.tapped ? 'rotate-90' : ''} ${card.flipped ? 'rotate-180' : ''} ${selected ? 'rounded-[4.5%] ring-2 ring-accent ring-offset-1 ring-offset-bg' : ''}`}
+      style={{ width: w, height: h }}
       title={label ?? undefined}
     >
       {hidden || !src ? (
@@ -122,9 +122,12 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
         <img key={card.zone} src={src} alt={label ?? ''} draggable={false} className={`h-full w-full rounded-[4.5%] object-cover ${revealed ? 'card-revealed' : ''}`} />
       )}
       {targetColors.length > 0 && (
-        <span className="absolute -top-1 left-1/2 flex -translate-x-1/2 gap-0.5" title="targeted">
-          {targetColors.map((c, i) => <span key={i} className="h-2.5 w-2.5 rounded-full border border-black/50" style={{ background: c }} />)}
-        </span>
+        <>
+          <span className="card-target-frame pointer-events-none absolute inset-0 z-10 rounded-[4.5%]" style={{ '--target-color': targetColors[0] } as CSSProperties} aria-hidden />
+          <span className="pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-1 rounded-full bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow" title="targeted">
+            ⌖{targetColors.map((c, i) => <span key={i} className="h-2.5 w-2.5 rounded-full border border-white/70" style={{ background: c }} />)}
+          </span>
+        </>
       )}
       {card.noUntap && (
         <Chip type="warning" shape="pill" className="absolute right-0.5 top-0.5 shadow" title={card.noUntap === 'always' ? 'Does not untap' : `Skips ${card.noUntap} untap step${card.noUntap === 1 ? '' : 's'}`}>
