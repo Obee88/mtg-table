@@ -57,7 +57,7 @@ body {
 }
 
 /* ---- Table surface (see _documents/table-design.md) ---- */
-@theme {
+@theme static {
   --color-seat-0: #f2c14e;
   --color-seat-1: #5cc8ff;
   --color-seat-2: #ff7a90;

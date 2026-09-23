@@ -125,7 +125,8 @@ export function TableCard({ card, printing, mine, selected = false, onClick, onC
         <>
           <span className="card-target-frame pointer-events-none absolute inset-0 z-10 rounded-[4.5%]" style={{ '--target-color': targetColors[0] } as CSSProperties} aria-hidden />
           <span className="pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-1 rounded-full bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow" title="targeted">
-            ⌖{targetColors.map((c, i) => <span key={i} className="h-2.5 w-2.5 rounded-full border border-white/70" style={{ background: c }} />)}
+            <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden><circle cx="5" cy="5" r="3" fill="none" stroke="currentColor" strokeWidth="1.3" /><path d="M5 0v2.2M5 7.8V10M0 5h2.2M7.8 5H10" stroke="currentColor" strokeWidth="1.3" /></svg>
+            {targetColors.map((c, i) => <span key={i} className="h-2.5 w-2.5 rounded-full border border-white/70" style={{ background: c }} />)}
           </span>
         </>
       )}
