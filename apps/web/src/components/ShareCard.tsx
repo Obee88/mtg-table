@@ -1,11 +1,12 @@
-import type { SharedMember, UserSummary } from '@mtg/shared';
+import type { FriendsResponse, SharedMember } from '@mtg/shared';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Button, Card, ErrorText } from '../components';
+import { Link } from 'react-router';
+import { Button, Card, ErrorText, Select } from '../components';
 import { api } from '../lib/api';
 import { Chip } from './Chip';
 
-/** Owner's list of players something is shared with, with add (from the group's members) and remove. */
+/** Owner's list of players something is shared with, with add (from their friends) and remove. */
 export function ShareCard({ title = 'Shared with', description, members, ownerId, basePath, onChanged }: {
   title?: string;
   description: string;
@@ -15,11 +16,11 @@ export function ShareCard({ title = 'Shared with', description, members, ownerId
   basePath: string;
   onChanged: () => void;
 }) {
-  const users = useQuery({ queryKey: ['users'], queryFn: () => api<UserSummary[]>('/users') });
+  const friends = useQuery({ queryKey: ['friends'], queryFn: () => api<FriendsResponse>('/friends') });
   const [pick, setPick] = useState('');
   const add = useMutation({ mutationFn: (userId: string) => api<unknown>(`${basePath}/members`, { body: { userId } }), onSuccess: () => { setPick(''); onChanged(); } });
   const remove = useMutation({ mutationFn: (userId: string) => api<unknown>(`${basePath}/members/${userId}`, { method: 'DELETE' }), onSuccess: onChanged });
-  const candidates = (users.data ?? []).filter((u) => u.id !== ownerId && !members.some((m) => m.id === u.id));
+  const candidates = (friends.data?.friends ?? []).filter((u) => u.id !== ownerId && !members.some((m) => m.id === u.id));
   return (
     <Card title={title}>
       <p className="mb-3 text-sm text-text-muted">{description}</p>
@@ -33,15 +34,16 @@ export function ShareCard({ title = 'Shared with', description, members, ownerId
         {members.length === 0 && <li className="text-text-muted">Only you, so far.</li>}
       </ul>
       <div className="mt-3 flex items-end gap-2">
-        <label className="text-sm">
-          <span className="mb-1 block text-text-muted">Add a player</span>
-          <select className="rounded-md border border-border bg-surface px-2 py-1.5 text-text" value={pick} onChange={(e) => setPick(e.target.value)}>
-            <option value="">— choose —</option>
-            {candidates.map((u) => <option key={u.id} value={u.id}>{u.displayName}</option>)}
-          </select>
-        </label>
+        <Select label="Share with a friend" value={pick} onChange={(e) => setPick(e.target.value)}>
+          <option value="">— choose —</option>
+          {candidates.map((u) => <option key={u.id} value={u.id}>{u.displayName}</option>)}
+        </Select>
         <Button variant="ghost" disabled={!pick || add.isPending} onClick={() => add.mutate(pick)}>Share</Button>
       </div>
+      <p className="mt-2 text-xs text-text-muted">
+        {friends.data && candidates.length === 0 ? 'Nobody left to share with among your friends. ' : 'Only friends can be picked. '}
+        <Link to="/friends" className="text-accent hover:underline">Manage friends</Link>
+      </p>
       <ErrorText error={add.error ?? remove.error} />
     </Card>
   );

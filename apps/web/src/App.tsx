@@ -17,6 +17,7 @@ import { NewWizard } from './play/NewWizard';
 import { RoomPage } from './rooms/RoomPage';
 import { useMe } from './lib/auth';
 import { InvitesPage } from './play/InvitesPage';
+import { FriendsPage } from './play/FriendsPage';
 import { PlayPage } from './play/PlayPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
@@ -43,6 +44,7 @@ export function App() {
             <Route path="/" element={<PlayPage />} />
             <Route path="/play/new" element={<NewWizard />} />
             <Route path="/invites" element={user?.isAdmin ? <InvitesPage /> : <Navigate to="/" replace />} />
+            <Route path="/friends" element={<FriendsPage />} />
             <Route path="/cards" element={<CardsPage />} />
             <Route path="/decks" element={<DeckListPage />} />
             <Route path="/decks/new" element={<DeckImportPage />} />

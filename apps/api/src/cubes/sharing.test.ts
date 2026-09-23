@@ -31,6 +31,16 @@ beforeAll(async () => {
     collectorNumber: '1', releasedAt: '1993-08-05', rarity: 'common', colorIdentity: [], faces: [], oracleId: null,
   });
 });
+/** Sharing needs friendship: Alice befriends Bob and Carol. */
+async function befriend(from: string, to: string): Promise<void> {
+  await call('POST', '/friends', from, { userId: await me(to) });
+  await call('POST', `/friends/${await me(from)}/respond`, to, { accept: true });
+}
+beforeAll(async () => {
+  await befriend(alice, bob);
+  await befriend(alice, carol);
+});
+
 afterAll(() => ctx.close());
 
 describe('sharing a cube', () => {

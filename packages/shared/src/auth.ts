@@ -43,3 +43,10 @@ export interface UserSummary {
   id: string;
   displayName: string;
 }
+
+/** The caller's friends, requests waiting for their answer, and requests they sent. */
+export interface FriendsResponse {
+  friends: UserSummary[];
+  incoming: UserSummary[];
+  outgoing: UserSummary[];
+}

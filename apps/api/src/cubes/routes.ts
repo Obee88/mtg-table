@@ -4,6 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { importCubeCobra } from './cubecobra.js';
 import { getPrintings } from '../cards/search.js';
+import { areFriends } from '../users/friends.js';
 import { schema, type CubeRow, type CubeVersionRow, type Db } from '../db/index.js';
 import { badRequest, notFound, unauthorized } from '../errors.js';
 import { parse } from '../validate.js';
@@ -160,6 +161,7 @@ export async function cubeRoutes(app: FastifyInstance): Promise<void> {
     const cube = await ownedCube(id, req.user!.id);
     if (userId === cube.ownerId) throw badRequest('You already own this cube');
     const [user] = await db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.id, userId));
+    if (!(await areFriends(db, req.user!.id, userId))) throw badRequest('You can only share with friends');
     if (!user) throw notFound('User not found');
     // An offer: the player sees it in their cube list and accepts or rejects it.
     await db.insert(schema.cubeMembers).values({ cubeId: id, userId, status: 'pending' }).onConflictDoNothing();

@@ -127,6 +127,13 @@
       "when": 1790160105619,
       "tag": "0017_woozy_micromax",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790161576943,
+      "tag": "0018_damp_mole_man",
+      "breakpoints": true
     }
   ]
 }

@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { schema, type Db, type DraftConfigRow } from '../db/index.js';
 import { badRequest, notFound, unauthorized } from '../errors.js';
 import { parse } from '../validate.js';
+import { areFriends } from '../users/friends.js';
 
 const configInput = z.object({ name: z.string().trim().min(1).max(80), config: draftConfigSchema });
 const idParam = z.object({ id: z.uuid() });
@@ -123,6 +124,7 @@ export async function draftConfigRoutes(app: FastifyInstance): Promise<void> {
     const row = await owned(id, req.user!.id);
     if (userId === row.ownerId) throw badRequest('You already own this format');
     const [user] = await db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.id, userId));
+    if (!(await areFriends(db, req.user!.id, userId))) throw badRequest('You can only share with friends');
     if (!user) throw notFound('User not found');
     // An offer: the player sees it on the cube's Formats tab and accepts or rejects it.
     await db.insert(schema.draftConfigMembers).values({ configId: id, userId, status: 'pending' }).onConflictDoNothing();

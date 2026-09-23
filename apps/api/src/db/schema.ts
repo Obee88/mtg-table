@@ -371,3 +371,21 @@ export const taplands = pgTable('taplands', {
   setBy: uuid('set_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ---- friends: who may share things with whom ----
+
+/** One row per pair, from whoever asked; accepted makes it mutual. Sharing a cube or format needs an accepted friendship. */
+export const friendships = pgTable(
+  'friendships',
+  {
+    requesterId: uuid('requester_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    addresseeId: uuid('addressee_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    status: text('status', { enum: ['pending', 'accepted'] }).notNull().default('pending'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.requesterId, t.addresseeId] }), index('friendships_addressee_id_idx').on(t.addresseeId)],
+);

@@ -17,6 +17,7 @@ import { deckRoutes } from './decks/routes.js';
 import { draftConfigRoutes } from './drafts/routes.js';
 import { statsRoutes } from './stats/routes.js';
 import { userRoutes } from './users/routes.js';
+import { friendRoutes } from './users/friends.js';
 import type { Db, UserRow } from './db/index.js';
 import { HttpError } from './errors.js';
 import { healthRoutes } from './routes/health.js';
@@ -114,6 +115,7 @@ export async function buildApp(config: Config, db: Db, deps: AppDeps = {}): Prom
   await app.register(draftConfigRoutes);
   await app.register(statsRoutes);
   await app.register(userRoutes);
+  await app.register(friendRoutes);
   await app.register(roomRoutes);
   await app.register(roomSocketRoutes);
 
