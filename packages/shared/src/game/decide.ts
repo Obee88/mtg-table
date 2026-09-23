@@ -496,7 +496,7 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       const closed: GameEvent = { type: 'libraryViewClosed', playerId: ctx.actorId };
       if (!command.shuffle) return accept(closed);
       if (!ctx.random || !ctx.newId) return reject('Randomness unavailable');
-      return accept(closed, shuffleEvent(state, ctx.actorId, pgs.zones.library, ctx.random, ctx.newId));
+      return accept(closed, shuffleEvent(state, ctx.actorId, pgs.zones.library, ctx.random, ctx.newId, command.keepTop ?? 0));
     }
 
     case 'reorderHand': {
@@ -706,8 +706,10 @@ function ownGame(state: RoomState, actorId: string, opts: { duringMulligan?: boo
 }
 
 /** A `libraryShuffled` event for the given cards (ids currently in the library, plus any about to join it). */
-function shuffleEvent(state: RoomState, playerId: string, ids: readonly string[], random: () => number, newId: () => string): Extract<GameEvent, { type: 'libraryShuffled' }> {
-  const cards = shuffled(ids, random).map((previousId) => ({
+/** Shuffles the library, re-keying every card; the first `keepTop` stay on top in their order (a card tutored to the top). */
+function shuffleEvent(state: RoomState, playerId: string, ids: readonly string[], random: () => number, newId: () => string, keepTop = 0): Extract<GameEvent, { type: 'libraryShuffled' }> {
+  const kept = ids.slice(0, Math.max(0, keepTop));
+  const cards = [...kept, ...shuffled(ids.slice(kept.length), random)].map((previousId) => ({
     id: newId(),
     printingId: state.game?.cards[previousId]?.printingId ?? null,
     previousId,

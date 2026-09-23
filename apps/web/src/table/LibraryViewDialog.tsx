@@ -25,6 +25,8 @@ export function LibraryViewDialog({ view, cards, printings, run }: { view: Libra
   const q = query.trim().toLowerCase();
   const shown = q ? onView.filter((c) => name(c).toLowerCase().includes(q)) : onView;
   const pending = onView.filter((c) => !view.placed[c.id] && c.zone === 'library' && !view.revealed.includes(c.id));
+  // Cards put on top during this look: they can stay there while the rest is shuffled.
+  const onTop = Object.values(view.placed).filter((p) => p === 'top').length;
   const move = (c: CardInstance, to: 'top' | 'bottom' | 'hand' | 'battlefield' | 'graveyard' | 'exile') =>
     void run(to === 'top' || to === 'bottom' ? { type: 'moveCard', instanceId: c.id, to: 'library', libraryPosition: to } : { type: 'moveCard', instanceId: c.id, to });
   const reveal = (ids: string[]) => ids.length > 0 && void run({ type: 'revealCards', instanceIds: ids, to: 'all', until: 'dismissed' });
@@ -71,7 +73,8 @@ export function LibraryViewDialog({ view, cards, printings, run }: { view: Libra
           <Button variant="ghost" onClick={() => reveal(pending.map((c) => c.id))} disabled={pending.length === 0} title="Reveal every card still on view to everyone">Reveal all</Button>
           <span className="flex-1" />
           <Button variant="ghost" onClick={() => void run({ type: 'closeLibraryView', shuffle: false })}>Done (hide again)</Button>
-          <Button onClick={() => void run({ type: 'closeLibraryView', shuffle: true })}>Shuffle and close</Button>
+          <Button variant={onTop > 0 ? 'secondary' : 'primary'} onClick={() => void run({ type: 'closeLibraryView', shuffle: true })}>{onTop > 0 ? 'Shuffle all and close' : 'Shuffle and close'}</Button>
+          {onTop > 0 && <Button onClick={() => void run({ type: 'closeLibraryView', shuffle: true, keepTop: onTop })}>Put {onTop} on top and shuffle the rest</Button>}
         </div>
       </div>
     </Dialog>

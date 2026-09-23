@@ -77,7 +77,8 @@ export const gameCommandSchema = z.discriminatedUnion('type', [
   /** Look at the top N privately (scry, surveil, search = whole library). */
   /** Look through the library: the top n cards, or all of it (a search). One view at a time; close it to hide the cards again, shuffling or not. */
   z.object({ type: z.literal('openLibraryView'), kind: z.enum(['top', 'search']), count: z.number().int().min(1).max(500).optional() }),
-  z.object({ type: z.literal('closeLibraryView'), shuffle: z.boolean() }),
+  /** Close the view; with shuffle, the first `keepTop` cards stay on top (what was tutored there) and the rest is shuffled. */
+  z.object({ type: z.literal('closeLibraryView'), shuffle: z.boolean(), keepTop: z.number().int().min(0).max(20).optional() }),
   /** New order for the top cards; must be a permutation of the current top N. */
   z.object({ type: z.literal('reorderLibraryTop'), instanceIds: z.array(z.string()).min(1).max(500) }),
   /** New order for the whole hand (dragging a card to another place in it). */
