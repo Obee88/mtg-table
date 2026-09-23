@@ -11,6 +11,7 @@ import { describeSettings } from './describe';
 import { SettingsForm } from './SettingsForm';
 import { QuickImportDialog } from './QuickImportDialog';
 import { EndOfGameCard } from './EndOfGameCard';
+import { CopyButton } from '../components/CopyButton';
 import { DraftScreen } from '../draft/DraftScreen';
 import { GameScreen } from '../table/GameScreen';
 import { useRoom } from './useRoom';
@@ -59,7 +60,6 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
   const [naming, setNaming] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [copied, setCopied] = useState(false);
   const me = state.players[meId];
   const isOwner = state.ownerId === meId;
   const decks = useQuery({ queryKey: ['decks'], queryFn: () => api<DeckSummary[]>('/decks'), enabled: !!me });
@@ -80,11 +80,6 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
     setError(null);
     const r = await send(command);
     if (!r.ok) setError(r.error);
-  };
-  const copyInvite = () => {
-    void navigator.clipboard.writeText(inviteLink);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
   };
   const recent = (decks.data ?? []).slice(0, 4);
 
@@ -127,7 +122,7 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
           })}
         </ul>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
-          <Button variant="ghost" onClick={copyInvite} title={inviteLink}>{copied ? 'Link copied' : 'Copy invite link'}</Button>
+          <CopyButton text={inviteLink} copiedLabel="Link copied ✓" title={inviteLink}>Copy invite link</CopyButton>
           <span className="text-text-muted">Anyone in the group can open it{reserved.length > 0 ? '; only the reserved players can sit' : ''}.</span>
         </div>
       </Card>

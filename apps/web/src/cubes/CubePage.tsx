@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { Button, Card, ErrorText, Input, Textarea } from '../components';
 import { Chip } from '../components/Chip';
 import { ShareCard } from '../components/ShareCard';
+import { CopyButton } from '../components/CopyButton';
 import { api } from '../lib/api';
 import { useMe } from '../lib/auth';
 import { CubeEditor } from './CubeEditor';
@@ -120,7 +121,7 @@ export function CubePage() {
                   <p className="text-sm text-text-muted">Shared with you by the owner: you can draft with it and build formats on it, but not change it.</p>
                 )}
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="ghost" onClick={() => navigator.clipboard.writeText(cubeToText(cards))}>Copy as text</Button>
+                  <CopyButton text={() => cubeToText(cards)} title="Copy the cube list to the clipboard">Copy as text</CopyButton>
                   {canEdit && <Button variant="ghost" onClick={() => oldestAll.mutate(cards)} disabled={oldestAll.isPending} title="Reset every card to its oldest English paper printing">Use oldest printings</Button>}
                   {canEdit && <Button variant="ghost" className="text-danger" onClick={() => confirm(`Delete “${cube.name}” and all versions?`) && remove.mutate()}>Delete cube</Button>}
                 </div>

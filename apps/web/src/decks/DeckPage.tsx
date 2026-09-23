@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Button, Card, ErrorText, Input } from '../components';
+import { CopyButton } from '../components/CopyButton';
 import { api } from '../lib/api';
 import { DeckEditor } from './DeckEditor';
 import { TaplandsPanel } from './TaplandsPanel';
@@ -62,7 +63,7 @@ export function DeckPage() {
             <Button onClick={() => save.mutate(deck)} disabled={!dirty || save.isPending || deck.name.trim().length === 0 || total === 0}>
               {save.isPending ? 'Saving…' : dirty ? 'Save changes' : 'Saved'}
             </Button>
-            <Button variant="ghost" onClick={() => navigator.clipboard.writeText(toText(deck))}>Copy as text</Button>
+            <CopyButton text={() => toText(deck)} title="Copy the decklist to the clipboard">Copy as text</CopyButton>
             <Button variant="ghost" className="text-danger" onClick={() => confirm(`Delete “${deck.name}”?`) && remove.mutate()} disabled={remove.isPending}>
               Delete deck
             </Button>

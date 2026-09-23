@@ -2,6 +2,7 @@ import type { Invite } from '@mtg/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button, Card, EmptyState, ErrorText, PageHeader } from '../components';
 import { Chip } from '../components/Chip';
+import { CopyButton } from '../components/CopyButton';
 import { api } from '../lib/api';
 
 /** Admin only: invite links for new members of the group. */
@@ -27,7 +28,7 @@ export function InvitesPage() {
             {invites.data?.map((inv) => (
               <li key={inv.code} className="flex items-center justify-between gap-3 rounded-md bg-surface-raised px-3 py-2">
                 <code className={inv.usedBy ? 'text-text-muted line-through' : ''}>{link(inv.code)}</code>
-                {inv.usedBy ? <Chip type="neutral">used</Chip> : <Button variant="ghost" onClick={() => navigator.clipboard.writeText(link(inv.code))}>Copy</Button>}
+                {inv.usedBy ? <Chip type="neutral">used</Chip> : <CopyButton text={link(inv.code)} copiedLabel="Link copied ✓">Copy link</CopyButton>}
               </li>
             ))}
             {invites.data?.length === 0 && <li><EmptyState title="No invites yet" text="Each link admits one person." /></li>}
