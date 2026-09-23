@@ -211,7 +211,7 @@ export function NewWizard() {
         <div className="mt-5 flex items-center gap-3 border-t border-border pt-4">
           {at > 0 && <Button variant="ghost" onClick={back}>Back</Button>}
           {!last && <Button onClick={next} disabled={!ready[step]}>Next</Button>}
-          {last && <Button onClick={() => create.mutate()} disabled={create.isPending || !ready.format}>{create.isPending ? 'Creating…' : kind === 'draft' ? 'Create draft' : 'Create game'}</Button>}
+          {last && <Button onClick={() => create.mutate()} disabled={create.isPending || (kind === 'draft' && !config)}>{create.isPending ? 'Creating…' : kind === 'draft' ? 'Create draft' : 'Create game'}</Button>}
           <ErrorText error={create.error} />
         </div>
       </Card>
