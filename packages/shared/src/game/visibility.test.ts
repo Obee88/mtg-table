@@ -374,12 +374,23 @@ describe('library views', () => {
     for (const v of ['a', 'b']) assertNoLeak(s, v);
   });
 
-  it('a search covers the whole library, and shuffling closes it', () => {
+  it('a search covers the whole library, and shuffling closes it, keeping a tutored card on top when asked', () => {
     let s = setup();
     const lib = [...s.game!.players.a!.zones.library];
     s = step(s, 'a', { type: 'openLibraryView', kind: 'search' });
     expect(s.game!.players.a!.libraryView!.cards).toEqual(lib);
     expect(lib.every((id) => seen(s, 'a', id))).toBe(true);
+    // Tutor the last card to the top, then shuffle the rest under it: it stays first (re-keyed, hidden again).
+    const wanted = s.game!.cards[lib[lib.length - 1]!]!.printingId;
+    s = step(s, 'a', { type: 'moveCard', instanceId: lib[lib.length - 1]!, to: 'library', libraryPosition: 'top' });
+    let n = 0;
+    const kept = decide(s, { type: 'closeLibraryView', shuffle: true, keepTop: 1 }, { ...ctx('a'), random: () => 0.3, newId: () => `k${++n}` });
+    const afterKept = reduceAll(s, kept.ok ? kept.events : []);
+    const top = afterKept.game!.players.a!.zones.library[0]!;
+    expect(afterKept.game!.cards[top]!.printingId).toBe(wanted);
+    expect(top).not.toBe(lib[lib.length - 1]);
+    expect(seen(afterKept, 'a', top)).toBe(false);
+    expect(afterKept.game!.players.a!.libraryView).toBeNull();
     const d = decide(s, { type: 'closeLibraryView', shuffle: true }, { ...ctx('a'), random: () => 0.3, newId: () => `n${Math.random()}` });
     expect(d.ok && d.events.map((e) => e.type)).toEqual(['libraryViewClosed', 'libraryShuffled']);
     s = reduceAll(s, d.ok ? d.events : []);
