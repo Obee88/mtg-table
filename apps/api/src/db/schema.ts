@@ -389,3 +389,22 @@ export const friendships = pgTable(
   },
   (t) => [primaryKey({ columns: [t.requesterId, t.addresseeId] }), index('friendships_addressee_id_idx').on(t.addresseeId)],
 );
+
+// ---- password resets: asked for from the login page, issued as one-time links by an admin (no mail is sent) ----
+
+export const passwordResets = pgTable(
+  'password_resets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** Null while only requested; set once an admin issues the link. */
+    tokenHash: text('token_hash').unique(),
+    issuedBy: uuid('issued_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+  },
+  (t) => [index('password_resets_user_id_idx').on(t.userId)],
+);

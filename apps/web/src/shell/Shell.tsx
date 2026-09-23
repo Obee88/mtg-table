@@ -55,6 +55,7 @@ function UserMenu({ name }: { name: string }) {
       </button>
       {open && (
         <div role="menu" className="absolute right-0 top-full z-40 mt-1 flex w-48 flex-col gap-0.5 rounded-md border border-border bg-surface p-1 shadow-xl">
+          <Link to="/account" className={item} onClick={() => setOpen(false)}>Account</Link>
           <Link to="/friends" className={item} onClick={() => setOpen(false)}>Friends{pending > 0 && <span className="ml-2 rounded-full bg-accent px-1.5 text-xs text-bg">{pending}</span>}</Link>
           <Link to="/drafts/history" className={item} onClick={() => setOpen(false)}>Past drafts</Link>
           <Link to="/cards" className={item} onClick={() => setOpen(false)}>Browse cards</Link>

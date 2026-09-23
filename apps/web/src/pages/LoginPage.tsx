@@ -29,6 +29,8 @@ export function LoginPage() {
       </Card>
       <p className="text-center text-sm text-text-muted">
         Have an invite? <Link to="/register" className="text-accent hover:underline">Create an account</Link>
+        <span className="mx-2">·</span>
+        <Link to="/forgot" className="text-accent hover:underline">Forgot your password?</Link>
       </p>
     </main>
   );

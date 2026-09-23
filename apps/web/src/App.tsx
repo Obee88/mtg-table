@@ -18,8 +18,11 @@ import { RoomPage } from './rooms/RoomPage';
 import { useMe } from './lib/auth';
 import { InvitesPage } from './play/InvitesPage';
 import { FriendsPage } from './play/FriendsPage';
+import { AccountPage } from './pages/AccountPage';
 import { PlayPage } from './play/PlayPage';
 import { LoginPage } from './pages/LoginPage';
+import { ForgotPage } from './pages/ForgotPage';
+import { ResetPage } from './pages/ResetPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { Shell } from './shell/Shell';
 
@@ -38,6 +41,8 @@ export function App() {
         <Route path="/design" element={<DesignPage />} />
         <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
         <Route path="/register" element={user ? <Navigate to="/" replace /> : <RegisterPage />} />
+        <Route path="/forgot" element={user ? <Navigate to="/" replace /> : <ForgotPage />} />
+        <Route path="/reset" element={<ResetPage />} />
         <Route element={<Guard />}>
           {/* Pages live in the shell (top bar); the room itself is full-viewport. */}
           <Route element={<Shell />}>
@@ -45,6 +50,7 @@ export function App() {
             <Route path="/play/new" element={<NewWizard />} />
             <Route path="/invites" element={user?.isAdmin ? <InvitesPage /> : <Navigate to="/" replace />} />
             <Route path="/friends" element={<FriendsPage />} />
+            <Route path="/account" element={<AccountPage />} />
             <Route path="/cards" element={<CardsPage />} />
             <Route path="/decks" element={<DeckListPage />} />
             <Route path="/decks/new" element={<DeckImportPage />} />
