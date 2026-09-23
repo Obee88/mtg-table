@@ -53,7 +53,7 @@ export async function friendRoutes(app: FastifyInstance): Promise<void> {
     const [user] = 'userId' in input
       ? await db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.id, input.userId))
       : await db.select({ id: schema.users.id }).from(schema.users).where(or(ilike(schema.users.email, input.name), ilike(schema.users.displayName, input.name)));
-    if (!user) throw notFound('No player with that name or email');
+    if (!user) throw notFound("User doesn't exist");
     const userId = user.id;
     if (userId === me) throw badRequest('That is you');
     const [existing] = await db.select().from(schema.friendships).where(pair(me, userId));

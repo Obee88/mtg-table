@@ -19,7 +19,7 @@ export function FriendsPage() {
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
       <PageHeader title="Friends" subtitle="Cubes and draft formats can only be shared with friends. A request needs the other side's yes." />
-      <ErrorText error={friends.error ?? ask.error ?? respond.error ?? remove.error} />
+      <ErrorText error={friends.error ?? respond.error ?? remove.error} />
 
       {(friends.data?.incoming.length ?? 0) > 0 && (
         <Card title="Requests for you">
@@ -54,6 +54,7 @@ export function FriendsPage() {
         <form className="mt-4 flex flex-wrap items-end gap-2 border-t border-border pt-4" onSubmit={(e) => { e.preventDefault(); if (pick.trim()) ask.mutate(pick.trim()); }}>
           <div className="min-w-64 flex-1"><Input label="Their display name or email" value={pick} onChange={(e) => setPick(e.target.value)} placeholder="Obee, or obee@example.com" /></div>
           <Button type="submit" disabled={!pick.trim() || busy}>Send request</Button>
+          {ask.error && <p className="w-full text-sm text-danger" role="alert">{ask.error instanceof Error ? ask.error.message : String(ask.error)}</p>}
           <p className="w-full text-xs text-text-muted">Exact name or email, any capitalisation. Nobody is listed here: you have to know whom you are asking.</p>
         </form>
       </Card>
