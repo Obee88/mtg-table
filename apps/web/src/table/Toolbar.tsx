@@ -1,9 +1,8 @@
 import type { GameCommand } from '@mtg/shared';
 import { useEffect, useRef, useState } from 'react';
+import { Button } from '../components';
 
 type Run = (c: GameCommand) => Promise<void>;
-
-const btn = 'touch-target rounded px-1.5 py-1 text-[11px] text-text-muted hover:bg-white/10 hover:text-text disabled:opacity-40';
 
 /** Table actions: tokens, dice, undo and the shortcut list. Lives in the log column's tools row, or in the player's own strip when there is none. */
 export function Toolbar({ run, onToken, onHelp, menuSide = 'up' }: { run: Run; onToken: () => void; onHelp: () => void; /** Which way the dice popover opens. */ menuSide?: 'up' | 'down' }) {
@@ -24,22 +23,22 @@ export function Toolbar({ run, onToken, onHelp, menuSide = 'up' }: { run: Run; o
   };
 
   return (
-    <span className="flex items-center gap-0.5">
-      <button type="button" className={btn} onClick={onToken}>Token <kbd>t</kbd></button>
+    <span className="flex items-center gap-1">
+      <Button variant="tertiary" className="touch-target" onClick={onToken}>Token <kbd className="rounded border border-white/20 px-1 text-[10px] opacity-70">t</kbd></Button>
       <span ref={ref} className="relative">
-        <button type="button" className={btn} onClick={() => setDice((d) => !d)}>Dice</button>
+        <Button variant="tertiary" className={`touch-target ${dice ? 'active' : ''}`} onClick={() => setDice((d) => !d)} aria-expanded={dice}>Dice</Button>
         {dice && (
           <span className={`absolute z-40 flex ${menuSide === 'down' ? 'left-0 top-full mt-1' : 'bottom-full right-0 mb-1'} items-center gap-1 rounded-md border border-border bg-surface-raised/95 p-1 shadow-xl backdrop-blur`}>
-            <button type="button" className={btn} onClick={() => roll('d6')}>d6</button>
-            <button type="button" className={btn} onClick={() => roll('d20')}>d20</button>
-            <button type="button" className={btn} onClick={() => void run({ type: 'flipCoin', count: 1 })}>coin</button>
-            <input value={expr} onChange={(e) => setExpr(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && roll(expr)} className="w-14 rounded border border-border bg-surface px-1 py-0.5 text-[11px]" aria-label="dice expression" />
-            <button type="button" className={btn} onClick={() => roll(expr)}>roll</button>
+            <Button variant="secondary" onClick={() => roll('d6')}>d6</Button>
+            <Button variant="secondary" onClick={() => roll('d20')}>d20</Button>
+            <Button variant="secondary" onClick={() => void run({ type: 'flipCoin', count: 1 })}>coin</Button>
+            <input value={expr} onChange={(e) => setExpr(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && roll(expr)} className="w-14 rounded border border-border bg-surface px-1 py-0.5 text-sm" aria-label="dice expression" />
+            <Button variant="primary" onClick={() => roll(expr)}>roll</Button>
           </span>
         )}
       </span>
-      <button type="button" className={btn} onClick={() => void run({ type: 'undo' })} title="Undo your last action if nobody acted since">Undo <kbd>⌃Z</kbd></button>
-      <button type="button" className={btn} onClick={onHelp} title="Keyboard shortcuts">?</button>
+      <Button variant="tertiary" className="touch-target" onClick={() => void run({ type: 'undo' })} title="Undo your last action if nobody acted since">Undo <kbd className="rounded border border-white/20 px-1 text-[10px] opacity-70">⌃Z</kbd></Button>
+      <Button variant="tertiary" className="touch-target" onClick={onHelp} title="Keyboard shortcuts" iconOnly>?</Button>
     </span>
   );
 }

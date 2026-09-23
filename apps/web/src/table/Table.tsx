@@ -667,7 +667,7 @@ function PlayerArea({ state, player, pgs, cards, printings, mine, connected, run
   const tray = (
     <div className="tray relative flex min-w-0 items-center gap-3 px-2">
       {/* The label floats over the fan so it costs the hand no width. */}
-      <span className="absolute bottom-1.5 left-3 z-30">
+      <span className="absolute bottom-2 left-5 z-30">
         {mine && onHandMenu ? (
           <ChipButton type="neutral" onClick={onHandMenu} onContextMenu={(e) => { e.preventDefault(); onHandMenu(e); }} title="Hand actions">Hand · {handCards.length} ▾</ChipButton>
         ) : (
@@ -760,7 +760,6 @@ function Pile({ label, count, children, stack = false, hint, browse, onClick, on
   const { w, h } = useCardSize();
   const empty = count === 0;
   const canBrowse = !!browse && count > 1;
-  const chipVars = { '--chip-bg': 'var(--chip-soft-neutral-bg)', '--chip-fg': 'var(--chip-soft-neutral-fg)', '--chip-bd': 'var(--chip-soft-neutral-bd)', '--chip-hover': 'var(--chip-soft-neutral-hover)' } as CSSProperties;
   return (
     <div className="relative" style={{ width: w, height: h }} {...drop} title={label}>
       {stack && count > 2 && <div className="absolute inset-0 translate-x-[3px] translate-y-[3px] rounded-[4.5%] bg-[#1a1533] card-shadow" />}
@@ -773,11 +772,11 @@ function Pile({ label, count, children, stack = false, hint, browse, onClick, on
         {children}
       </div>
       {onLabelClick ? (
-        <ChipButton type="neutral" className="absolute inset-x-0 bottom-1 mx-auto !bg-[var(--n900)]/90" onClick={(e) => { e.stopPropagation(); onLabelClick(e); }} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); (onLabelContextMenu ?? onLabelClick)(e); }} title={labelTitle}>
+        <ChipButton type="neutral" className="absolute inset-x-0 bottom-1 mx-auto shadow-md" onClick={(e) => { e.stopPropagation(); onLabelClick(e); }} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); (onLabelContextMenu ?? onLabelClick)(e); }} title={labelTitle}>
           {label} · {count}{hint ? ` · ${hint}` : ''}{onLabelContextMenu ? '' : ' ▾'}
         </ChipButton>
       ) : (
-        <Chip type="neutral" className="pointer-events-none absolute inset-x-0 bottom-1 mx-auto !bg-[var(--n900)]/90" style={chipVars}>{label} · {count}{hint ? ` · ${hint}` : ''}</Chip>
+        <Chip type="neutral" className="pointer-events-none absolute inset-x-0 bottom-1 mx-auto shadow-md">{label} · {count}{hint ? ` · ${hint}` : ''}</Chip>
       )}
       {canBrowse && !browse.open && (
         <button
@@ -787,8 +786,8 @@ function Pile({ label, count, children, stack = false, hint, browse, onClick, on
             e.stopPropagation();
             browse.toggle();
           }}
-          className={`absolute left-1/2 z-10 -translate-x-1/2 chip chip--pill chip--clickable ${browse.towards === 'up' ? '-top-2' : '-bottom-2'}`}
-          style={{ '--chip-bg': 'var(--chip-solid-neutral-bg)', '--chip-fg': 'var(--chip-solid-neutral-fg)', '--chip-bd': 'var(--chip-solid-neutral-bd)', '--chip-hover': 'var(--chip-solid-neutral-hover)' } as CSSProperties}
+          className={`absolute left-1/2 z-10 -translate-x-1/2 chip chip--small chip--clickable shadow-md ${browse.towards === 'up' ? '-top-2' : '-bottom-2'}`}
+          style={{ '--chip-bg': 'var(--chip-soft-neutral-bg)', '--chip-fg': 'var(--chip-soft-neutral-fg)', '--chip-bd': 'var(--chip-soft-neutral-bd)', '--chip-hover': 'var(--chip-soft-neutral-hover)' } as CSSProperties}
           title={`Show all ${count} cards`}
           aria-expanded={browse.open}
         >
