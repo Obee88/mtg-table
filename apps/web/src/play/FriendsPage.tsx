@@ -1,24 +1,19 @@
-import type { FriendsResponse, UserSummary } from '@mtg/shared';
+import type { FriendsResponse } from '@mtg/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Button, Card, EmptyState, ErrorText, PageHeader, Select } from '../components';
+import { Button, Card, EmptyState, ErrorText, Input, PageHeader } from '../components';
 import { api } from '../lib/api';
-import { useMe } from '../lib/auth';
 
 /** Who you can share cubes and formats with. Requests need the other side's yes. */
 export function FriendsPage() {
-  const me = useMe();
   const qc = useQueryClient();
   const friends = useQuery({ queryKey: ['friends'], queryFn: () => api<FriendsResponse>('/friends') });
-  const users = useQuery({ queryKey: ['users'], queryFn: () => api<UserSummary[]>('/users') });
   const [pick, setPick] = useState('');
   const refresh = () => void qc.invalidateQueries({ queryKey: ['friends'] });
-  const ask = useMutation({ mutationFn: (userId: string) => api<FriendsResponse>('/friends', { body: { userId } }), onSuccess: () => { setPick(''); refresh(); } });
+  const ask = useMutation({ mutationFn: (name: string) => api<FriendsResponse>('/friends', { body: { name } }), onSuccess: () => { setPick(''); refresh(); } });
   const respond = useMutation({ mutationFn: ({ userId, accept }: { userId: string; accept: boolean }) => api<FriendsResponse>(`/friends/${userId}/respond`, { body: { accept } }), onSuccess: refresh });
   const remove = useMutation({ mutationFn: (userId: string) => api<FriendsResponse>(`/friends/${userId}`, { method: 'DELETE' }), onSuccess: refresh });
   const busy = ask.isPending || respond.isPending || remove.isPending;
-  const known = new Set([...(friends.data?.friends ?? []), ...(friends.data?.incoming ?? []), ...(friends.data?.outgoing ?? [])].map((u) => u.id));
-  const candidates = (users.data ?? []).filter((u) => u.id !== me.data?.id && !known.has(u.id));
   const row = 'flex items-center justify-between gap-3 rounded-md px-2 py-2 text-sm hover:bg-surface-raised';
 
   return (
@@ -56,13 +51,11 @@ export function FriendsPage() {
             </li>
           ))}
         </ul>
-        <div className="mt-4 flex items-end gap-2 border-t border-border pt-4">
-          <Select label="Ask someone in the group" value={pick} onChange={(e) => setPick(e.target.value)}>
-            <option value="">— choose —</option>
-            {candidates.map((u) => <option key={u.id} value={u.id}>{u.displayName}</option>)}
-          </Select>
-          <Button disabled={!pick || busy} onClick={() => ask.mutate(pick)}>Send request</Button>
-        </div>
+        <form className="mt-4 flex flex-wrap items-end gap-2 border-t border-border pt-4" onSubmit={(e) => { e.preventDefault(); if (pick.trim()) ask.mutate(pick.trim()); }}>
+          <div className="min-w-64 flex-1"><Input label="Their display name or email" value={pick} onChange={(e) => setPick(e.target.value)} placeholder="Obee, or obee@example.com" /></div>
+          <Button type="submit" disabled={!pick.trim() || busy}>Send request</Button>
+          <p className="w-full text-xs text-text-muted">Exact name or email, any capitalisation. Nobody is listed here: you have to know whom you are asking.</p>
+        </form>
       </Card>
     </main>
   );

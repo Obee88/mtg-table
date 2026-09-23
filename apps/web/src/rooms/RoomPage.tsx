@@ -71,7 +71,7 @@ function Lobby({ state, meId, connected, send }: { state: RoomState; meId: strin
   const needDeck = !drafting && !drafted;
   const played = state.results.length;
   const reserved = state.settings.reservedPlayerIds ?? [];
-  const users = useQuery({ queryKey: ['users'], queryFn: () => api<UserSummary[]>('/users'), enabled: reserved.length > 0 });
+  const users = useQuery({ queryKey: ['users', reserved.join(',')], queryFn: () => api<UserSummary[]>(`/users?ids=${reserved.join(',')}`), enabled: reserved.length > 0 });
   const reservedNames = reserved.map((id) => users.data?.find((u) => u.id === id)?.displayName ?? '…');
   const maySit = canSit(state, meId);
   const inviteLink = `${window.location.origin}/rooms/${state.id}`;

@@ -1,12 +1,13 @@
 import type { FriendsResponse, UserSummary } from '@mtg/shared';
-import { and, asc, eq, inArray, or } from 'drizzle-orm';
+import { and, asc, eq, ilike, inArray, or } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { schema, type Db } from '../db/index.js';
 import { badRequest, notFound, unauthorized } from '../errors.js';
 import { parse } from '../validate.js';
 
-const userInput = z.object({ userId: z.uuid() });
+/** Ask by id (from a picker) or by what you know about them: display name or email, exact but case-insensitive. */
+const userInput = z.union([z.object({ userId: z.uuid() }), z.object({ name: z.string().trim().min(1).max(200) })]);
 const userParam = z.object({ userId: z.uuid() });
 const respondInput = z.object({ accept: z.boolean() });
 
@@ -48,10 +49,13 @@ export async function friendRoutes(app: FastifyInstance): Promise<void> {
   /** Ask to be friends; if they already asked you, that counts as accepting. */
   app.post('/friends', async (req, reply): Promise<FriendsResponse> => {
     const me = req.user!.id;
-    const { userId } = parse(userInput, req.body);
+    const input = parse(userInput, req.body);
+    const [user] = 'userId' in input
+      ? await db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.id, input.userId))
+      : await db.select({ id: schema.users.id }).from(schema.users).where(or(ilike(schema.users.email, input.name), ilike(schema.users.displayName, input.name)));
+    if (!user) throw notFound('No player with that name or email');
+    const userId = user.id;
     if (userId === me) throw badRequest('That is you');
-    const [user] = await db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.id, userId));
-    if (!user) throw notFound('User not found');
     const [existing] = await db.select().from(schema.friendships).where(pair(me, userId));
     if (existing?.status === 'pending' && existing.requesterId === userId) {
       await db.update(schema.friendships).set({ status: 'accepted' }).where(pair(me, userId));

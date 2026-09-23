@@ -52,8 +52,8 @@ describe('sharing a cube', () => {
 
     expect((await call('GET', `/cubes/${cubeId}`, bob)).statusCode).toBe(404);
     expect((await call('GET', '/cubes', bob)).json()).toEqual([]);
-    const users = (await call('GET', '/users', alice)).json();
-    expect(users.map((u: { displayName: string }) => u.displayName)).toEqual(['Alice', 'Bob', 'Carol']);
+    expect((await call('GET', '/users', alice)).statusCode).toBe(400); // the group is not listed; names come by id
+    expect((await call('GET', `/users?ids=${bobId}`, alice)).json()).toEqual([{ id: bobId, displayName: 'Bob' }]);
 
     expect((await call('POST', `/cubes/${cubeId}/members`, bob, { userId: bobId })).statusCode).toBe(404); // not the owner
     const added = await call('POST', `/cubes/${cubeId}/members`, alice, { userId: bobId });

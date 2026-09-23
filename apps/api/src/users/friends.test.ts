@@ -35,7 +35,8 @@ describe('friends', () => {
     expect((await call('POST', `/cubes/${cubeId}/members`, alice, { userId: bobId })).statusCode).toBe(400);
 
     expect((await call('POST', '/friends', alice, { userId: aliceId })).statusCode).toBe(400);
-    const asked = await call('POST', '/friends', alice, { userId: bobId });
+    expect((await call('POST', '/friends', alice, { name: 'nobody@x.io' })).statusCode).toBe(404);
+    const asked = await call('POST', '/friends', alice, { name: 'B@X.IO' }); // by email, any case
     expect(asked.statusCode).toBe(201);
     expect(asked.json()).toEqual({ friends: [], incoming: [], outgoing: [{ id: bobId, displayName: 'Bob' }] });
     expect((await call('GET', '/friends', bob)).json()).toEqual({ friends: [], incoming: [{ id: aliceId, displayName: 'Alice' }], outgoing: [] });
@@ -49,7 +50,7 @@ describe('friends', () => {
     expect((await call('DELETE', `/friends/${bobId}`, alice)).json()).toEqual({ friends: [], incoming: [], outgoing: [] });
     expect((await call('GET', '/friends', bob)).json().friends).toEqual([]);
     // Asking back after being asked counts as accepting.
-    await call('POST', '/friends', bob, { userId: aliceId });
+    await call('POST', '/friends', bob, { name: 'alice' }); // by display name
     expect((await call('POST', '/friends', alice, { userId: bobId })).json().friends).toEqual([{ id: bobId, displayName: 'Bob' }]);
     // Rejecting drops the request.
     await call('DELETE', `/friends/${bobId}`, alice);
