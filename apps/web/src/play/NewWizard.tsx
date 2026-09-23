@@ -75,7 +75,12 @@ export function NewWizard() {
   const users = { data: friends.data?.friends };
   const me = useMe();
   const finalSettings: RoomSettings = { ...(kind === 'draft' ? withRoomSeats({ ...settings, draft: config }) : { ...settings, draft: null }), ...(reserved.length ? { reservedPlayerIds: reserved } : {}) };
-  const suggestedName = kind === 'draft' && config ? `${config.name} · ${finalSettings.playerCount} players · ${new Date().toISOString().slice(0, 10)}` : '';
+  const suggestedName = kind === 'draft' && config ? `${config.name} · ${finalSettings.playerCount} players · ${new Date().toISOString().slice(0, 10)}` : describeSettings(finalSettings);
+  // The suggestion is the default: it fills the field when the Name step opens, unless the host typed their own.
+  const [nameTouched, setNameTouched] = useState(false);
+  useEffect(() => {
+    if (step === 'name' && !nameTouched) setName(suggestedName);
+  }, [step, nameTouched, suggestedName]);
 
   const create = useMutation({
     mutationFn: () => api<RoomState>('/rooms', { body: { settings: finalSettings, ...(name.trim() ? { name: name.trim() } : {}) } }),
@@ -184,8 +189,8 @@ export function NewWizard() {
 
         {step === 'name' && (
           <div className="flex flex-col gap-3">
-            <Input label={kind === 'draft' ? 'Draft name' : 'Room name (optional)'} value={name} onChange={(e) => setName(e.target.value)} placeholder={suggestedName || describeSettings(finalSettings)} />
-            {suggestedName && !name && <p className="text-sm text-text-muted">Leave it empty to use the suggestion when the draft starts.</p>}
+            <Input label={kind === 'draft' ? 'Draft name' : 'Room name'} value={name} onChange={(e) => { setName(e.target.value); setNameTouched(true); }} placeholder={suggestedName} autoFocus onFocus={(e) => e.target.select()} />
+            <p className="text-sm text-text-muted">Keep the suggestion or type your own; the name shows on Play{kind === 'draft' ? ' and in Past drafts' : ''}.</p>
             <fieldset className="flex flex-col gap-2 text-sm">
               <legend className="mb-1 text-text-muted">Seats</legend>
               <label className="flex items-center gap-2"><input type="radio" name="seats" checked={reserved.length === 0} onChange={() => setReserved([])} /> Open — anyone in the group can sit</label>
