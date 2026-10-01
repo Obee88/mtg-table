@@ -138,6 +138,10 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
       } else {
         card = found.card;
       }
+      if (card.zone === 'hand') {
+        const blocked = handPlayBlock(state, command.to);
+        if (blocked) return reject(blocked);
+      }
       return accept(
         {
           type: 'cardMoved',
@@ -558,6 +562,10 @@ export function decide(state: RoomState, command: GameCommand, ctx: CommandConte
         const found = ownCard(state, ctx.actorId, id);
         if ('error' in found) return reject(found.error);
         const { card } = found;
+        if (card.zone === 'hand') {
+          const blocked = handPlayBlock(state, command.to);
+          if (blocked) return reject(blocked);
+        }
         events.push({
           type: 'cardMoved',
           instanceId: card.id,
@@ -837,4 +845,17 @@ function stepEvents(state: RoomState, actorId: string): { events: GameEvent[] } 
   }
   events.push({ type: 'stepChanged', playerId: actorId, step: after });
   return { events };
+}
+
+/**
+ * What the current step allows from the hand (for everyone at the table, as
+ * on paper): nothing during the untap step; only the stack during upkeep.
+ * Returns the reason a move is refused, or null.
+ */
+function handPlayBlock(state: RoomState, to: string): string | null {
+  const step = state.game?.step ?? 'main1';
+  if (to !== 'battlefield' && to !== 'stack') return null;
+  if (step === 'untap') return 'No cards can be played during the untap step';
+  if (step === 'upkeep' && to === 'battlefield') return 'During upkeep, cards can only go onto the stack';
+  return null;
 }

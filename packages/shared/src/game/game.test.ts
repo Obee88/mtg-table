@@ -1005,3 +1005,43 @@ describe('extra turns', () => {
     expect(activePlayer(s.game!)).toBe(other);
   });
 });
+
+describe('what the step allows from the hand', () => {
+  const settings: RoomSettings = { playerCount: 2, mode: '1v1', startingLife: 20, commander: false };
+  const deck = { main: [{ printingId: 'x', quantity: 12 }], sideboard: [], commander: [] };
+  const decks = { a: deck, b: deck };
+
+  it('refuses playing during untap, allows only the stack during upkeep, anything from the draw step on', () => {
+    let n = 0;
+    let r = 0;
+    let s = reduce(initialRoomState('r'), { type: 'roomCreated', ownerId: 'a', settings });
+    for (const p of ['a', 'b']) {
+      s = run(s, p, { type: 'join' });
+      s = run(s, p, { type: 'selectDeck', deckId: 'd' });
+      s = run(s, p, { type: 'setReady', ready: true });
+    }
+    const d = decide(s, { type: 'start' }, { ...ctx('a'), decks, random: () => ((r += 7) % 11) / 11, newId: () => `h${++n}` });
+    if (!d.ok) throw new Error(d.error);
+    s = keepAll(reduceAll(s, d.events));
+    const first = s.game!.firstPlayerId;
+    const other = first === 'a' ? 'b' : 'a';
+    s = run(s, first, { type: 'endTurn' }); // the other player's turn begins at untap
+    expect(s.game!.step).toBe('untap');
+    const hand = () => s.game!.players[other]!.zones.hand;
+    const firstsHand = s.game!.players[first]!.zones.hand;
+    expect(decide(s, { type: 'moveCard', instanceId: hand()[0]!, to: 'battlefield' }, ctx(other))).toEqual({ ok: false, error: 'No cards can be played during the untap step' });
+    expect(decide(s, { type: 'moveCards', instanceIds: [hand()[0]!], to: 'stack' }, ctx(other))).toEqual({ ok: false, error: 'No cards can be played during the untap step' });
+    // The rule holds for the non-active player too, and never for moves that are not plays.
+    expect(decide(s, { type: 'moveCard', instanceId: firstsHand[0]!, to: 'stack' }, ctx(first))).toEqual({ ok: false, error: 'No cards can be played during the untap step' });
+    expect(decide(s, { type: 'moveCard', instanceId: hand()[0]!, to: 'graveyard' }, ctx(other)).ok).toBe(true);
+
+    s = run(s, other, { type: 'advanceStep' });
+    expect(s.game!.step).toBe('upkeep');
+    expect(decide(s, { type: 'moveCard', instanceId: hand()[0]!, to: 'battlefield' }, ctx(other))).toEqual({ ok: false, error: 'During upkeep, cards can only go onto the stack' });
+    expect(decide(s, { type: 'moveCard', instanceId: hand()[0]!, to: 'stack' }, ctx(other)).ok).toBe(true);
+
+    s = run(s, other, { type: 'advanceStep' });
+    expect(s.game!.step).toBe('draw');
+    expect(decide(s, { type: 'moveCard', instanceId: hand()[0]!, to: 'battlefield' }, ctx(other)).ok).toBe(true);
+  });
+});
